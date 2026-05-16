@@ -1,28 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #fafaf9;
-  --bg-warm: #f5f5f4;
+  --bg: #f0f9ff;
+  --bg-warm: #f0fdf4;
   --surface: #ffffff;
-  --fg: #0c0a09;
-  --fg-2: #1c1917;
-  --muted: #57534e;
-  --subtle: #a8a29e;
-  --border: #e7e5e4;
-  --border-2: #d6d3d1;
+  --fg: #0c1e2d;
+  --fg-2: #1a3448;
+  --muted: #4b6578;
+  --subtle: #8fa8be;
+  --border: #dbeafe;
+  --border-2: #bfdbfe;
   --accent: #059669;
   --accent-700: #047857;
-  --accent-soft: #ecfdf5;
-  --accent-soft-2: #d1fae5;
+  --accent-soft: #d1fae5;
+  --accent-soft-2: #a7f3d0;
+  --sky: #0ea5e9;
+  --sky-700: #0284c7;
+  --sky-soft: #e0f2fe;
   --warn: #f59e0b;
   --warn-soft: #fef3c7;
   --rose: #e11d48;
-  --indigo: #6366f1;
-  --shadow-1: 0 1px 2px rgba(12, 10, 9, 0.04), 0 0 0 1px rgba(12, 10, 9, 0.04);
-  --shadow-2: 0 10px 24px -8px rgba(12, 10, 9, 0.12), 0 2px 6px rgba(12, 10, 9, 0.05), 0 0 0 1px
-    rgba(12, 10, 9, 0.04);
-  --shadow-3: 0 30px 60px -20px rgba(12, 10, 9, 0.22), 0 12px 28px -10px rgba(12, 10, 9, 0.12), 0 0
-    0 1px rgba(12, 10, 9, 0.04);
+  --indigo: #818cf8;
+  --shadow-1: 0 1px 2px rgba(14, 165, 233, 0.07), 0 0 0 1px rgba(14, 165, 233, 0.05);
+  --shadow-2: 0 10px 24px -8px rgba(14, 165, 233, 0.15), 0 2px 6px rgba(14, 165, 233, 0.07), 0 0 0 1px rgba(14, 165, 233, 0.05);
+  --shadow-3: 0 30px 60px -20px rgba(14, 165, 233, 0.22), 0 12px 28px -10px rgba(14, 165, 233, 0.10), 0 0 0 1px rgba(14, 165, 233, 0.05);
   --radius-sm: 8px;
   --radius: 14px;
   --radius-lg: 20px;
@@ -100,11 +101,11 @@ button {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--muted);
+  color: var(--sky-700);
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid #bae6fd;
+  background: var(--sky-soft);
 }
 
 .eyebrow .dot {
@@ -132,11 +133,11 @@ button {
 
 .btn-primary {
   background: var(--fg);
-  color: #fafaf9;
+  color: white;
   border-color: var(--fg);
 }
 .btn-primary:hover {
-  background: #1c1917;
+  background: var(--fg-2);
   transform: translateY(-1px);
 }
 
@@ -144,9 +145,11 @@ button {
   background: var(--accent);
   color: white;
   border-color: var(--accent);
+  box-shadow: 0 2px 12px rgba(5, 150, 105, 0.30);
 }
 .btn-accent:hover {
   background: var(--accent-700);
+  box-shadow: 0 4px 18px rgba(5, 150, 105, 0.40);
   transform: translateY(-1px);
 }
 
@@ -187,9 +190,9 @@ button {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(250, 250, 249, 0.85);
-  backdrop-filter: saturate(180%) blur(16px);
-  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  background: rgba(240, 249, 255, 0.88);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s ease;
 }
@@ -216,8 +219,8 @@ button {
   width: 26px;
   height: 26px;
   border-radius: 8px;
-  background: var(--fg);
-  color: #fafaf9;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--sky) 100%);
+  color: white;
   display: grid;
   place-items: center;
   font-family: var(--font-mono);
@@ -400,11 +403,11 @@ button {
 }
 .persona-rail-link.is-active {
   background: var(--fg);
-  color: #fafaf9;
+  color: white;
   font-weight: 500;
 }
 .persona-rail-link.is-active .persona-rail-icon {
-  color: #34d399;
+  color: #6ee7b7;
 }
 .persona-rail-link.sub {
   font-size: 13px;
@@ -420,7 +423,7 @@ button {
 }
 .persona-rail-arrow {
   margin-left: auto;
-  color: #34d399;
+  color: var(--accent);
 }
 .persona-rail-foot {
   margin-top: 24px;
@@ -457,13 +460,15 @@ button {
   padding: 64px 0 96px;
   position: relative;
   overflow: hidden;
+  background: linear-gradient(155deg, #e0f2fe 0%, #f0f9ff 42%, #f0fdf4 100%);
 }
 .hero::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(1100px 500px at 80% -10%, rgba(5, 150, 105, 0.06), transparent 60%),
-    radial-gradient(700px 320px at 0% 20%, rgba(245, 158, 11, 0.04), transparent 60%);
+  background:
+    radial-gradient(1000px 450px at 85% -5%, rgba(16, 185, 129, 0.11), transparent 60%),
+    radial-gradient(700px 350px at 5% 30%, rgba(14, 165, 233, 0.12), transparent 60%);
   pointer-events: none;
 }
 .hero-grid {
@@ -521,6 +526,42 @@ button {
   color: var(--accent);
 }
 
+/* ---------- hero animations ---------- */
+@keyframes hero-phone-enter {
+  from { opacity: 0; transform: rotate(3deg) translateY(56px) scale(0.96); }
+  to   { opacity: 1; transform: rotate(3deg) translateY(0)    scale(1); }
+}
+@keyframes hero-phone-float {
+  0%, 100% { transform: rotate(3deg) translateY(0px); }
+  50%       { transform: rotate(3deg) translateY(-14px); }
+}
+@keyframes hero-float-1-enter {
+  from { opacity: 0; transform: rotate(-4deg) translateX(-28px) translateY(8px); }
+  to   { opacity: 1; transform: rotate(-4deg) translateX(0)     translateY(0); }
+}
+@keyframes hero-float-1-bob {
+  0%, 100% { transform: rotate(-4deg) translateY(0px); }
+  50%       { transform: rotate(-4deg) translateY(-9px); }
+}
+@keyframes hero-float-2-enter {
+  from { opacity: 0; transform: rotate(2deg) translateX(-20px) translateY(18px); }
+  to   { opacity: 1; transform: rotate(2deg) translateX(0)     translateY(0); }
+}
+@keyframes hero-float-2-bob {
+  0%, 100% { transform: rotate(2deg) translateY(0px); }
+  50%       { transform: rotate(2deg) translateY(-7px); }
+}
+@media (max-width: 1000px) {
+  @keyframes hero-phone-enter {
+    from { opacity: 0; transform: translateX(-50%) rotate(2deg) translateY(56px) scale(0.96); }
+    to   { opacity: 1; transform: translateX(-50%) rotate(2deg) translateY(0)    scale(1); }
+  }
+  @keyframes hero-phone-float {
+    0%, 100% { transform: translateX(-50%) rotate(2deg) translateY(0px); }
+    50%       { transform: translateX(-50%) rotate(2deg) translateY(-14px); }
+  }
+}
+
 .hero-stage {
   position: relative;
   height: 620px;
@@ -542,6 +583,9 @@ button {
   padding: 10px;
   box-shadow: var(--shadow-3);
   transform: rotate(3deg);
+  animation:
+    hero-phone-enter 0.9s cubic-bezier(0.16, 1, 0.3, 1) both,
+    hero-phone-float 5.5s ease-in-out 0.9s infinite;
 }
 @media (max-width: 1000px) {
   .hero-phone {
@@ -566,6 +610,9 @@ button {
   z-index: 2;
   box-shadow: var(--shadow-2);
   border-radius: 16px;
+  animation:
+    hero-float-1-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both,
+    hero-float-1-bob 6s ease-in-out 1.05s infinite;
 }
 .hero-float-2 {
   position: absolute;
@@ -576,6 +623,9 @@ button {
   z-index: 2;
   box-shadow: var(--shadow-2);
   border-radius: 16px;
+  animation:
+    hero-float-2-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.55s both,
+    hero-float-2-bob 7s ease-in-out 1.25s infinite;
 }
 @media (max-width: 1000px) {
   .hero-float-1 {
@@ -750,7 +800,7 @@ button {
 .stage {
   position: relative;
   border-radius: var(--radius-xl);
-  background: linear-gradient(180deg, #f5f5f4 0%, #e7e5e4 100%);
+  background: linear-gradient(180deg, var(--bg) 0%, var(--sky-soft) 100%);
   padding: 36px;
   min-height: 520px;
   display: flex;
@@ -762,7 +812,7 @@ button {
   background: linear-gradient(180deg, var(--accent-soft) 0%, #c8f4dc 100%);
 }
 .stage.warm {
-  background: linear-gradient(180deg, #fff7ed 0%, #fed7aa 100%);
+  background: linear-gradient(180deg, var(--sky-soft) 0%, #bae6fd 100%);
 }
 .stage.cool {
   background: linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%);
@@ -770,8 +820,8 @@ button {
 .stage-grid-bg {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(rgba(12, 10, 9, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(12, 10, 9, 0.04) 1px, transparent 1px);
+  background-image: linear-gradient(rgba(14, 165, 233, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.08) 1px, transparent 1px);
   background-size: 24px 24px;
   mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
 }
@@ -779,7 +829,7 @@ button {
 /* ---------- roles section ---------- */
 .roles {
   background: var(--fg);
-  color: #fafaf9;
+  color: white;
   padding: 120px 0;
   position: relative;
   overflow: hidden;
@@ -788,19 +838,21 @@ button {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(900px 400px at 20% 0%, rgba(5, 150, 105, 0.18), transparent 60%);
+  background:
+    radial-gradient(900px 400px at 20% 0%, rgba(14, 165, 233, 0.20), transparent 60%),
+    radial-gradient(600px 300px at 80% 100%, rgba(16, 185, 129, 0.14), transparent 60%);
   pointer-events: none;
 }
 .roles .section-head h2 {
-  color: #fafaf9;
+  color: white;
 }
 .roles .section-head p {
-  color: #a8a29e;
+  color: rgba(255, 255, 255, 0.58);
 }
 .roles .eyebrow {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #d6d3d1;
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
 }
 .roles-grid {
   display: grid;
@@ -828,8 +880,8 @@ button {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: rgba(5, 150, 105, 0.2);
-  color: #34d399;
+  background: rgba(14, 165, 233, 0.18);
+  color: #7dd3fc;
   display: grid;
   place-items: center;
   margin-bottom: 20px;
@@ -843,7 +895,7 @@ button {
 .role-card p {
   font-size: 14px;
   line-height: 1.6;
-  color: #a8a29e;
+  color: rgba(255, 255, 255, 0.55);
   margin: 0 0 18px;
 }
 .role-card ul {
@@ -857,7 +909,7 @@ button {
 .role-card li {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: #d6d3d1;
+  color: rgba(255, 255, 255, 0.65);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -942,8 +994,8 @@ button {
   padding: 120px 0;
 }
 .cta-card {
-  background: var(--fg);
-  color: #fafaf9;
+  background: linear-gradient(135deg, var(--fg) 0%, #1a3448 50%, #0c2a1e 100%);
+  color: white;
   border-radius: var(--radius-xl);
   padding: 80px 48px;
   text-align: center;
@@ -954,7 +1006,9 @@ button {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(700px 300px at 50% 0%, rgba(5, 150, 105, 0.3), transparent 60%);
+  background:
+    radial-gradient(700px 300px at 50% 0%, rgba(14, 165, 233, 0.22), transparent 60%),
+    radial-gradient(500px 250px at 80% 120%, rgba(16, 185, 129, 0.18), transparent 60%);
   pointer-events: none;
 }
 .cta-card h2 {
@@ -968,7 +1022,7 @@ button {
 .cta-card p {
   font-size: 18px;
   line-height: 1.55;
-  color: #a8a29e;
+  color: rgba(255, 255, 255, 0.62);
   max-width: 540px;
   margin: 0 auto 36px;
   position: relative;
@@ -999,7 +1053,7 @@ button {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .cta-form input::placeholder {
-  color: #78716c;
+  color: rgba(255, 255, 255, 0.35);
 }
 .cta-form input:focus {
   border-color: var(--accent);
@@ -1011,7 +1065,7 @@ button {
 .cta-fine {
   margin-top: 18px;
   font-size: 12px;
-  color: #78716c;
+  color: rgba(255, 255, 255, 0.38);
   position: relative;
 }
 
@@ -1753,11 +1807,16 @@ button {
   position: relative;
   overflow: hidden;
 }
+.page-hero {
+  background: linear-gradient(155deg, var(--sky-soft) 0%, var(--bg) 55%, var(--bg-warm) 100%);
+}
 .page-hero::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(900px 400px at 90% -10%, rgba(5, 150, 105, 0.06), transparent 60%);
+  background:
+    radial-gradient(900px 400px at 90% -10%, rgba(14, 165, 233, 0.12), transparent 60%),
+    radial-gradient(600px 300px at 0% 70%, rgba(16, 185, 129, 0.09), transparent 60%);
   pointer-events: none;
 }
 .page-hero-grid {
@@ -1820,8 +1879,8 @@ button {
   border-color: var(--accent-soft-2);
 }
 .bento-cell.warm {
-  background: #fff7ed;
-  border-color: #fed7aa;
+  background: var(--sky-soft);
+  border-color: #bae6fd;
 }
 .bento-cell.cool {
   background: #f0fdfa;
@@ -1845,7 +1904,7 @@ button {
   gap: 6px;
 }
 .bento-cell.dark .bento-eyebrow {
-  color: #a8a29e;
+  color: rgba(255, 255, 255, 0.50);
 }
 .bento-cell p {
   font-size: 14px;
@@ -1854,7 +1913,7 @@ button {
   margin: 0;
 }
 .bento-cell.dark p {
-  color: #d6d3d1;
+  color: rgba(255, 255, 255, 0.62);
 }
 .bento-cell .bento-art {
   margin-top: 20px;
@@ -1955,8 +2014,8 @@ button {
 }
 .tier.featured {
   border-color: var(--fg);
-  background: var(--fg);
-  color: #fafaf9;
+  background: linear-gradient(160deg, var(--fg) 0%, #1a3a55 100%);
+  color: white;
   box-shadow: var(--shadow-3);
   transform: translateY(-8px);
 }
@@ -1992,7 +2051,7 @@ button {
   line-height: 1.5;
 }
 .tier.featured .tier-blurb {
-  color: #a8a29e;
+  color: rgba(255, 255, 255, 0.55);
 }
 .tier .price {
   display: flex;
@@ -2011,7 +2070,7 @@ button {
   color: var(--muted);
 }
 .tier.featured .price .per {
-  color: #a8a29e;
+  color: rgba(255, 255, 255, 0.55);
 }
 .tier .price-note {
   font-size: 12px;
@@ -2020,7 +2079,7 @@ button {
   margin-bottom: 28px;
 }
 .tier.featured .price-note {
-  color: #a8a29e;
+  color: rgba(255, 255, 255, 0.45);
 }
 .tier ul {
   list-style: none;
