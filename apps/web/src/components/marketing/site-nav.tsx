@@ -65,7 +65,7 @@ export function SiteNav() {
           })}
         </div>
         <div className="nav-cta">
-          <Link className="btn btn-ghost btn-login" href="#login">
+          <Link className="btn btn-ghost btn-login" href="/sign-in">
             Login
           </Link>
           <Link className="btn btn-primary hide-sm" href="#demo">
