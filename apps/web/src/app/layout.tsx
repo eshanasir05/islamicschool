@@ -20,7 +20,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: 'Skooly',
+  title: 'Talibly',
   description: 'Parent-first school management for Islamic schools and Quran tutors.',
 };
 

@@ -30,7 +30,7 @@ function Hero() {
           </h1>
           <p className="lede">
             Most Islamic schools are still run on WhatsApp groups, paper attendance sheets, and
-            Zelle screenshots. Skooly is the app that finally replaces all three. It&apos;s quiet
+            Zelle screenshots. Talibly is the app that finally replaces all three. It&apos;s quiet
             for parents, fast for teachers, and easy for the principal to actually use on a Sunday
             morning.
           </p>
@@ -372,7 +372,7 @@ function Tuition() {
             </span>
             <h3>No more Zelle screenshots. No more &ldquo;did the check clear?&rdquo;</h3>
             <p className="body">
-              Skooly bills parents directly. Autopay, sibling discounts, scholarship rules, and a
+              Talibly bills parents directly. Autopay, sibling discounts, scholarship rules, and a
               ledger your bookkeeper will actually open. It runs on Stripe, so the money is real and
               the reconciliation isn&apos;t your job.
             </p>
@@ -505,7 +505,7 @@ function Availability() {
           <h2>iOS, Android, and the browser on the masjid laptop.</h2>
           <p>
             Parents and teachers reach for a phone. Principals reach for the laptop in the office.
-            Skooly is the same product on all three. Same data, same flows. No &ldquo;use the
+            Talibly is the same product on all three. Same data, same flows. No &ldquo;use the
             desktop one for that.&rdquo;
           </p>
           <div className="platforms">

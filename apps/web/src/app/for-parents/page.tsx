@@ -14,7 +14,7 @@ import { SiteNav } from '@/components/marketing/site-nav';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Skooly · For parents',
+  title: 'Talibly · For parents',
   description:
     'One feed per child. Hifz audio, attendance pings, teacher praise, homework, tuition. All in one place.',
 };
@@ -25,7 +25,7 @@ function ParentsHero() {
       eyebrow="For parents"
       title="Know how your kid did at Quran class, without scrolling 47"
       titleAccent="WhatsApps."
-      lede="Skooly is one feed per child. Recordings of their hifz, the praise their teacher wrote today, attendance pings, homework, tuition. All in one place. No more group chat archaeology."
+      lede="Talibly is one feed per child. Recordings of their hifz, the praise their teacher wrote today, attendance pings, homework, tuition. All in one place. No more group chat archaeology."
       secondaryCta="See pricing"
       secondaryHref="/pricing"
     >
@@ -387,7 +387,7 @@ export default function ForParentsPage() {
         <ADayTimeline />
         <ParentQuote />
         <SiteCTA
-          title="Try Skooly with your child's school."
+          title="Try Talibly with your child's school."
           body="Forward us to your principal. We'll handle the onboarding and import the roster in a weekend."
         />
       </PageLayout>

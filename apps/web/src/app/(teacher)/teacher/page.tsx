@@ -1,8 +1,52 @@
-export default function TeacherHome() {
+import { redirect } from 'next/navigation';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getTeacherClasses } from '../actions';
+import Link from 'next/link';
+
+export default async function TeacherHome() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+
+  const classes = await getTeacherClasses(user.id);
+
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-slate-900">Teacher home</h1>
-      <p className="mt-2 text-sm text-slate-600">60-second class wrap flow lands here (F-TC-1).</p>
+    <main className="app-main">
+      <p className="feed-date" style={{ marginTop: 24 }}>{today}</p>
+      <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 4px', color: 'var(--fg)' }}>
+        Your classes
+      </h1>
+      <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 28 }}>
+        Select a class to begin the 60-second wrap.
+      </p>
+
+      {classes.length === 0 ? (
+        <div className="feed-empty">
+          <h3>No classes assigned</h3>
+          <p>Contact your principal to be assigned to a class.</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {classes.map(cls => (
+            <Link
+              key={cls.id}
+              href={`/teacher/${cls.id}/attendance`}
+              className="app-card"
+              style={{ textDecoration: 'none', display: 'block', cursor: 'pointer' }}
+            >
+              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--fg)' }}>{cls.name}</div>
+              {cls.academicYear && (
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{cls.academicYear}</div>
+              )}
+              <div style={{ marginTop: 12, fontSize: 13, color: 'var(--accent-700)', fontWeight: 500 }}>
+                Start class wrap →
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </main>
   );
 }

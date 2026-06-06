@@ -2266,3 +2266,533 @@ button {
   line-height: 1.45;
   max-width: 200px;
 }
+
+/* ─── Sign-in ─────────────────────────────────────────────────────────────── */
+.sign-in-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 24px;
+}
+.sign-in-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  padding: 48px 40px;
+  width: 100%;
+  max-width: 420px;
+}
+.sign-in-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 32px;
+}
+.sign-in-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 8px;
+}
+.sign-in-lede {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0 0 24px;
+}
+.sign-in-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sign-in-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  color: var(--fg);
+  background: var(--surface);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.sign-in-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.sign-in-btn {
+  width: 100%;
+  height: 44px;
+  font-size: 15px;
+}
+.sign-in-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--rose);
+}
+.sign-in-sent {
+  text-align: center;
+  padding: 8px 0;
+}
+.sign-in-sent-icon {
+  font-size: 40px;
+  margin-bottom: 16px;
+}
+.sign-in-sent h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.sign-in-sent p {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0 0 24px;
+}
+
+/* ─── App shell (teacher / parent / admin) ────────────────────────────────── */
+.app-shell {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.app-header-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+}
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.app-header-user {
+  font-weight: 500;
+  color: var(--fg-2);
+}
+.app-logout {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.app-logout:hover {
+  color: var(--fg);
+  border-color: var(--border-2);
+}
+.app-main {
+  flex: 1;
+  padding: 24px;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+.app-main-wide {
+  flex: 1;
+  padding: 24px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ─── Stepper ─────────────────────────────────────────────────────────────── */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 32px;
+}
+.stepper-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--subtle);
+  flex: 1;
+}
+.stepper-step.active { color: var(--accent-700); }
+.stepper-step.done   { color: var(--muted); }
+.stepper-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  color: var(--subtle);
+}
+.stepper-step.active .stepper-dot {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-700);
+}
+.stepper-step.done .stepper-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.stepper-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* ─── App cards ───────────────────────────────────────────────────────────── */
+.app-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-1);
+}
+.app-card + .app-card { margin-top: 12px; }
+
+/* ─── Badge ───────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badge-present  { background: var(--accent-soft);  color: var(--accent-700); }
+.badge-late     { background: var(--warn-soft);     color: #92400e; }
+.badge-absent   { background: #fee2e2;              color: #991b1b; }
+.badge-excused  { background: var(--sky-soft);      color: var(--sky-700); }
+.badge-sabak    { background: var(--accent-soft);   color: var(--accent-700); }
+.badge-sabqi    { background: var(--sky-soft);      color: var(--sky-700); }
+.badge-manzil   { background: #ede9fe;              color: #5b21b6; }
+.badge-praise   { background: var(--accent-soft);   color: var(--accent-700); }
+.badge-homework { background: var(--warn-soft);     color: #92400e; }
+
+/* ─── Attendance tap cards ────────────────────────────────────────────────── */
+.attendance-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.attendance-student-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.attendance-student-card.present { border-color: var(--accent); background: var(--accent-soft); }
+.attendance-student-card.late    { border-color: var(--warn);   background: var(--warn-soft); }
+.attendance-student-card.absent  { border-color: var(--rose);   background: #fee2e2; }
+.attendance-student-name { font-size: 16px; font-weight: 500; color: var(--fg); }
+
+/* ─── Teacher wrap actions bar ────────────────────────────────────────────── */
+.wrap-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+.wrap-actions .btn { flex: 1; }
+
+/* ─── Parent feed ─────────────────────────────────────────────────────────── */
+.child-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.child-tab {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.child-tab.active {
+  color: var(--fg);
+  background: var(--bg);
+  border-color: var(--border);
+}
+.feed-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--muted);
+}
+.feed-empty h3 { font-size: 16px; font-weight: 500; margin: 0 0 8px; color: var(--fg-2); }
+.feed-empty p  { font-size: 14px; line-height: 1.55; margin: 0; }
+.feed-date {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 16px;
+}
+
+/* ─── Admin dashboard ─────────────────────────────────────────────────────── */
+.admin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (min-width: 640px) {
+  .admin-stat-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.admin-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-1);
+}
+.admin-stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.admin-stat-label {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.admin-class-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.admin-class-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-1);
+}
+.admin-class-info { font-size: 15px; font-weight: 500; color: var(--fg); }
+.admin-class-teacher { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.wrap-status-done    { font-size: 13px; font-weight: 600; color: var(--accent-700); }
+.wrap-status-pending { font-size: 13px; font-weight: 500; color: var(--muted); }
+
+/* ─── Hifz form ───────────────────────────────────────────────────────────── */
+.hifz-student-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 12px;
+}
+.hifz-student-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 14px;
+}
+.hifz-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+.hifz-field label {
+  display: block;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.hifz-field input,
+.hifz-field select {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--surface);
+  outline: none;
+}
+.hifz-field input:focus,
+.hifz-field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.hifz-field-wide {
+  grid-column: span 3;
+}
+
+/* ─── Notes form ──────────────────────────────────────────────────────────── */
+.notes-student-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 12px;
+}
+.notes-student-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 14px;
+}
+.note-type-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.note-type-tab {
+  padding: 5px 12px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  transition: all 0.15s;
+}
+.note-type-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.note-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--surface);
+  resize: vertical;
+  min-height: 80px;
+  font-family: var(--font-sans);
+  outline: none;
+}
+.note-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.category-chip {
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  transition: all 0.15s;
+}
+.category-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-700);
+}
+
+/* ─── Confirm screen ──────────────────────────────────────────────────────── */
+.confirm-section { margin-bottom: 24px; }
+.confirm-section-title {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.confirm-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--fg-2);
+}
+.confirm-row:last-child { border-bottom: none; }
+.confirm-row strong { color: var(--fg); }
+.success-screen {
+  text-align: center;
+  padding: 48px 0;
+}
+.success-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+.success-screen h2 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.success-screen p {
+  font-size: 15px;
+  color: var(--muted);
+  margin: 0 0 28px;
+  line-height: 1.55;
+}
+.success-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}

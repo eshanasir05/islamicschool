@@ -8,7 +8,7 @@ import { SiteNav } from '@/components/marketing/site-nav';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Skooly · For principals',
+  title: 'Talibly · For principals',
   description:
     'Daily attendance, tuition pipeline, hifz wins. The dashboard secular schools have had for two decades.',
 };
@@ -19,7 +19,7 @@ function PrincipalsHero() {
       eyebrow="For principals"
       title="Run the school from"
       titleAccent="one screen."
-      lede="Daily attendance, tuition pipeline, hifz wins, and the messages waiting for a reply. All on the same page. Skooly gives Islamic school principals the dashboard that secular schools have had for two decades."
+      lede="Daily attendance, tuition pipeline, hifz wins, and the messages waiting for a reply. All on the same page. Talibly gives Islamic school principals the dashboard that secular schools have had for two decades."
       secondaryCta="See pricing"
       secondaryHref="/pricing"
     >
@@ -72,7 +72,7 @@ function PrincipalsBento() {
           <h2>What you stop doing manually.</h2>
           <p>
             If your job involves an Excel sheet of attendance, a clipboard of tuition checks, or a
-            Friday night phone tree, those are the parts Skooly takes over.
+            Friday night phone tree, those are the parts Talibly takes over.
           </p>
         </div>
 

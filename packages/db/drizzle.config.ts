@@ -5,7 +5,8 @@ export default {
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:54322/postgres',
+    // Use DATABASE_URL_DIRECT (port 5432) for DDL migrations — not the pooler
+    url: process.env.DATABASE_URL_DIRECT ?? process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:54322/postgres',
   },
   strict: true,
   verbose: true,

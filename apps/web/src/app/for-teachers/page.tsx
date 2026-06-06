@@ -8,7 +8,7 @@ import { SiteNav } from '@/components/marketing/site-nav';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Skooly · For teachers',
+  title: 'Talibly · For teachers',
   description:
     'Wrap your class in sixty seconds. Attendance, hifz, praise. One screen, top to bottom.',
 };
@@ -19,7 +19,7 @@ function TeachersHero() {
       eyebrow="For teachers"
       title="Wrap your class in"
       titleAccent="sixty seconds."
-      lede="Three taps and you're done: attendance, hifz, praise. Skooly turns the 20 minutes of post-class admin you used to do at home into one screen, top to bottom. Done before parents finish loading shoes."
+      lede="Three taps and you're done: attendance, hifz, praise. Talibly turns the 20 minutes of post-class admin you used to do at home into one screen, top to bottom. Done before parents finish loading shoes."
       secondaryCta="See pricing"
       secondaryHref="/pricing"
     >
@@ -225,7 +225,7 @@ function TeachersBento() {
             </div>
             <h4>Record in the basement. Sync when you&apos;re back upstairs.</h4>
             <p style={{ maxWidth: 540 }}>
-              Skooly knows a lot of weekend schools meet in masjid basements with terrible wifi.
+              Talibly knows a lot of weekend schools meet in masjid basements with terrible wifi.
               Recordings, attendance, and praise queue up locally and sync the moment your phone
               finds signal. Nothing is lost. Parents still get the feed. Just a few minutes later.
             </p>
@@ -267,7 +267,7 @@ export default function ForTeachersPage() {
         <TeacherQuote />
         <SiteCTA
           title="Wrap your next class in 60 seconds."
-          body="Show this to your principal. We'll handle onboarding, training, and roster import. Your first weekend on Skooly is on us."
+          body="Show this to your principal. We'll handle onboarding, training, and roster import. Your first weekend on Talibly is on us."
         />
       </PageLayout>
       <SiteFooter />

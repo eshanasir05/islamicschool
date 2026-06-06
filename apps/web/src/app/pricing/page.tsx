@@ -7,7 +7,7 @@ import { Fragment } from 'react';
 import { PricingHeroAndTiers } from './pricing-tiers';
 
 export const metadata: Metadata = {
-  title: 'Skooly · Pricing',
+  title: 'Talibly · Pricing',
   description:
     'Flat monthly fee. Per-student pricing. No setup, no contracts, no per-feature gotchas.',
 };
@@ -129,7 +129,7 @@ function FAQ() {
     },
     {
       q: 'What about Stripe fees on tuition?',
-      a: "Stripe's standard rates pass through. 2.9% + 30¢ for cards in the US, 0.8% capped at $5 for ACH. Skooly itself takes nothing on top of that.",
+      a: "Stripe's standard rates pass through. 2.9% + 30¢ for cards in the US, 0.8% capped at $5 for ACH. Talibly itself takes nothing on top of that.",
     },
     {
       q: 'Can I import students from my existing spreadsheet?',
@@ -137,7 +137,7 @@ function FAQ() {
     },
     {
       q: 'Is there a setup fee?',
-      a: 'No. No setup, no onboarding fee, no contract. If Skooly is not the right fit, you cancel from settings and your data exports as CSV.',
+      a: 'No. No setup, no onboarding fee, no contract. If Talibly is not the right fit, you cancel from settings and your data exports as CSV.',
     },
     {
       q: 'What if our school is between tiers? Say 30 weekend students plus a few tutors.',
@@ -179,7 +179,7 @@ export default function PricingPage() {
       <ComparisonTable />
       <FAQ />
       <SiteCTA
-        title="Try Skooly with your school for free, for a month."
+        title="Try Talibly with your school for free, for a month."
         body="No card on file. We'll onboard, import your roster, and train your teachers. If it's not better than your current setup, walk away. Your data exports as CSV."
         cta="Start free trial"
       />
