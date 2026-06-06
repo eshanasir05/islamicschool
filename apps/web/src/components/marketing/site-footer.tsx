@@ -8,7 +8,7 @@ export function SiteFooter() {
           <div>
             <Link className="nav-logo" href="/">
               <span className="mark">S</span>
-              skooly
+              talibly
             </Link>
             <p className="footer-blurb">
               Parent-first school management for North American Islamic schools, full-time
@@ -38,7 +38,7 @@ export function SiteFooter() {
           </div>
         </div>
         <div className="footer-base">
-          <span>© 2026 Skooly · Made for the ummah</span>
+          <span>© 2026 Talibly · Made for the ummah</span>
           <span>v1 · in development</span>
         </div>
       </div>

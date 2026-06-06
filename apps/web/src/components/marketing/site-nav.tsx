@@ -52,7 +52,7 @@ export function SiteNav() {
       <div className="container nav-inner">
         <Link className="nav-logo" href="/">
           <span className="mark">S</span>
-          skooly
+          talibly
         </Link>
         <div className="nav-links">
           {NAV_PAGES.map((p) => {

@@ -10,7 +10,7 @@ type Props = {
 };
 
 export function SiteCTA({
-  title = 'Bring Skooly to your school.',
+  title = 'Bring Talibly to your school.',
   body = "Weekend school, full-time academy, or one-on-one tutor. We'll get your roster imported and your first class wrapped this week.",
   cta = 'Book a demo',
 }: Props) {
