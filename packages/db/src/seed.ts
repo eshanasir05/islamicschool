@@ -76,7 +76,16 @@ async function seedAuthUsers() {
   ];
 
   for (const u of users) {
+    // If the user exists with a different ID (from a previous seed without explicit ID),
+    // delete it so we can recreate with the correct hardcoded UUID.
+    const { data: list } = await supabaseAdmin.auth.admin.listUsers({ perPage: 200 });
+    const existing = list.users.find(u2 => u2.email === u.email);
+    if (existing && existing.id !== u.id) {
+      await supabaseAdmin.auth.admin.deleteUser(existing.id);
+    }
+
     const { error } = await supabaseAdmin.auth.admin.createUser({
+      id: u.id,
       user_metadata: { full_name: u.name },
       email: u.email,
       password: u.password,
