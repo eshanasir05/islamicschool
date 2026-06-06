@@ -16,11 +16,12 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
     "@t3-oss/env-nextjs": "^0.13.11",
+    "drizzle-orm": "^0.38.2",
     "next": "^16.2.6",
+    "postgres": "^3.4.5",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "drizzle-orm": "^0.38.2",
-    "postgres": "^3.4.5",
+    "resend": "^6.12.4",
     "zod": "^3.25.76"
   },
   "devDependencies": {
