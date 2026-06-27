@@ -1,20 +1,43 @@
 import { env } from '@/env';
-import { getAdminStudent } from '../../../actions';
+import {
+  getAdminStudent,
+  setStudentStatus,
+  linkGuardian,
+  unlinkGuardian,
+} from '../../../actions';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
 const SURAH_NAMES: Record<number, string> = {
   1: 'Al-Fatihah', 2: 'Al-Baqarah', 3: 'Al-Imran', 4: 'An-Nisa',
-  5: 'Al-Maidah', 36: 'Ya-Sin', 67: 'Al-Mulk', 112: 'Al-Ikhlas',
+  5: 'Al-Maidah', 6: 'Al-Anam', 7: 'Al-Araf', 8: 'Al-Anfal',
+  9: 'At-Tawbah', 10: 'Yunus', 11: 'Hud', 12: 'Yusuf',
+  36: 'Ya-Sin', 67: 'Al-Mulk', 78: 'An-Naba', 112: 'Al-Ikhlas',
+  113: 'Al-Falaq', 114: 'An-Nas',
 };
 function surahName(n: number) { return SURAH_NAMES[n] ?? `Surah ${n}`; }
 
-type Props = { params: Promise<{ studentId: string }> };
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 11,
+  fontFamily: 'var(--font-mono)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  color: 'var(--muted)',
+  marginBottom: 5,
+};
 
-export default async function StudentDetailPage({ params }: Props) {
+type Props = {
+  params: Promise<{ studentId: string }>;
+  searchParams: Promise<{ guardian_linked?: string; guardian_error?: string }>;
+};
+
+export default async function StudentDetailPage({ params, searchParams }: Props) {
   const { studentId } = await params;
-  const { student, attendance, hifz, noteCount } = await getAdminStudent(studentId, env.NEXT_PUBLIC_ORG_ID);
+  const sp = await searchParams;
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
 
+  const { student, attendance, hifz, noteCount } = await getAdminStudent(studentId, orgId);
   if (!student) notFound();
 
   const dob = student.dateOfBirth
@@ -22,18 +45,74 @@ export default async function StudentDetailPage({ params }: Props) {
     : '—';
   const className = student.enrollments[0]?.class?.name ?? 'Not enrolled';
 
+  // Inline server actions
+  const archiveAction = async () => {
+    'use server';
+    await setStudentStatus(studentId, env.NEXT_PUBLIC_ORG_ID, 'inactive');
+  };
+  const restoreAction = async () => {
+    'use server';
+    await setStudentStatus(studentId, env.NEXT_PUBLIC_ORG_ID, 'active');
+  };
+  const unlinkAction = async (formData: FormData) => {
+    'use server';
+    const linkId = formData.get('linkId') as string;
+    if (!linkId) return;
+    await unlinkGuardian(linkId, studentId);
+  };
+  const linkAction = async (formData: FormData) => {
+    'use server';
+    const email = (formData.get('email') as string)?.trim();
+    const relationship = (formData.get('relationship') as string) ?? '';
+    const isPrimary = formData.get('isPrimary') === 'on';
+    const receivesNotifications = formData.get('receivesNotifications') === 'on';
+    if (!email) return;
+    await linkGuardian(studentId, env.NEXT_PUBLIC_ORG_ID, email, relationship, isPrimary, receivesNotifications);
+  };
+
   return (
     <main className="app-main">
-      <Link href="/admin/students" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none', display: 'inline-block', marginTop: 16, marginBottom: 16 }}>
+      <Link
+        href="/admin/students"
+        style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none', display: 'inline-block', marginTop: 16, marginBottom: 16 }}
+      >
         ← All students
       </Link>
 
+      {/* Profile card */}
       <div className="app-card" style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 600, fontSize: 20, color: 'var(--fg)', marginBottom: 4 }}>{student.fullName}</div>
-        <div style={{ fontSize: 14, color: 'var(--muted)' }}>
-          {className} · DOB: {dob}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+          <div style={{ fontWeight: 600, fontSize: 20, color: 'var(--fg)' }}>{student.fullName}</div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <Link
+              href={`/admin/students/${studentId}/edit`}
+              className="btn btn-ghost"
+              style={{ fontSize: 13, padding: '4px 12px', textDecoration: 'none' }}
+            >
+              Edit
+            </Link>
+            {student.status === 'active' ? (
+              <form action={archiveAction}>
+                <button type="submit" className="btn btn-ghost" style={{ fontSize: 13, padding: '4px 12px', color: 'var(--muted)' }}>
+                  Archive
+                </button>
+              </form>
+            ) : (
+              <form action={restoreAction}>
+                <button type="submit" className="btn btn-ghost" style={{ fontSize: 13, padding: '4px 12px' }}>
+                  Restore
+                </button>
+              </form>
+            )}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+        <div style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 12 }}>
+          {className} · DOB: {dob}
+          {student.status !== 'active' && (
+            <span className="badge badge-absent" style={{ marginLeft: 8 }}>Inactive</span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 20 }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontWeight: 600, fontSize: 18, color: 'var(--fg)' }}>{attendance.length}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>Sessions</div>
@@ -49,26 +128,102 @@ export default async function StudentDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {student.guardians.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 8 }}>Guardians</h2>
-          {student.guardians.map(g => (
-            <div key={g.id} className="app-card" style={{ marginBottom: 8, fontSize: 14 }}>
-              <div style={{ fontWeight: 500, color: 'var(--fg)' }}>{g.guardian?.fullName ?? '—'}</div>
-              <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-                {g.relationship} · {g.guardian?.email ?? '—'}
-              </div>
-            </div>
-          ))}
+      {/* Success/error banners */}
+      {sp.guardian_linked && (
+        <div style={{ background: 'var(--accent-50, #f3f0ff)', border: '1px solid var(--accent)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: 'var(--fg)', marginBottom: 16 }}>
+          Guardian linked successfully. They can sign in at /sign-in — advise them to use &ldquo;Forgot password&rdquo; to set a password.
+        </div>
+      )}
+      {sp.guardian_error && (
+        <div style={{ background: '#fff8e1', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: 'var(--fg)', marginBottom: 16 }}>
+          Could not link guardian: {decodeURIComponent(sp.guardian_error)}
         </div>
       )}
 
+      {/* Guardians */}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>Guardians</h2>
+        {student.guardians.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+            {student.guardians.map(g => (
+              <div key={g.id} className="app-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14 }}>
+                <div>
+                  <div style={{ fontWeight: 500, color: 'var(--fg)' }}>{g.guardian?.fullName ?? '—'}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+                    {g.relationship ?? 'Guardian'} · {g.guardian?.email ?? '—'}
+                    {g.isPrimary && <span className="badge badge-present" style={{ marginLeft: 6, fontSize: 11 }}>Primary</span>}
+                  </div>
+                </div>
+                <form action={unlinkAction}>
+                  <input type="hidden" name="linkId" value={g.id} />
+                  <button type="submit" className="btn btn-ghost" style={{ fontSize: 12, padding: '3px 10px', color: 'var(--muted)', height: 'auto' }}>
+                    Unlink
+                  </button>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Link guardian form */}
+        <form action={linkAction}>
+          <div className="app-card">
+            <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 10 }}>
+              Link guardian
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <label style={labelStyle}>Email address</label>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  placeholder="parent@example.com"
+                  className="sign-in-input"
+                  style={{ marginBottom: 0 }}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Relationship (optional)</label>
+                <select name="relationship" className="sign-in-input" style={{ marginBottom: 0 }}>
+                  <option value="">— Select —</option>
+                  <option value="father">Father</option>
+                  <option value="mother">Mother</option>
+                  <option value="guardian">Guardian</option>
+                  <option value="grandparent">Grandparent</option>
+                  <option value="sibling">Sibling</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--fg)', cursor: 'pointer' }}>
+                  <input type="checkbox" name="isPrimary" /> Primary contact
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--fg)', cursor: 'pointer' }}>
+                  <input type="checkbox" name="receivesNotifications" defaultChecked /> Receives notifications
+                </label>
+              </div>
+              <button type="submit" className="btn btn-accent" style={{ width: '100%' }}>
+                Link guardian
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {/* Attendance history */}
       {attendance.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 8 }}>Recent attendance</h2>
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 8 }}>
+            Attendance history
+          </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {attendance.map(a => (
-              <div key={a.id} className="app-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}>
+              <div
+                key={a.id}
+                className="app-card"
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}
+              >
                 <span style={{ color: 'var(--muted)' }}>{a.sessionDate}</span>
                 <span className={`badge badge-${a.status}`} style={{ textTransform: 'capitalize' }}>{a.status}</span>
               </div>
@@ -77,12 +232,17 @@ export default async function StudentDetailPage({ params }: Props) {
         </div>
       )}
 
+      {/* Hifz records */}
       {hifz.length > 0 && (
-        <div>
-          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 8 }}>Recent hifz</h2>
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 8 }}>Hifz records</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {hifz.map(h => (
-              <div key={h.id} className="app-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}>
+              <div
+                key={h.id}
+                className="app-card"
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}
+              >
                 <span style={{ color: 'var(--muted)' }}>{h.sessionDate}</span>
                 <span style={{ color: 'var(--fg)' }}>
                   {surahName(h.surahNumber)} {h.ayahStart}–{h.ayahEnd}

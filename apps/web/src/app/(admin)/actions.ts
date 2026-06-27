@@ -2,7 +2,9 @@
 
 import { and, count, desc, eq, gte, max } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export async function getAdminStats(orgId: string) {
   const sevenDaysAgo = new Date();
@@ -104,12 +106,10 @@ export async function getAdminStudent(studentId: string, orgId: string) {
     db.query.attendanceRecords.findMany({
       where: and(eq(schema.attendanceRecords.studentId, studentId), eq(schema.attendanceRecords.organizationId, orgId)),
       orderBy: (a, { desc }) => desc(a.sessionDate),
-      limit: 5,
     }),
     db.query.hifzRecords.findMany({
       where: and(eq(schema.hifzRecords.studentId, studentId), eq(schema.hifzRecords.organizationId, orgId)),
       orderBy: (h, { desc }) => desc(h.sessionDate),
-      limit: 5,
     }),
     db.select({ cnt: count() }).from(schema.studentNotes)
       .where(and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.organizationId, orgId))),
@@ -135,6 +135,7 @@ export async function getAdminClasses(orgId: string) {
     studentCount: c.enrollments.length,
     wrappedToday: wrappedSet.has(c.id),
     academicYear: c.academicYear,
+    deletedAt: c.deletedAt,
   }));
 }
 
@@ -230,4 +231,263 @@ export async function createAnnouncement(orgId: string, userId: string, content:
 
   revalidatePath('/admin/announcements');
   revalidatePath('/parent');
+}
+
+export async function deleteAnnouncement(threadId: string) {
+  await db.delete(schema.messages).where(eq(schema.messages.threadId, threadId));
+  await db.delete(schema.messageThreads).where(eq(schema.messageThreads.id, threadId));
+  revalidatePath('/admin/announcements');
+  revalidatePath('/parent');
+}
+
+// ---------------------------------------------------------------------------
+// Student CRUD
+// ---------------------------------------------------------------------------
+export async function createStudent(
+  orgId: string,
+  data: { fullName: string; dateOfBirth: string; gender?: string },
+) {
+  const [row] = await db
+    .insert(schema.students)
+    .values({
+      organizationId: orgId,
+      fullName: data.fullName,
+      dateOfBirth: data.dateOfBirth,
+      gender: data.gender ?? null,
+      status: 'active',
+    })
+    .returning({ id: schema.students.id });
+  if (!row) throw new Error('Insert failed');
+  revalidatePath('/admin/students');
+  redirect(`/admin/students/${row.id}`);
+}
+
+export async function updateStudent(
+  studentId: string,
+  orgId: string,
+  data: { fullName: string; dateOfBirth: string; gender?: string; medicalNotes?: string },
+) {
+  await db
+    .update(schema.students)
+    .set({
+      fullName: data.fullName,
+      dateOfBirth: data.dateOfBirth,
+      gender: data.gender ?? null,
+      medicalNotes: data.medicalNotes ?? null,
+    })
+    .where(and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)));
+  revalidatePath(`/admin/students/${studentId}`);
+  revalidatePath('/admin/students');
+  redirect(`/admin/students/${studentId}`);
+}
+
+export async function setStudentStatus(
+  studentId: string,
+  orgId: string,
+  status: 'active' | 'inactive',
+) {
+  await db
+    .update(schema.students)
+    .set({ status })
+    .where(and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)));
+  revalidatePath(`/admin/students/${studentId}`);
+  revalidatePath('/admin/students');
+  redirect(`/admin/students/${studentId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Class CRUD
+// ---------------------------------------------------------------------------
+export async function createClass(
+  orgId: string,
+  data: { name: string; gradeLevel?: string; academicYear?: string; capacity?: number; primaryTeacherId?: string },
+) {
+  const [row] = await db
+    .insert(schema.classes)
+    .values({
+      organizationId: orgId,
+      name: data.name,
+      gradeLevel: data.gradeLevel ?? null,
+      academicYear: data.academicYear ?? null,
+      capacity: data.capacity ?? null,
+      primaryTeacherId: data.primaryTeacherId || null,
+    })
+    .returning({ id: schema.classes.id });
+  if (!row) throw new Error('Insert failed');
+  revalidatePath('/admin/classes');
+  revalidatePath('/admin');
+  redirect(`/admin/classes/${row.id}`);
+}
+
+export async function updateClass(
+  classId: string,
+  orgId: string,
+  data: { name: string; gradeLevel?: string; academicYear?: string; capacity?: string; primaryTeacherId?: string },
+) {
+  await db
+    .update(schema.classes)
+    .set({
+      name: data.name,
+      gradeLevel: data.gradeLevel || null,
+      academicYear: data.academicYear || null,
+      capacity: data.capacity ? Number(data.capacity) : null,
+      primaryTeacherId: data.primaryTeacherId || null,
+    })
+    .where(and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)));
+  revalidatePath('/admin/classes');
+  revalidatePath('/admin');
+  redirect(`/admin/classes/${classId}`);
+}
+
+export async function archiveClass(classId: string, orgId: string) {
+  await db
+    .update(schema.classes)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)));
+  revalidatePath('/admin/classes');
+  revalidatePath('/admin');
+  redirect(`/admin/classes/${classId}`);
+}
+
+export async function restoreClass(classId: string, orgId: string) {
+  await db
+    .update(schema.classes)
+    .set({ deletedAt: null })
+    .where(and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)));
+  revalidatePath('/admin/classes');
+  revalidatePath('/admin');
+  redirect(`/admin/classes/${classId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Class detail + enrollment
+// ---------------------------------------------------------------------------
+export async function getAdminClassDetail(classId: string, orgId: string) {
+  const [cls, sessionRows] = await Promise.all([
+    db.query.classes.findFirst({
+      where: and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)),
+      with: {
+        primaryTeacher: true,
+        enrollments: { with: { student: true } },
+      },
+    }),
+    db
+      .select({
+        sessionDate: schema.attendanceRecords.sessionDate,
+        status: schema.attendanceRecords.status,
+        cnt: count(),
+      })
+      .from(schema.attendanceRecords)
+      .where(
+        and(
+          eq(schema.attendanceRecords.classId, classId),
+          eq(schema.attendanceRecords.organizationId, orgId),
+        ),
+      )
+      .groupBy(schema.attendanceRecords.sessionDate, schema.attendanceRecords.status)
+      .orderBy(desc(schema.attendanceRecords.sessionDate)),
+  ]);
+
+  // Pivot attendance counts by session date
+  const sessionMap = new Map<string, { present: number; absent: number; late: number; excused: number }>();
+  for (const row of sessionRows) {
+    const entry = sessionMap.get(row.sessionDate) ?? { present: 0, absent: 0, late: 0, excused: 0 };
+    const key = row.status as keyof typeof entry;
+    if (key in entry) entry[key] = Number(row.cnt);
+    sessionMap.set(row.sessionDate, entry);
+  }
+  const sessions = [...sessionMap.entries()]
+    .map(([date, c]) => ({ date, ...c, total: c.present + c.absent + c.late + c.excused }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  return { cls, sessions };
+}
+
+export async function enrollStudent(classId: string, studentId: string) {
+  await db.insert(schema.classEnrollments).values({ classId, studentId }).onConflictDoNothing();
+  revalidatePath(`/admin/classes/${classId}`);
+  revalidatePath(`/admin/students/${studentId}`);
+  redirect(`/admin/classes/${classId}`);
+}
+
+export async function unenrollStudent(classId: string, studentId: string) {
+  await db
+    .delete(schema.classEnrollments)
+    .where(
+      and(
+        eq(schema.classEnrollments.classId, classId),
+        eq(schema.classEnrollments.studentId, studentId),
+      ),
+    );
+  revalidatePath(`/admin/classes/${classId}`);
+  redirect(`/admin/classes/${classId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Guardian linking
+// ---------------------------------------------------------------------------
+export async function linkGuardian(
+  studentId: string,
+  orgId: string,
+  email: string,
+  relationship: string,
+  isPrimary: boolean,
+  receivesNotifications: boolean,
+) {
+  let guardianUserId: string;
+
+  const existing = await db.query.users.findFirst({
+    where: eq(schema.users.email, email),
+  });
+
+  if (existing) {
+    guardianUserId = existing.id;
+    await db
+      .insert(schema.memberships)
+      .values({ userId: guardianUserId, organizationId: orgId, role: 'parent', status: 'active' })
+      .onConflictDoNothing();
+  } else {
+    const serviceClient = await createSupabaseServiceClient();
+    const result = await serviceClient.auth.admin.createUser({ email, email_confirm: true });
+    if (result.error || !result.data.user) {
+      redirect(
+        `/admin/students/${studentId}?guardian_error=${encodeURIComponent(result.error?.message ?? 'Failed to create account')}`,
+      );
+    }
+    guardianUserId = result.data.user.id;
+    await db
+      .insert(schema.users)
+      .values({ id: guardianUserId, email, fullName: email.split('@')[0] ?? email })
+      .onConflictDoNothing();
+    await db
+      .insert(schema.memberships)
+      .values({ userId: guardianUserId, organizationId: orgId, role: 'parent', status: 'active' })
+      .onConflictDoNothing();
+  }
+
+  // Skip if already linked
+  const existingLink = await db.query.studentGuardians.findFirst({
+    where: and(
+      eq(schema.studentGuardians.studentId, studentId),
+      eq(schema.studentGuardians.guardianUserId, guardianUserId),
+    ),
+  });
+  if (!existingLink) {
+    await db.insert(schema.studentGuardians).values({
+      studentId,
+      guardianUserId,
+      relationship: relationship || null,
+      isPrimary,
+      receivesNotifications,
+    });
+  }
+
+  revalidatePath(`/admin/students/${studentId}`);
+  redirect(`/admin/students/${studentId}?guardian_linked=1`);
+}
+
+export async function unlinkGuardian(linkId: string, studentId: string) {
+  await db.delete(schema.studentGuardians).where(eq(schema.studentGuardians.id, linkId));
+  revalidatePath(`/admin/students/${studentId}`);
+  redirect(`/admin/students/${studentId}`);
 }

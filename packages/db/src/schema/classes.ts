@@ -16,6 +16,7 @@ export const classes = pgTable('classes', {
   primaryTeacherId: uuid('primary_teacher_id').references(() => users.id),
   academicYear: text('academic_year'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 export const classEnrollments = pgTable(

@@ -149,7 +149,7 @@ export default function HifzClient({ classId, students }: { classId: string; stu
 
       <div className="wrap-actions">
         <button type="button" className="btn btn-ghost" onClick={() => router.back()}>← Back</button>
-        <button type="button" className="btn btn-accent" onClick={handleNext} disabled={saving || audioWarning}>
+        <button type="button" className="btn btn-accent" onClick={handleNext} disabled={saving}>
           {saving ? 'Saving…' : 'Next: Notes →'}
         </button>
       </div>

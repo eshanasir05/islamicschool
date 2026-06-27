@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { env } from '@/env';
-import { getAnnouncements, createAnnouncement } from '../../actions';
+import { getAnnouncements, createAnnouncement, deleteAnnouncement } from '../../actions';
 
 export default async function AnnouncementsPage() {
   const supabase = await createSupabaseServerClient();
@@ -19,6 +19,13 @@ export default async function AnnouncementsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     await createAnnouncement(env.NEXT_PUBLIC_ORG_ID, user.id, content);
+  };
+
+  const deleteAction = async (formData: FormData) => {
+    'use server';
+    const threadId = formData.get('threadId') as string | null;
+    if (!threadId) return;
+    await deleteAnnouncement(threadId);
   };
 
   return (
@@ -58,8 +65,20 @@ export default async function AnnouncementsPage() {
           {announcements.map(a => (
             <div key={a.id} className="app-card">
               <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: '0 0 10px' }}>{a.content}</p>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                {a.senderName} · {a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  {a.senderName} · {a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                </div>
+                <form action={deleteAction}>
+                  <input type="hidden" name="threadId" value={a.id} />
+                  <button
+                    type="submit"
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12, padding: '3px 10px', color: 'var(--muted)', height: 'auto' }}
+                  >
+                    Delete
+                  </button>
+                </form>
               </div>
             </div>
           ))}

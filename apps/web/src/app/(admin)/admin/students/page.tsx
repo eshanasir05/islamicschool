@@ -7,7 +7,12 @@ export default async function StudentsPage() {
 
   return (
     <main className="app-main">
-      <h1 style={{ fontSize: 22, fontWeight: 600, margin: '24px 0 4px', color: 'var(--fg)' }}>Students</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 4 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--fg)', margin: 0 }}>Students</h1>
+        <Link href="/admin/students/new" className="btn btn-accent" style={{ fontSize: 13, padding: '6px 14px', textDecoration: 'none' }}>
+          Add student
+        </Link>
+      </div>
       <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>
         {students.length} enrolled
       </p>
