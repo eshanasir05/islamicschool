@@ -16,7 +16,11 @@ export default async function ParentLayout({ children }: { children: React.React
     where: eq(schema.studentGuardians.guardianUserId, user.id),
     with: { student: true },
   });
-  const students = guardianLinks.map(g => g.student).filter(Boolean);
+  const studentMap = new Map<string, NonNullable<(typeof guardianLinks)[0]['student']>>();
+  for (const g of guardianLinks) {
+    if (g.student && !studentMap.has(g.student.id)) studentMap.set(g.student.id, g.student);
+  }
+  const students = [...studentMap.values()];
 
   return (
     <div className="app-shell">

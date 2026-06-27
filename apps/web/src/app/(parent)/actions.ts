@@ -10,7 +10,12 @@ export async function getGuardianStudents(guardianUserId: string) {
     where: eq(schema.studentGuardians.guardianUserId, guardianUserId),
     with: { student: true },
   });
-  return links.map(l => l.student).filter(Boolean);
+  const seen = new Set<string>();
+  return links.map(l => l.student).filter((s): s is NonNullable<typeof s> => {
+    if (!s || seen.has(s.id)) return false;
+    seen.add(s.id);
+    return true;
+  });
 }
 
 export async function getStudentFeed(studentId: string, date: string) {

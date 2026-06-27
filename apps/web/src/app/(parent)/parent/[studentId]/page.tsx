@@ -26,8 +26,14 @@ export default async function ParentFeedPage({ params }: Props) {
   const { attendance, hifz, audioSignedUrl, notes } = await getStudentFeed(studentId, today);
 
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const praiseNotes = notes.filter(n => n.noteType === 'praise');
-  const homeworkNotes = notes.filter(n => n.noteType === 'homework');
+  const seenNoteIds = new Set<string>();
+  const uniqueNotes = notes.filter(n => {
+    if (seenNoteIds.has(n.id)) return false;
+    seenNoteIds.add(n.id);
+    return true;
+  });
+  const praiseNotes = uniqueNotes.filter(n => n.noteType === 'praise');
+  const homeworkNotes = uniqueNotes.filter(n => n.noteType === 'homework');
 
   const hasContent = attendance || hifz || praiseNotes.length > 0 || homeworkNotes.length > 0;
 
