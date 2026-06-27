@@ -9,7 +9,6 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 16, padding: 24, textAlign: 'center' }}>
-      <div style={{ fontSize: 32 }}>⚠️</div>
       <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--fg)', margin: 0 }}>
         Something went wrong
       </h2>

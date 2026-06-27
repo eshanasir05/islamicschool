@@ -39,7 +39,6 @@ export default function UpdatePasswordPage() {
 
         {done ? (
           <div className="sign-in-sent">
-            <div className="sign-in-sent-icon">✅</div>
             <h2>Password updated</h2>
             <p>Your password has been changed. You can now sign in with your new password.</p>
             <a href="/sign-in" className="btn btn-accent" style={{ marginTop: 16, display: 'inline-block' }}>

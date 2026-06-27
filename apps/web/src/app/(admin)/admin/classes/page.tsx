@@ -25,7 +25,7 @@ export default async function ClassesPage() {
                 </div>
               </div>
               {cls.wrappedToday ? (
-                <span className="badge badge-present">Wrapped ✓</span>
+                <span className="badge badge-present">Wrapped</span>
               ) : (
                 <span className="badge badge-late">Pending</span>
               )}

@@ -26,17 +26,17 @@ export default async function AdminHome() {
 
       <div className="admin-stat-grid">
         <div className="admin-stat">
-          <div className="admin-stat-label">📊 Attendance this week</div>
+          <div className="admin-stat-label">Attendance this week</div>
           <div className="admin-stat-value" style={{ color: attendanceColor }}>
             {stats.attendancePct}%
           </div>
         </div>
         <div className="admin-stat">
-          <div className="admin-stat-label">📖 Hifz wins this week</div>
+          <div className="admin-stat-label">Hifz wins this week</div>
           <div className="admin-stat-value">{stats.hifzWins}</div>
         </div>
         <div className="admin-stat">
-          <div className="admin-stat-label">✅ Classes wrapped today</div>
+          <div className="admin-stat-label">Classes wrapped today</div>
           <div className="admin-stat-value">
             <span style={{ color: stats.classesWrapped === stats.classes.length && stats.classes.length > 0 ? 'var(--accent-700)' : 'var(--fg)' }}>
               {stats.classesWrapped}
@@ -47,7 +47,7 @@ export default async function AdminHome() {
           </div>
         </div>
         <div className="admin-stat">
-          <div className="admin-stat-label">💳 Active tuition plans</div>
+          <div className="admin-stat-label">Active tuition plans</div>
           <div className="admin-stat-value">{stats.activeTuition}</div>
         </div>
       </div>
@@ -61,7 +61,7 @@ export default async function AdminHome() {
               <div style={{ fontSize: 13, color: 'var(--muted)' }}>{cls.teacherName}</div>
             </div>
             {cls.wrappedToday ? (
-              <span className="badge badge-present">Wrapped ✓</span>
+              <span className="badge badge-present">Wrapped</span>
             ) : (
               <span className="badge badge-late">Pending</span>
             )}

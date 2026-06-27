@@ -63,7 +63,6 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
     return (
       <main className="app-main">
         <div className="success-screen" style={{ paddingTop: 64 }}>
-          <div className="success-icon">✅</div>
           <h2>Class wrapped!</h2>
           <p>Parents have been notified. JazakAllah khair.</p>
           <div className="success-actions">
@@ -104,7 +103,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
             <span>{h.student?.fullName}</span>
             <span style={{ color: 'var(--muted)', fontSize: 13 }}>
               {surahName(h.surahNumber)} {h.ayahStart}–{h.ayahEnd} · <span style={{ textTransform: 'capitalize' }}>{h.stream}</span>
-              {h.audioUrl && ' 🎙'}
+              {h.audioUrl && <span style={{ fontSize: 11, color: 'var(--accent-700)', marginLeft: 4 }}>(audio)</span>}
             </span>
           </div>
         ))}

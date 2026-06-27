@@ -33,7 +33,6 @@ export default function ForgotPasswordPage() {
 
         {sent ? (
           <div className="sign-in-sent">
-            <div className="sign-in-sent-icon">✉️</div>
             <h2>Check your email</h2>
             <p>We sent a password reset link to <strong>{email}</strong>. Click it to set a new password.</p>
             <a href="/sign-in" className="btn btn-ghost" style={{ marginTop: 16, display: 'inline-block' }}>

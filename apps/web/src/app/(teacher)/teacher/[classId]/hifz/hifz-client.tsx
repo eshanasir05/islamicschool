@@ -122,7 +122,7 @@ export default function HifzClient({ classId, students }: { classId: string; stu
                   style={{ height: 38, fontSize: 13, width: '100%' }}
                   onClick={() => toggleRecording(s.id)}
                 >
-                  {isRecording ? '⏹ Stop' : entry.audioDataUrl ? '✓ Re-record' : '🎙 Record'}
+                  {isRecording ? 'Stop' : entry.audioDataUrl ? 'Re-record' : 'Record'}
                 </button>
               </div>
               {entry.audioDataUrl && (

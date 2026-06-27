@@ -115,7 +115,7 @@ export default async function ParentFeedPage({ params }: Props) {
       {announcements.length > 0 && (
         <div style={{ marginTop: 32 }}>
           <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>
-            📢 School announcements
+            School announcements
           </h2>
           {announcements.map(a => (
             <div key={a.threadId} className="app-card" style={{ marginBottom: 10 }}>

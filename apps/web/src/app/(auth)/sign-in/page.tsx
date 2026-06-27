@@ -47,7 +47,6 @@ export default function SignInPage() {
         <div className="sign-in-card">
           <div className="sign-in-logo"><span className="mark">T</span><span>talibly</span></div>
           <div className="sign-in-sent">
-            <div className="sign-in-sent-icon">✉️</div>
             <h2>Check your email</h2>
             <p>We sent a sign-in link to <strong>{email}</strong>. Click it to continue.</p>
             <button type="button" className="btn btn-ghost" onClick={() => { setSent(false); setEmail(''); }}>
