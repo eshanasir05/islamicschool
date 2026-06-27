@@ -11,7 +11,9 @@
     "NEXT_PUBLIC_ORG_ID",
     "RESEND_API_KEY",
     "RESEND_FROM_EMAIL",
-    "LEADS_TO_EMAIL"
+    "LEADS_TO_EMAIL",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET"
   ],
   "tasks": {
     "build": {
