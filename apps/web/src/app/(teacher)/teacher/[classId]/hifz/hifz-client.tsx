@@ -1,5 +1,6 @@
 'use client';
 
+// Note: audio upload requires a 'hifz-audio' Storage bucket in Supabase. Upload silently skips if bucket is missing.
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Stepper } from '@skooly/ui';

@@ -1,0 +1,73 @@
+'use client';
+
+import { useState } from 'react';
+import { sendPasswordReset } from './actions';
+
+export default function ForgotPasswordPage() {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    const result = await sendPasswordReset(email);
+    if (result.error) {
+      setError(result.error);
+      setLoading(false);
+      return;
+    }
+    setSent(true);
+    setLoading(false);
+  }
+
+  return (
+    <div className="sign-in-page">
+      <div className="sign-in-card">
+        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--color-muted)', marginBottom: 16, textDecoration: 'none' }}>
+          ← Back to home
+        </a>
+        <div className="sign-in-logo"><span className="mark">T</span><span>talibly</span></div>
+
+        {sent ? (
+          <div className="sign-in-sent">
+            <div className="sign-in-sent-icon">✉️</div>
+            <h2>Check your email</h2>
+            <p>We sent a password reset link to <strong>{email}</strong>. Click it to set a new password.</p>
+            <a href="/sign-in" className="btn btn-ghost" style={{ marginTop: 16, display: 'inline-block' }}>
+              Back to sign in
+            </a>
+          </div>
+        ) : (
+          <>
+            <h1 className="sign-in-title">Reset your password</h1>
+            <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 20 }}>
+              Enter your email and we'll send you a reset link.
+            </p>
+            <form onSubmit={handleSubmit} className="sign-in-form">
+              <input
+                type="email"
+                placeholder="you@school.org"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                className="sign-in-input"
+                autoComplete="email"
+                autoFocus
+              />
+              <button type="submit" disabled={loading} className="btn btn-accent sign-in-btn">
+                {loading ? 'Sending…' : 'Send reset link'}
+              </button>
+            </form>
+            {error && <p className="sign-in-error">{error}</p>}
+            <a href="/sign-in" style={{ display: 'block', textAlign: 'center', marginTop: 16, fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
+              Back to sign in
+            </a>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

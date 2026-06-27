@@ -1,5 +1,4 @@
-'use server';
-
+// TODO: replace RESEND_FROM_EMAIL=onboarding@resend.dev with a verified domain before production
 import { Resend } from 'resend';
 import { z } from 'zod';
 import { NextRequest, NextResponse } from 'next/server';

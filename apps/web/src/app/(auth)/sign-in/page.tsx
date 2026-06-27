@@ -100,6 +100,11 @@ export default function SignInPage() {
             {loading ? 'Signing in…' : mode === 'password' ? 'Sign in' : 'Send magic link'}
           </button>
         </form>
+        {mode === 'password' && (
+          <a href="/forgot-password" style={{ display: 'block', textAlign: 'center', marginTop: 8, fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
+            Forgot your password?
+          </a>
+        )}
 
         {error && <p className="sign-in-error">{error}</p>}
 

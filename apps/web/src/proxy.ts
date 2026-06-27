@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC_PATHS = ['/', '/for-parents', '/for-teachers', '/for-principals', '/pricing', '/sign-in', '/auth/callback'];
+const PUBLIC_PATHS = ['/', '/for-parents', '/for-teachers', '/for-principals', '/pricing', '/sign-in', '/auth/callback', '/auth/reset', '/api', '/forgot-password', '/update-password'];
 const PROTECTED_PREFIXES = ['/teacher', '/parent', '/admin'];
 
 function isPublic(pathname: string) {
@@ -46,7 +46,6 @@ export async function proxy(request: NextRequest) {
 
   // Fetch role from DB via service role (avoid RLS issues)
   const orgId = process.env.NEXT_PUBLIC_ORG_ID!;
-  const dbUrl = process.env.DATABASE_URL!;
 
   // Inline role lookup using Supabase REST (avoids importing Drizzle in edge middleware)
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
