@@ -1,10 +1,12 @@
 'use server';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { env } from '@/env';
+import { Resend } from 'resend';
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -54,7 +56,14 @@ export async function submitAttendance(
     recordedBy: user.id,
   }));
 
-  await db.insert(schema.attendanceRecords).values(rows).onConflictDoNothing();
+  await db.insert(schema.attendanceRecords).values(rows).onConflictDoUpdate({
+    target: [schema.attendanceRecords.classId, schema.attendanceRecords.studentId, schema.attendanceRecords.sessionDate],
+    set: {
+      status: sql`excluded.status`,
+      arrivalTime: sql`excluded.arrival_time`,
+      recordedBy: sql`excluded.recorded_by`,
+    },
+  });
   revalidatePath('/admin');
 }
 
@@ -70,13 +79,14 @@ export type HifzInput = {
   audioDataUrl?: string | null;
 };
 
-export async function submitHifz(classId: string, entries: HifzInput[]) {
+export async function submitHifz(classId: string, entries: HifzInput[]): Promise<{ uploadWarning: boolean }> {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
   const today = new Date().toISOString().slice(0, 10);
   const serviceClient = await createSupabaseServiceClient();
+  let uploadWarning = false;
 
   for (const entry of entries) {
     let audioUrl: string | null = null;
@@ -93,6 +103,8 @@ export async function submitHifz(classId: string, entries: HifzInput[]) {
       if (!error) {
         const { data } = serviceClient.storage.from('hifz-audio').getPublicUrl(filename);
         audioUrl = data.publicUrl;
+      } else {
+        uploadWarning = true;
       }
     }
 
@@ -123,6 +135,7 @@ export async function submitHifz(classId: string, entries: HifzInput[]) {
   }
 
   revalidatePath('/admin');
+  return { uploadWarning };
 }
 
 // ---------------------------------------------------------------------------
@@ -155,4 +168,78 @@ export async function submitNotes(classId: string, notes: NoteInput[]) {
 
   await db.insert(schema.studentNotes).values(rows);
   revalidatePath('/parent');
+}
+
+// ---------------------------------------------------------------------------
+// Notify parents
+// ---------------------------------------------------------------------------
+const SURAH_NAMES: Record<number, string> = {
+  1: 'Al-Fatihah', 2: 'Al-Baqarah', 3: 'Al-Imran', 4: 'An-Nisa',
+  5: 'Al-Maidah', 36: 'Ya-Sin', 67: 'Al-Mulk', 112: 'Al-Ikhlas',
+};
+function surahName(n: number) { return SURAH_NAMES[n] ?? `Surah ${n}`; }
+
+export async function notifyParents(classId: string, sessionDate: string) {
+  if (!process.env.RESEND_API_KEY) {
+    redirect(`/teacher/${classId}/confirm?sent=1`);
+  }
+
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
+
+  const [students, attendanceRows, hifzRows] = await Promise.all([
+    db.query.classEnrollments.findMany({
+      where: eq(schema.classEnrollments.classId, classId),
+      with: { student: { with: { guardians: { with: { guardian: true } } } } },
+    }),
+    db.query.attendanceRecords.findMany({
+      where: and(eq(schema.attendanceRecords.classId, classId), eq(schema.attendanceRecords.sessionDate, sessionDate), eq(schema.attendanceRecords.organizationId, orgId)),
+    }),
+    db.query.hifzRecords.findMany({
+      where: and(eq(schema.hifzRecords.classId, classId), eq(schema.hifzRecords.sessionDate, sessionDate), eq(schema.hifzRecords.organizationId, orgId)),
+    }),
+  ]);
+
+  const attendanceMap = new Map(attendanceRows.map(a => [a.studentId, a.status]));
+  const hifzMap = new Map(hifzRows.map(h => [h.studentId, h]));
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev';
+  const appUrl = env.NEXT_PUBLIC_APP_URL;
+
+  for (const enrollment of students) {
+    const student = enrollment.student;
+    if (!student) continue;
+
+    const status = attendanceMap.get(student.id) ?? 'no record';
+    const hifz = hifzMap.get(student.id);
+    const hifzLine = hifz
+      ? `<p>📖 <strong>Hifz:</strong> ${surahName(hifz.surahNumber)} ${hifz.ayahStart}–${hifz.ayahEnd} (${hifz.stream})</p>`
+      : '';
+
+    const statusEmoji = status === 'present' ? '✅' : status === 'late' ? '🕐' : status === 'absent' ? '❌' : '📋';
+
+    for (const link of student.guardians) {
+      if (!link.receivesNotifications || !link.guardian?.email) continue;
+
+      await resend.emails.send({
+        from: fromEmail,
+        to: link.guardian.email,
+        subject: `${student.fullName}'s class summary — ${sessionDate}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
+            <p style="font-size:16px">Assalamu alaykum, ${link.guardian.fullName ?? 'dear parent'},</p>
+            <p>Here is a summary of today's session for <strong>${student.fullName}</strong>:</p>
+            <p>${statusEmoji} <strong>Attendance:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>
+            ${hifzLine}
+            <p>You can view the full details — including teacher notes and hifz audio — in the parent portal:</p>
+            <p><a href="${appUrl}/parent/${student.id}" style="color:#7c5cbf">View ${student.fullName}'s day →</a></p>
+            <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
+            <p style="font-size:13px;color:#888">JazakAllah khair for entrusting us with your child's education. — Talibly</p>
+          </div>
+        `,
+      }).catch(() => null);
+    }
+  }
+
+  redirect(`/teacher/${classId}/confirm?sent=1`);
 }

@@ -3,8 +3,9 @@ import { and, eq } from 'drizzle-orm';
 import { env } from '@/env';
 import Link from 'next/link';
 import { Stepper } from '@skooly/ui';
+import { notifyParents } from '../../../actions';
 
-type Props = { params: Promise<{ classId: string }> };
+type Props = { params: Promise<{ classId: string }>; searchParams: Promise<{ sent?: string }> };
 
 const SURAH_NAMES: Record<number, string> = {
   1: 'Al-Fatihah', 2: 'Al-Baqarah', 3: 'Al-Imran', 4: 'An-Nisa',
@@ -17,8 +18,9 @@ function surahName(n: number) {
 
 const STEPS = [{ label: 'Attendance' }, { label: 'Hifz' }, { label: 'Notes' }, { label: 'Confirm' }];
 
-export default async function ConfirmPage({ params }: Props) {
+export default async function ConfirmPage({ params, searchParams }: Props) {
   const { classId } = await params;
+  const { sent } = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
@@ -51,6 +53,27 @@ export default async function ConfirmPage({ params }: Props) {
   ]);
 
   const todayNotes = notes.filter(n => n.createdAt && new Date(n.createdAt).toISOString().slice(0, 10) === today);
+
+  const notifyAction = async () => {
+    'use server';
+    await notifyParents(classId, today);
+  };
+
+  if (sent) {
+    return (
+      <main className="app-main">
+        <div className="success-screen" style={{ paddingTop: 64 }}>
+          <div className="success-icon">✅</div>
+          <h2>Class wrapped!</h2>
+          <p>Parents have been notified. JazakAllah khair.</p>
+          <div className="success-actions">
+            <Link href="/teacher" className="btn btn-ghost">Wrap another class</Link>
+            <Link href="/parent" className="btn btn-accent">View as parent →</Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="app-main">
@@ -101,14 +124,15 @@ export default async function ConfirmPage({ params }: Props) {
         </div>
       )}
 
-      <div className="success-screen" style={{ paddingTop: 32 }}>
-        <div className="success-icon">✅</div>
-        <h2>Class wrapped!</h2>
-        <p>Parents have been notified. JazakAllah khair.</p>
-        <div className="success-actions">
-          <Link href="/teacher" className="btn btn-ghost">Wrap another class</Link>
-          <Link href="/parent" className="btn btn-accent">View as parent →</Link>
-        </div>
+      <form action={notifyAction} style={{ marginTop: 32 }}>
+        <button type="submit" className="btn btn-accent" style={{ width: '100%' }}>
+          Send to parents
+        </button>
+      </form>
+      <div style={{ textAlign: 'center', marginTop: 12 }}>
+        <Link href="/teacher" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
+          Skip &amp; finish
+        </Link>
       </div>
     </main>
   );

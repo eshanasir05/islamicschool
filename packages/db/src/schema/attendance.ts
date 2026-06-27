@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { date, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { date, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { classes } from './classes';
 import { organizations } from './organizations';
 import { students } from './students';
@@ -24,7 +24,9 @@ export const attendanceRecords = pgTable('attendance_records', {
     .notNull()
     .references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, t => [
+  uniqueIndex('attendance_unique').on(t.classId, t.studentId, t.sessionDate),
+]);
 
 export type AttendanceRecord = typeof attendanceRecords.$inferSelect;
 export type NewAttendanceRecord = typeof attendanceRecords.$inferInsert;

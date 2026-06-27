@@ -29,6 +29,7 @@ export default function HifzClient({ classId, students }: { classId: string; stu
   const mediaRecorderRef = useRef<Record<string, MediaRecorder>>({});
   const chunksRef = useRef<Record<string, Blob[]>>({});
   const [saving, setSaving] = useState(false);
+  const [audioWarning, setAudioWarning] = useState(false);
 
   function updateEntry(studentId: string, patch: Partial<HifzEntry>) {
     setEntries(prev => ({ ...prev, [studentId]: { ...(prev[studentId] ?? DEFAULT_ENTRY), ...patch } as HifzEntry }));
@@ -66,7 +67,12 @@ export default function HifzClient({ classId, students }: { classId: string; stu
       studentId: s.id,
       ...(entries[s.id] ?? DEFAULT_ENTRY),
     }));
-    await submitHifz(classId, inputs);
+    const { uploadWarning } = await submitHifz(classId, inputs);
+    if (uploadWarning) {
+      setAudioWarning(true);
+      setSaving(false);
+      return;
+    }
     router.push(`/teacher/${classId}/notes`);
   }
 
@@ -131,9 +137,19 @@ export default function HifzClient({ classId, students }: { classId: string; stu
         );
       })}
 
+      {audioWarning && (
+        <div style={{ background: 'var(--warning-bg, #fff8e1)', border: '1px solid var(--warning, #f59e0b)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: 'var(--fg)' }}>
+          Audio upload unavailable — progress saved without recording.{' '}
+          <button type="button" style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, fontSize: 14, textDecoration: 'underline' }}
+            onClick={() => router.push(`/teacher/${classId}/notes`)}>
+            Continue anyway →
+          </button>
+        </div>
+      )}
+
       <div className="wrap-actions">
         <button type="button" className="btn btn-ghost" onClick={() => router.back()}>← Back</button>
-        <button type="button" className="btn btn-accent" onClick={handleNext} disabled={saving}>
+        <button type="button" className="btn btn-accent" onClick={handleNext} disabled={saving || audioWarning}>
           {saving ? 'Saving…' : 'Next: Notes →'}
         </button>
       </div>
