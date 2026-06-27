@@ -10,6 +10,11 @@ export default async function AdminHome() {
 
   const stats = await getAdminStats(env.NEXT_PUBLIC_ORG_ID);
 
+  const attendanceColor =
+    stats.attendancePct >= 80 ? 'var(--accent-700)' :
+    stats.attendancePct >= 50 ? '#b45309' :
+    '#991b1b';
+
   return (
     <main className="app-main">
       <h1 style={{ fontSize: 22, fontWeight: 600, margin: '24px 0 4px', color: 'var(--fg)' }}>
@@ -20,21 +25,30 @@ export default async function AdminHome() {
       </p>
 
       <div className="admin-stat-grid">
-        <div className="app-card stat-card">
-          <div className="stat-label">Attendance this week</div>
-          <div className="stat-value">{stats.attendancePct}%</div>
+        <div className="admin-stat">
+          <div className="admin-stat-label">📊 Attendance this week</div>
+          <div className="admin-stat-value" style={{ color: attendanceColor }}>
+            {stats.attendancePct}%
+          </div>
         </div>
-        <div className="app-card stat-card">
-          <div className="stat-label">Hifz wins this week</div>
-          <div className="stat-value">{stats.hifzWins}</div>
+        <div className="admin-stat">
+          <div className="admin-stat-label">📖 Hifz wins this week</div>
+          <div className="admin-stat-value">{stats.hifzWins}</div>
         </div>
-        <div className="app-card stat-card">
-          <div className="stat-label">Classes wrapped today</div>
-          <div className="stat-value">{stats.classesWrapped} / {stats.classes.length}</div>
+        <div className="admin-stat">
+          <div className="admin-stat-label">✅ Classes wrapped today</div>
+          <div className="admin-stat-value">
+            <span style={{ color: stats.classesWrapped === stats.classes.length && stats.classes.length > 0 ? 'var(--accent-700)' : 'var(--fg)' }}>
+              {stats.classesWrapped}
+            </span>
+            <span style={{ fontSize: 18, fontWeight: 400, color: 'var(--muted)' }}>
+              {' '}/ {stats.classes.length}
+            </span>
+          </div>
         </div>
-        <div className="app-card stat-card">
-          <div className="stat-label">Active tuition plans</div>
-          <div className="stat-value">{stats.activeTuition}</div>
+        <div className="admin-stat">
+          <div className="admin-stat-label">💳 Active tuition plans</div>
+          <div className="admin-stat-value">{stats.activeTuition}</div>
         </div>
       </div>
 
@@ -49,7 +63,7 @@ export default async function AdminHome() {
             {cls.wrappedToday ? (
               <span className="badge badge-present">Wrapped ✓</span>
             ) : (
-              <span className="badge badge-absent">Pending</span>
+              <span className="badge badge-late">Pending</span>
             )}
           </div>
         ))}

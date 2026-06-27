@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { db, schema } from '@/lib/db';
 import { eq, and } from 'drizzle-orm';
 import { env } from '@/env';
 import Link from 'next/link';
+import SkeletonPage from '@/components/skeleton-page';
 
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -26,7 +28,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
           <a className="app-logout" href="/auth/signout">Sign out</a>
         </div>
       </header>
-      {children}
+      <Suspense fallback={<SkeletonPage />}>{children}</Suspense>
     </div>
   );
 }

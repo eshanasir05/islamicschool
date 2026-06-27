@@ -73,6 +73,8 @@ export default function AttendanceClient({ classId, students }: { classId: strin
               type="button"
               className={`attendance-student-card ${status}`}
               onClick={() => toggle(s.id)}
+              aria-label={`${s.fullName}: ${status}. Tap to change.`}
+              aria-pressed={status === 'present'}
             >
               <span className="attendance-student-name">{s.fullName}</span>
               <span className={`badge badge-${status}`} style={{ textTransform: 'capitalize' }}>

@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { db, schema } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import Link from 'next/link';
 import AdminNav from './admin-nav';
+import SkeletonPage from '@/components/skeleton-page';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -25,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </header>
       <AdminNav />
-      {children}
+      <Suspense fallback={<SkeletonPage />}>{children}</Suspense>
     </div>
   );
 }
