@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { stripe } from '@/lib/stripe';
+import { env } from '@/env';
 
 export async function getAdminStats(orgId: string) {
   const sevenDaysAgo = new Date();
@@ -490,4 +492,120 @@ export async function unlinkGuardian(linkId: string, studentId: string) {
   await db.delete(schema.studentGuardians).where(eq(schema.studentGuardians.id, linkId));
   revalidatePath(`/admin/students/${studentId}`);
   redirect(`/admin/students/${studentId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Tuition management
+// ---------------------------------------------------------------------------
+
+export async function getAdminTuition(orgId: string) {
+  const students = await db.query.students.findMany({
+    where: and(eq(schema.students.organizationId, orgId), eq(schema.students.status, 'active')),
+    with: { tuitionPlans: { with: { payments: { orderBy: (p, { desc }) => desc(p.paidAt), limit: 1 } } } },
+    orderBy: (s, { asc }) => asc(s.fullName),
+  });
+  return students;
+}
+
+export async function getAdminStudentTuition(studentId: string, orgId: string) {
+  const [student, plans] = await Promise.all([
+    db.query.students.findFirst({
+      where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
+    }),
+    db.query.tuitionPlans.findMany({
+      where: and(eq(schema.tuitionPlans.studentId, studentId), eq(schema.tuitionPlans.organizationId, orgId)),
+      with: { payments: { orderBy: (p, { desc }) => desc(p.paidAt) }, guardian: true },
+      orderBy: (t, { desc }) => desc(t.createdAt),
+    }),
+  ]);
+  return { student, plans };
+}
+
+export async function createTuitionPlan(
+  orgId: string,
+  studentId: string,
+  data: {
+    amountCents: number;
+    frequency: 'monthly' | 'annual' | 'one_time';
+    startDate?: string;
+    slidingScaleNotes?: string;
+    guardianUserId: string;
+    guardianEmail: string;
+    studentName: string;
+  },
+) {
+  const customer = await stripe.customers.create({
+    email: data.guardianEmail,
+    metadata: { orgId, studentId, guardianUserId: data.guardianUserId },
+  });
+
+  const interval = data.frequency === 'annual' ? 'year' : 'month';
+  const isRecurring = data.frequency !== 'one_time';
+
+  const price = await stripe.prices.create({
+    unit_amount: data.amountCents,
+    currency: 'usd',
+    ...(isRecurring
+      ? { recurring: { interval } }
+      : {}),
+    product_data: { name: `Tuition — ${data.studentName}` },
+  });
+
+  const appUrl = env.NEXT_PUBLIC_APP_URL;
+  const session = await stripe.checkout.sessions.create({
+    customer: customer.id,
+    payment_method_types: ['card'],
+    line_items: [{ price: price.id, quantity: 1 }],
+    mode: isRecurring ? 'subscription' : 'payment',
+    success_url: `${appUrl}/admin/tuition/${studentId}?payment=success`,
+    cancel_url: `${appUrl}/admin/tuition/${studentId}`,
+    metadata: { planId: '' },
+  });
+
+  const [plan] = await db
+    .insert(schema.tuitionPlans)
+    .values({
+      organizationId: orgId,
+      studentId,
+      guardianUserId: data.guardianUserId,
+      amountCents: data.amountCents,
+      currency: 'USD',
+      frequency: data.frequency,
+      startDate: data.startDate ?? null,
+      slidingScaleNotes: data.slidingScaleNotes ?? null,
+      status: 'pending_payment',
+      stripeCustomerId: customer.id,
+      stripeCheckoutSessionId: session.id,
+    })
+    .returning({ id: schema.tuitionPlans.id });
+
+  if (!plan) throw new Error('Failed to create tuition plan');
+
+  await stripe.checkout.sessions.update(session.id, {
+    metadata: { planId: plan.id },
+  });
+
+  revalidatePath(`/admin/tuition/${studentId}`);
+  revalidatePath('/admin/tuition');
+  redirect(`/admin/tuition/${studentId}?checkout_url=${encodeURIComponent(session.url ?? '')}`);
+}
+
+export async function cancelTuitionPlan(planId: string, orgId: string, studentId: string) {
+  const plan = await db.query.tuitionPlans.findFirst({
+    where: and(eq(schema.tuitionPlans.id, planId), eq(schema.tuitionPlans.organizationId, orgId)),
+  });
+  if (!plan) return;
+
+  if (plan.stripeSubscriptionId) {
+    await stripe.subscriptions.cancel(plan.stripeSubscriptionId);
+  }
+
+  await db
+    .update(schema.tuitionPlans)
+    .set({ status: 'cancelled' })
+    .where(eq(schema.tuitionPlans.id, planId));
+
+  revalidatePath(`/admin/tuition/${studentId}`);
+  revalidatePath('/admin/tuition');
+  redirect(`/admin/tuition/${studentId}`);
 }

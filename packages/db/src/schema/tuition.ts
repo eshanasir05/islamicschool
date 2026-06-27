@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { date, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from './organizations';
 import { students } from './students';
+import { users } from './users';
 
 export const tuitionPlans = pgTable('tuition_plans', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
@@ -19,6 +20,9 @@ export const tuitionPlans = pgTable('tuition_plans', {
   slidingScaleNotes: text('sliding_scale_notes'),
   status: text('status').default('active').notNull(),
   stripeSubscriptionId: text('stripe_subscription_id'),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeCheckoutSessionId: text('stripe_checkout_session_id'),
+  guardianUserId: uuid('guardian_user_id').references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

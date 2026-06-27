@@ -5,8 +5,10 @@ import { hifzRecords } from './hifz';
 import { memberships } from './memberships';
 import { studentNotes } from './notes';
 import { organizations } from './organizations';
+import { payments } from './payments';
 import { studentGuardians } from './student-guardians';
 import { students } from './students';
+import { tuitionPlans } from './tuition';
 import { users } from './users';
 
 export const studentsRelations = relations(students, ({ many }) => ({
@@ -15,6 +17,7 @@ export const studentsRelations = relations(students, ({ many }) => ({
   notes: many(studentNotes),
   enrollments: many(classEnrollments),
   guardians: many(studentGuardians),
+  tuitionPlans: many(tuitionPlans),
 }));
 
 export const attendanceRecordsRelations = relations(attendanceRecords, ({ one }) => ({
@@ -59,4 +62,15 @@ export const usersRelations = relations(users, ({ many }) => ({
 export const membershipsRelations = relations(memberships, ({ one }) => ({
   user: one(users, { fields: [memberships.userId], references: [users.id] }),
   organization: one(organizations, { fields: [memberships.organizationId], references: [organizations.id] }),
+}));
+
+export const tuitionPlansRelations = relations(tuitionPlans, ({ one, many }) => ({
+  student: one(students, { fields: [tuitionPlans.studentId], references: [students.id] }),
+  guardian: one(users, { fields: [tuitionPlans.guardianUserId], references: [users.id] }),
+  payments: many(payments),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  tuitionPlan: one(tuitionPlans, { fields: [payments.tuitionPlanId], references: [tuitionPlans.id] }),
+  payer: one(users, { fields: [payments.payerUserId], references: [users.id] }),
 }));
