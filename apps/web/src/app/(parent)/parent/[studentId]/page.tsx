@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getStudentFeed, getGuardianStudents } from '../../actions';
+import { getStudentFeed, getGuardianStudents, getAnnouncements } from '../../actions';
 import AudioPlayer from './audio-player';
+import { toHijriString } from '@/lib/hijri';
+import { env } from '@/env';
 
 type Props = { params: Promise<{ studentId: string }> };
 
@@ -23,9 +25,14 @@ export default async function ParentFeedPage({ params }: Props) {
   if (!student) redirect('/parent');
 
   const today = new Date().toISOString().slice(0, 10);
-  const { attendance, hifz, audioSignedUrl, notes } = await getStudentFeed(studentId, today);
+  const [{ attendance, hifz, audioSignedUrl, notes }, announcements] = await Promise.all([
+    getStudentFeed(studentId, today),
+    getAnnouncements(env.NEXT_PUBLIC_ORG_ID),
+  ]);
 
-  const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const now = new Date();
+  const todayLabel = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const hijri = toHijriString(now);
   const seenNoteIds = new Set<string>();
   const uniqueNotes = notes.filter(n => {
     if (seenNoteIds.has(n.id)) return false;
@@ -40,6 +47,7 @@ export default async function ParentFeedPage({ params }: Props) {
   return (
     <main className="app-main">
       <p className="feed-date" style={{ marginTop: 24 }}>{todayLabel}</p>
+      {hijri && <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, marginTop: -12 }}>{hijri}</p>}
       <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 24px', color: 'var(--fg)' }}>
         {student.fullName}&apos;s day
       </h1>
@@ -102,6 +110,22 @@ export default async function ParentFeedPage({ params }: Props) {
             </div>
           ))}
         </>
+      )}
+
+      {announcements.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>
+            📢 School announcements
+          </h2>
+          {announcements.map(a => (
+            <div key={a.threadId} className="app-card" style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 14, color: 'var(--fg-2)', lineHeight: 1.55, margin: '0 0 8px' }}>{a.content}</p>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </main>
   );

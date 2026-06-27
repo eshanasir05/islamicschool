@@ -1,6 +1,7 @@
 'use server';
 
 import { and, count, desc, eq, gte, max } from 'drizzle-orm';
+import { revalidatePath } from 'next/cache';
 import { db, schema } from '@/lib/db';
 
 export async function getAdminStats(orgId: string) {
@@ -174,4 +175,59 @@ export async function getAdminTeachers(orgId: string) {
     classes: classesByTeacher.get(m.userId) ?? [],
     lastSession: lastSessionMap.get(m.userId) ?? null,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Announcements
+// ---------------------------------------------------------------------------
+export async function getAnnouncements(orgId: string) {
+  const rows = await db
+    .select({
+      threadId: schema.messageThreads.id,
+      createdAt: schema.messages.createdAt,
+      content: schema.messages.content,
+      senderUserId: schema.messages.senderUserId,
+    })
+    .from(schema.messageThreads)
+    .innerJoin(schema.messages, eq(schema.messages.threadId, schema.messageThreads.id))
+    .where(
+      and(
+        eq(schema.messageThreads.organizationId, orgId),
+        eq(schema.messageThreads.scope, 'school_wide'),
+      ),
+    )
+    .orderBy(desc(schema.messages.createdAt))
+    .limit(20);
+
+  const senderIds = [...new Set(rows.map(r => r.senderUserId))];
+  const senders = senderIds.length > 0
+    ? await db.query.users.findMany({ where: (u, { inArray }) => inArray(u.id, senderIds) })
+    : [];
+  const senderMap = new Map(senders.map(s => [s.id, s.fullName ?? s.email ?? '—']));
+
+  return rows.map(r => ({
+    id: r.threadId,
+    content: r.content,
+    createdAt: r.createdAt,
+    senderName: senderMap.get(r.senderUserId) ?? '—',
+  }));
+}
+
+export async function createAnnouncement(orgId: string, userId: string, content: string) {
+  const [thread] = await db.insert(schema.messageThreads).values({
+    organizationId: orgId,
+    scope: 'school_wide',
+    createdBy: userId,
+  }).returning({ id: schema.messageThreads.id });
+
+  if (!thread) throw new Error('Failed to create thread');
+
+  await db.insert(schema.messages).values({
+    threadId: thread.id,
+    senderUserId: userId,
+    content,
+  });
+
+  revalidatePath('/admin/announcements');
+  revalidatePath('/parent');
 }

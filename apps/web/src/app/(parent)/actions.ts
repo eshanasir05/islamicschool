@@ -5,6 +5,26 @@ import { db, schema } from '@/lib/db';
 import { env } from '@/env';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
+export async function getAnnouncements(orgId: string) {
+  const rows = await db
+    .select({
+      threadId: schema.messageThreads.id,
+      createdAt: schema.messages.createdAt,
+      content: schema.messages.content,
+    })
+    .from(schema.messageThreads)
+    .innerJoin(schema.messages, eq(schema.messages.threadId, schema.messageThreads.id))
+    .where(
+      and(
+        eq(schema.messageThreads.organizationId, orgId),
+        eq(schema.messageThreads.scope, 'school_wide'),
+      ),
+    )
+    .orderBy(desc(schema.messages.createdAt))
+    .limit(5);
+  return rows;
+}
+
 export async function getGuardianStudents(guardianUserId: string) {
   const links = await db.query.studentGuardians.findMany({
     where: eq(schema.studentGuardians.guardianUserId, guardianUserId),

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getTeacherClasses } from '../actions';
 import Link from 'next/link';
+import { toHijriString } from '@/lib/hijri';
 
 export default async function TeacherHome() {
   const supabase = await createSupabaseServerClient();
@@ -10,11 +11,14 @@ export default async function TeacherHome() {
 
   const classes = await getTeacherClasses(user.id);
 
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const now = new Date();
+  const today = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const hijri = toHijriString(now);
 
   return (
     <main className="app-main">
       <p className="feed-date" style={{ marginTop: 24 }}>{today}</p>
+      {hijri && <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, marginTop: -8 }}>{hijri}</p>}
       <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 4px', color: 'var(--fg)' }}>
         Your classes
       </h1>
