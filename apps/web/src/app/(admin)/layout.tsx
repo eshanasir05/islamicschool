@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { db, schema } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import Link from 'next/link';
+import AdminNav from './admin-nav';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -23,6 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <a className="app-logout" href="/auth/signout">Sign out</a>
         </div>
       </header>
+      <AdminNav />
       {children}
     </div>
   );
