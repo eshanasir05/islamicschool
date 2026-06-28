@@ -60,7 +60,14 @@ export default function ForgotPasswordPage() {
                 {loading ? 'Sending…' : 'Send reset link'}
               </button>
             </form>
-            {error && <p className="sign-in-error">{error}</p>}
+            {error === 'rate_limit' && (
+              <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: '#fef3c7', border: '1px solid #fde68a', fontSize: 13, color: '#92400e' }}>
+                <strong>Too many requests.</strong> Supabase limits password reset emails on the free tier. Please wait a minute and try again, or use the <a href="/sign-in" style={{ color: '#92400e', fontWeight: 600 }}>demo credentials</a> on the sign-in page.
+              </div>
+            )}
+            {error === 'send_failed' && (
+              <p className="sign-in-error">Couldn't send the reset email. Please try again.</p>
+            )}
             <a href="/sign-in" style={{ display: 'block', textAlign: 'center', marginTop: 16, fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
               Back to sign in
             </a>
