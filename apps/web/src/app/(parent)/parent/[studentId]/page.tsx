@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getStudentFeed, getGuardianStudents, getAnnouncements } from '../../actions';
+import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition } from '../../actions';
 import AudioPlayer from './audio-player';
 import { toHijriString } from '@/lib/hijri';
 import { env } from '@/env';
@@ -25,9 +25,10 @@ export default async function ParentFeedPage({ params }: Props) {
   if (!student) redirect('/parent');
 
   const today = new Date().toISOString().slice(0, 10);
-  const [{ attendance, hifz, audioSignedUrl, notes }, announcements] = await Promise.all([
+  const [{ attendance, hifz, audioSignedUrl, notes }, announcements, tuition] = await Promise.all([
     getStudentFeed(studentId, today),
     getAnnouncements(env.NEXT_PUBLIC_ORG_ID),
+    getParentTuition(studentId),
   ]);
 
   const now = new Date();
@@ -110,6 +111,70 @@ export default async function ParentFeedPage({ params }: Props) {
             </div>
           ))}
         </>
+      )}
+
+      {tuition && (
+        <div style={{ marginTop: 32 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>Billing</h2>
+          <div className="app-card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--fg)' }}>
+                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: tuition.currency }).format(tuition.amountCents / 100)}
+                  <span style={{ fontWeight: 400, fontSize: 13, color: 'var(--muted)' }}>
+                    {' '}/ {tuition.frequency === 'one_time' ? 'one time' : tuition.frequency}
+                  </span>
+                </div>
+              </div>
+              <span className={
+                tuition.status === 'active' ? 'badge badge-present' :
+                tuition.status === 'past_due' ? 'badge badge-absent' :
+                'badge badge-late'
+              } style={{ textTransform: 'capitalize' }}>
+                {tuition.status.replace('_', ' ')}
+              </span>
+            </div>
+
+            {tuition.status === 'pending_payment' && (
+              <p style={{ fontSize: 13, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', margin: '8px 0 0' }}>
+                Billing setup is pending. Please check your email for the payment link from the school, or contact the school office.
+              </p>
+            )}
+
+            {tuition.status === 'past_due' && (
+              <p style={{ fontSize: 13, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', margin: '8px 0 0' }}>
+                Your payment is past due. Please contact the school office.
+              </p>
+            )}
+
+            {tuition.payments.length > 0 && (
+              <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 8 }}>
+                  Recent payments
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {tuition.payments.map(p => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                      <div style={{ color: 'var(--fg)' }}>
+                        {p.paidAt ? new Date(p.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ color: 'var(--fg)', fontWeight: 500 }}>
+                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: p.currency }).format(p.amountCents / 100)}
+                        </span>
+                        {p.receiptUrl && (
+                          <a href={p.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: 12 }}>
+                            Receipt
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {announcements.length > 0 && (

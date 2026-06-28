@@ -1,6 +1,6 @@
 'use server';
 
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { env } from '@/env';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
@@ -89,4 +89,21 @@ export async function getStudentFeed(studentId: string, date: string) {
   }
 
   return { attendance, hifz, audioSignedUrl, notes };
+}
+
+export async function getParentTuition(studentId: string) {
+  const plan = await db.query.tuitionPlans.findFirst({
+    where: and(
+      eq(schema.tuitionPlans.studentId, studentId),
+      ne(schema.tuitionPlans.status, 'cancelled'),
+    ),
+    with: {
+      payments: {
+        orderBy: (p, { desc }) => desc(p.paidAt),
+        limit: 5,
+      },
+    },
+    orderBy: (t, { desc }) => desc(t.createdAt),
+  });
+  return plan ?? null;
 }
