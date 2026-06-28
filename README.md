@@ -2,7 +2,7 @@
 
 Islamic Sunday school management platform — replacing WhatsApp groups, paper attendance, and Zelle screenshots with a purpose-built tool for teachers, parents, and principals.
 
-Live demo: https://talibly.vercel.app
+Live demo: https://islamicschool-web.vercel.app
 
 ---
 
@@ -13,8 +13,8 @@ Talibly is a SaaS MVP for North American Islamic weekend schools. A teacher can 
 Three role-based flows:
 
 - **Teacher** — mark attendance, log hifz ayah ranges with optional audio, add praise/homework notes, send parent wrap email
-- **Parent** — daily feed per child with attendance, hifz record, teacher notes, and school announcements
-- **Principal/Admin** — dashboard with weekly stats, student list, class list, teacher list, announcements
+- **Parent** — daily feed per child with attendance, hifz record, teacher notes, billing status, and school announcements
+- **Principal/Admin** — dashboard with weekly stats, student/class/teacher management, tuition plans via Stripe Checkout, and announcements
 
 ---
 
@@ -28,6 +28,7 @@ Three role-based flows:
 | Database | Supabase Postgres + Drizzle ORM |
 | Storage | Supabase Storage (hifz audio) |
 | Email | Resend (transactional + parent wrap notifications) |
+| Payments | Stripe Checkout + webhooks (tuition subscription billing) |
 | Monorepo | Turborepo + pnpm workspaces |
 | Linting | Biome |
 
@@ -85,6 +86,10 @@ Optional (email features degrade gracefully without these):
 - `RESEND_FROM_EMAIL`
 - `LEADS_TO_EMAIL`
 
+Optional (tuition/Stripe features disabled without these):
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+
 ---
 
 ## Project structure
@@ -99,7 +104,7 @@ islamicschool/
 │           │   ├── (teacher)/      # /teacher/** — class wrap flow
 │           │   ├── (parent)/       # /parent/** — daily feed
 │           │   ├── (admin)/        # /admin/** — principal dashboard
-│           │   └── api/            # Route handlers (leads, auth callbacks)
+│           │   └── api/            # Route handlers (leads, auth callbacks, Stripe webhook)
 │           ├── components/         # Shared UI components
 │           └── lib/                # Supabase helpers, Hijri date util
 ├── packages/
@@ -128,3 +133,4 @@ pnpm --filter @skooly/db db:seed            # Seed demo data
 2. Set root directory to `apps/web`
 3. Add all environment variables from `.env.example` to the Vercel dashboard
 4. Deploy — Turbo remote cache is not required; `globalEnv` in `turbo.json` ensures env vars propagate to all packages at build time
+5. **Stripe webhook** — after first deploy, go to Stripe Dashboard → Developers → Webhooks → add endpoint `https://[your-domain]/api/stripe/webhook` with events: `checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted`

@@ -130,10 +130,10 @@ export default function SignInPage() {
         )}
 
         <div className="sign-in-demo-hint">
-          <strong>Demo logins:</strong><br />
-          amina@talibly.dev · idris@talibly.dev · sarah@talibly.dev<br />
-          omar@talibly.dev · khalid@talibly.dev<br />
-          Password: <code>demo1234</code>
+          <strong>Demo logins</strong> — password: <code>demo1234</code><br />
+          <span style={{ color: 'var(--muted)', fontSize: 12 }}>Teacher</span> amina@talibly.dev · idris@talibly.dev<br />
+          <span style={{ color: 'var(--muted)', fontSize: 12 }}>Parent&nbsp;&nbsp;</span> sarah@talibly.dev · omar@talibly.dev<br />
+          <span style={{ color: 'var(--muted)', fontSize: 12 }}>Admin&nbsp;&nbsp;&nbsp;</span> khalid@talibly.dev
         </div>
       </div>
     </div>
