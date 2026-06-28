@@ -46,7 +46,68 @@ All demo accounts use password `demo1234`.
 | omar@talibly.dev | Parent | Bilal Yusuf, Khadijah Nasir |
 | khalid@talibly.dev | Principal | Full admin dashboard |
 
-Sign in at `/sign-in`.
+Sign in at `/sign-in` — credentials are shown on the sign-in page.
+
+---
+
+## Demo walkthrough
+
+A suggested path for reviewers (5–10 minutes):
+
+### As admin — `khalid@talibly.dev`
+1. Sign in → lands on `/admin` dashboard (weekly stats, class wrap status)
+2. **Students** → view roster, click a student to see their profile and guardian links
+3. **Classes** → view class detail with enrolled students and session history
+4. **Teachers** → "+ Invite teacher" to send a real invite email via Supabase
+5. **Parents** → "+ Invite parent", select a student, set relationship → invite email sent
+6. **Tuition** → click a student → "Set up plan" → choose monthly amount and guardian → copy the Stripe Checkout link → open it in a new tab → use test card `4242 4242 4242 4242` to pay → return to `/admin/tuition/[studentId]` to see the payment recorded
+7. **Exports** → download Student Roster, Payment History, and Attendance Records as CSV
+8. **Settings** → edit school name
+9. **Announcements** → post a school-wide message
+10. Click your name in the header → Account → update display name or change password
+
+### As teacher — `amina@talibly.dev`
+1. Sign in → lands on `/teacher` with class list
+2. Select "Hifz Circle — Beginners"
+3. **Attendance** → tap each student card to mark present / late / absent
+4. **Hifz** → log surah, ayah range, optional audio recording
+5. **Notes** → add praise (category chip) and homework note
+6. **Confirm** → review summary → "Send to parents" to email all guardians
+
+### As parent — `sarah@talibly.dev`
+1. Sign in → lands on `/parent` → tab bar shows Aisha + Yusuf
+2. Switch between children — each has their own feed
+3. See today's attendance, hifz record, teacher notes, Billing section, and announcements
+4. Billing shows payment history with receipt links (if Stripe plan is active)
+
+---
+
+## Stripe test cards
+
+Use these in the Stripe Checkout during the tuition demo:
+
+| Card number | Scenario |
+|---|---|
+| `4242 4242 4242 4242` | Payment succeeds |
+| `4000 0000 0000 0002` | Card declined |
+| `4000 0025 0000 3155` | Requires 3D Secure authentication |
+
+Expiry: any future date (e.g. `12/29`). CVV: any 3 digits. ZIP: any 5 digits.
+
+---
+
+## Key workflows
+
+| Workflow | Path |
+|---|---|
+| Admin invites teacher | `/admin/teachers/invite` |
+| Admin invites parent + links to student | `/admin/parents/invite` |
+| Admin creates tuition plan (Stripe Checkout) | `/admin/tuition/[studentId]` |
+| Teacher completes class wrap | `/teacher → attendance → hifz → notes → confirm` |
+| Parent views child feed + billing | `/parent/[studentId]` |
+| Admin downloads CSV export | `/admin/exports` |
+| Change password | `/account` |
+| Admin edits org settings | `/admin/settings` |
 
 ---
 
@@ -134,3 +195,17 @@ pnpm --filter @skooly/db db:seed            # Seed demo data
 3. Add all environment variables from `.env.example` to the Vercel dashboard
 4. Deploy — Turbo remote cache is not required; `globalEnv` in `turbo.json` ensures env vars propagate to all packages at build time
 5. **Stripe webhook** — after first deploy, go to Stripe Dashboard → Developers → Webhooks → add endpoint `https://[your-domain]/api/stripe/webhook` with events: `checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted`
+
+---
+
+## Known limitations / future work
+
+These are intentional MVP trade-offs, not bugs:
+
+- **No SMS/push notifications** — parent wrap emails use Resend; Twilio/push not wired up
+- **Single organisation** — `NEXT_PUBLIC_ORG_ID` is hardcoded; multi-tenancy would require org switching
+- **No Stripe Connect** — all payments go to the platform Stripe account; per-school sub-accounts not implemented
+- **Audio requires Supabase Storage bucket** — hifz recording silently skips if the `hifz-audio` bucket doesn't exist
+- **No in-app messaging** — schema has `message_threads`/`messages` tables but no UI; school-wide announcements are the only communication channel
+- **No date filter on exports** — CSV exports return all records; date-range filtering is a natural next step
+- **Invited users have no password until they use "Forgot password"** — this is by design; Supabase invite links log the user in directly
