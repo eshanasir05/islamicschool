@@ -209,25 +209,12 @@ function TeachersBento() {
           <div className="bento-cell b-c2">
             <div className="bento-eyebrow">
               <Icon name="phone" size={12} />
-              Mobile or web
+              Mobile-friendly web
             </div>
             <h4>Whichever screen is closest.</h4>
             <p>
-              The teacher app works on iOS, Android, and the masjid laptop. Same wrap on every
-              screen.
-            </p>
-          </div>
-
-          <div className="bento-cell b-c6 cool">
-            <div className="bento-eyebrow">
-              <Icon name="shield" size={12} />
-              Offline-tolerant
-            </div>
-            <h4>Record in the basement. Sync when you&apos;re back upstairs.</h4>
-            <p style={{ maxWidth: 540 }}>
-              Talibly knows a lot of weekend schools meet in masjid basements with terrible wifi.
-              Recordings, attendance, and praise queue up locally and sync the moment your phone
-              finds signal. Nothing is lost. Parents still get the feed. Just a few minutes later.
+              The teacher app works on any phone browser or the masjid laptop. Same wrap on every
+              screen. No app install required.
             </p>
           </div>
         </div>

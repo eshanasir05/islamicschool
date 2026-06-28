@@ -13,3 +13,4 @@ export * from './messaging';
 export * from './media';
 export * from './consents';
 export * from './relations';
+export * from './leads';

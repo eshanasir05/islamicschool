@@ -16,7 +16,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Talibly · For parents',
   description:
-    'One feed per child. Hifz audio, attendance pings, teacher praise, homework, tuition. All in one place.',
+    'One feed per child. Hifz audio, attendance updates, teacher praise, homework, tuition. All in one place.',
 };
 
 function ParentsHero() {
@@ -73,14 +73,14 @@ function ParentsBento() {
           <div className="bento-cell b-c2 dark">
             <div className="bento-eyebrow">
               <Icon name="phone" size={12} />
-              Push, instantly
+              Feed updates
             </div>
             <h4>
               Marked late at 9:18.
               <br />
-              You&apos;ll know by 9:19.
+              In your feed by 9:19.
             </h4>
-            <p>Attendance, hifz, praise. Pushed the moment the teacher taps save.</p>
+            <p>Attendance, hifz, praise. Your feed updates the moment the teacher taps save.</p>
           </div>
 
           <div className="bento-cell b-c3">
@@ -196,8 +196,7 @@ function ParentsBento() {
             </div>
             <h4>One tap. No Zelle screenshots.</h4>
             <p>
-              Autopay on the first of the month. Sibling discounts applied automatically. Receipts
-              in your inbox for tax season.
+              Autopay on the first of the month. Receipts in your inbox for tax season.
             </p>
             <div className="bento-art">
               <div

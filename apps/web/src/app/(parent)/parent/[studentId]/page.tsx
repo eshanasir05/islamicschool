@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition } from '../../actions';
+import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession } from '../../actions';
 import AudioPlayer from './audio-player';
 import { toHijriString } from '@/lib/hijri';
 import { env } from '@/env';
 
-type Props = { params: Promise<{ studentId: string }> };
+type Props = { params: Promise<{ studentId: string }>; searchParams: Promise<{ payment?: string }> };
 
 const SURAH_NAMES: Record<number, string> = {
   1: 'Al-Fatihah', 2: 'Al-Baqarah', 3: 'Al-Imran', 4: 'An-Nisa',
@@ -13,8 +13,9 @@ const SURAH_NAMES: Record<number, string> = {
 };
 function surahName(n: number) { return SURAH_NAMES[n] ?? `Surah ${n}`; }
 
-export default async function ParentFeedPage({ params }: Props) {
+export default async function ParentFeedPage({ params, searchParams }: Props) {
   const { studentId } = await params;
+  const { payment } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
@@ -45,8 +46,18 @@ export default async function ParentFeedPage({ params }: Props) {
 
   const hasContent = attendance || hifz || praiseNotes.length > 0 || homeworkNotes.length > 0;
 
+  async function payNowAction() {
+    'use server';
+    if (tuition) await createParentPaymentSession(tuition.id, studentId);
+  }
+
   return (
     <main className="app-main">
+      {payment === 'success' && (
+        <div style={{ margin: '16px 0', padding: '12px 16px', borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 14, color: '#166534' }}>
+          Payment received — JazakAllah khayran! Your billing is now active.
+        </div>
+      )}
       <p className="feed-date" style={{ marginTop: 24 }}>{todayLabel}</p>
       {hijri && <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, marginTop: -12 }}>{hijri}</p>}
       <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 24px', color: 'var(--fg)' }}>
@@ -136,15 +147,29 @@ export default async function ParentFeedPage({ params }: Props) {
             </div>
 
             {tuition.status === 'pending_payment' && (
-              <p style={{ fontSize: 13, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', margin: '8px 0 0' }}>
-                Billing setup is pending. Please check your email for the payment link from the school, or contact the school office.
-              </p>
+              <div style={{ marginTop: 12, padding: '12px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
+                <p style={{ fontSize: 13, color: '#92400e', margin: '0 0 10px' }}>
+                  Your tuition plan is ready. Complete your payment to activate it.
+                </p>
+                <form action={payNowAction}>
+                  <button type="submit" className="btn btn-accent" style={{ fontSize: 13, padding: '8px 18px' }}>
+                    Pay now →
+                  </button>
+                </form>
+              </div>
             )}
 
             {tuition.status === 'past_due' && (
-              <p style={{ fontSize: 13, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', margin: '8px 0 0' }}>
-                Your payment is past due. Please contact the school office.
-              </p>
+              <div style={{ marginTop: 12, padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
+                <p style={{ fontSize: 13, color: '#991b1b', margin: '0 0 10px' }}>
+                  A recent payment failed. Please update your payment method to continue.
+                </p>
+                <form action={payNowAction}>
+                  <button type="submit" className="btn btn-accent" style={{ fontSize: 13, padding: '8px 18px' }}>
+                    Update billing →
+                  </button>
+                </form>
+              </div>
             )}
 
             {tuition.payments.length > 0 && (

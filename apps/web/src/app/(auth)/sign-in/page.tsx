@@ -129,12 +129,14 @@ export default function SignInPage() {
           </p>
         )}
 
-        <div className="sign-in-demo-hint">
-          <strong>Demo logins</strong> — password: <code>demo1234</code><br />
-          <span style={{ color: 'var(--muted)', fontSize: 12 }}>Teacher</span> amina@talibly.dev · idris@talibly.dev<br />
-          <span style={{ color: 'var(--muted)', fontSize: 12 }}>Parent&nbsp;&nbsp;</span> sarah@talibly.dev · omar@talibly.dev<br />
-          <span style={{ color: 'var(--muted)', fontSize: 12 }}>Admin&nbsp;&nbsp;&nbsp;</span> khalid@talibly.dev
-        </div>
+        {process.env.NEXT_PUBLIC_SHOW_DEMO_LINK === 'true' && (
+          <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--muted)' }}>
+            Evaluating Talibly?{' '}
+            <a href="/demo" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+              View demo credentials →
+            </a>
+          </p>
+        )}
       </div>
     </div>
   );

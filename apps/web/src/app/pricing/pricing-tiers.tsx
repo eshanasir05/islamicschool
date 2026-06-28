@@ -28,8 +28,8 @@ const TIERS: Tier[] = [
       'All parent app features',
       'Hifz audio recording',
       'Multi-child parent accounts',
-      'Stripe tuition (1.9% + 30¢)',
-      'iOS, Android, web',
+      'Stripe tuition billing',
+      'Mobile-friendly web app',
       'Email support',
     ],
   },
@@ -47,8 +47,8 @@ const TIERS: Tier[] = [
       'Unlimited teachers & classes',
       'Principal dashboard',
       'Tuition pipeline & autopay',
-      'Sibling & scholarship rules',
-      'Board-ready PDF / CSV exports',
+      'Sibling discounts (coming soon)',
+      'Board-ready CSV exports',
       'Roster import & onboarding',
       'Priority chat support',
     ],
@@ -63,7 +63,7 @@ const TIERS: Tier[] = [
     features: [
       'Everything in Weekend School',
       'Volume tuition pricing',
-      'Custom enrollment funnel',
+      'Custom enrollment setup',
       'Dedicated onboarding manager',
       'Single sign-on (SSO)',
       'Quarterly business reviews',
@@ -175,7 +175,7 @@ export function PricingHeroAndTiers() {
                   ))}
                 </ul>
                 <div className="tier-cta">
-                  <Link className={`btn ${t.featured ? 'btn-accent' : 'btn-primary'}`} href="#demo">
+                  <Link className={`btn ${t.featured ? 'btn-accent' : 'btn-primary'}`} href="/contact">
                     {t.cta}
                     <Icon name="arrow" size={14} />
                   </Link>

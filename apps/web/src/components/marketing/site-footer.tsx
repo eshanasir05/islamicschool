@@ -24,22 +24,29 @@ export function SiteFooter() {
           </div>
           <div className="footer-col">
             <h5>For schools</h5>
-            <a href="/#weekend-schools">Weekend schools</a>
-            <a href="/#full-time">Full-time academies</a>
-            <a href="/#tutors">Quran tutors</a>
-            <a href="/#migration">Migration</a>
+            <Link href="/pricing">Weekend schools</Link>
+            <Link href="/pricing">Full-time academies</Link>
+            <Link href="/contact">Quran tutors</Link>
+            <Link href="/contact">Migration help</Link>
           </div>
           <div className="footer-col">
             <h5>Company</h5>
-            <a href="/#about">About</a>
-            <a href="/#contact">Contact</a>
-            <a href="/#privacy">Privacy</a>
-            <a href="/#terms">Terms</a>
+            <Link href="/contact">About</Link>
+            <Link href="/contact">Contact</Link>
+            <Link href="/security">Security</Link>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
           </div>
         </div>
         <div className="footer-base">
           <span>© 2026 Talibly · Made for the ummah</span>
-          <span>v1 · in development</span>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+            <Link href="/privacy" style={{ color: 'inherit' }}>Privacy</Link>
+            {' · '}
+            <Link href="/terms" style={{ color: 'inherit' }}>Terms</Link>
+            {' · '}
+            <Link href="/security" style={{ color: 'inherit' }}>Security</Link>
+          </span>
         </div>
       </div>
     </footer>

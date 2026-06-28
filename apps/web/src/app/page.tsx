@@ -35,7 +35,7 @@ function Hero() {
             morning.
           </p>
           <div className="hero-cta">
-            <Link className="btn btn-accent" href="#demo">
+            <Link className="btn btn-accent" href="/contact">
               Book a demo
               <Icon name="arrow" size={14} />
             </Link>
@@ -79,12 +79,12 @@ function Replace() {
     {
       strike: 'Paper attendance sheets',
       now: 'Tap to mark, on any device',
-      sub: 'Teachers wrap a class in about a minute. Parents get a push the moment their kid is marked late.',
+      sub: 'Teachers wrap a class in about a minute. Parents see a feed update the moment their kid is marked late.',
     },
     {
       strike: 'Zelle screenshots',
       now: 'One-tap tuition, already reconciled',
-      sub: 'Stripe-powered tuition with autopay, sibling discounts, and a ledger your bookkeeper will actually open.',
+      sub: 'Stripe-powered tuition with autopay and a ledger your bookkeeper will actually open.',
     },
   ];
   return (
@@ -141,8 +141,7 @@ function ParentSection() {
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Attendance pings.</strong> A push notification the moment they&apos;re
-                  marked present, late, or absent.
+                  <strong>Attendance updates.</strong> Know the moment they&apos;re marked present, late, or absent.
                 </span>
               </li>
               <li>
@@ -260,14 +259,7 @@ function TeacherSection() {
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Works on the phone in your pocket.</strong> iOS, Android, web.
-                </span>
-              </li>
-              <li>
-                <Icon name="check" size={16} />
-                <span>
-                  <strong>Offline tolerant.</strong> Record in the masjid basement. It syncs when
-                  you&apos;re back to wifi.
+                  <strong>Works on the phone in your pocket.</strong> Mobile-friendly web app.
                 </span>
               </li>
             </ul>
@@ -312,8 +304,7 @@ function PrincipalSection() {
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Tuition pipeline.</strong> Paid, upcoming, overdue. With a one-click
-                  nudge.
+                  <strong>Tuition pipeline.</strong> Paid, upcoming, overdue — all in one view.
                 </span>
               </li>
               <li>
@@ -325,14 +316,13 @@ function PrincipalSection() {
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Enrollment funnel.</strong> Inquiry, tour, registered, first paid.
+                  <strong>Insights dashboard.</strong> Monthly attendance rates, tuition collected, and hifz milestones.
                 </span>
               </li>
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Board-ready exports.</strong> PDF or CSV. Trustees won&apos;t have to ask
-                  twice.
+                  <strong>Board-ready CSV exports.</strong> Attendance and payments. Trustees won&apos;t have to ask twice.
                 </span>
               </li>
             </ul>
@@ -372,9 +362,8 @@ function Tuition() {
             </span>
             <h3>No more Zelle screenshots. No more &ldquo;did the check clear?&rdquo;</h3>
             <p className="body">
-              Talibly bills parents directly. Autopay, sibling discounts, scholarship rules, and a
-              ledger your bookkeeper will actually open. It runs on Stripe, so the money is real and
-              the reconciliation isn&apos;t your job.
+              Talibly bills parents directly. Stripe-powered autopay and a
+              ledger your bookkeeper will actually open. Set it up once and the money arrives — the reconciliation isn&apos;t your job.
             </p>
             <ul className="feature-bullets">
               <li>
@@ -387,14 +376,7 @@ function Tuition() {
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Sibling and scholarship discounts</strong> applied automatically.
-                </span>
-              </li>
-              <li>
-                <Icon name="check" size={16} />
-                <span>
-                  <strong>One-tap nudge</strong> for late tuition. Polite, in the parent&apos;s
-                  preferred channel.
+                  <strong>Sibling discounts</strong> — coming soon.
                 </span>
               </li>
               <li>
@@ -432,7 +414,7 @@ function Roles() {
         'Multi-child switcher',
         'Hifz audio replay',
         'Autopay tuition',
-        'Push notifications',
+        'Feed updates',
       ],
       href: '/for-parents',
     },
@@ -449,7 +431,7 @@ function Roles() {
       title: 'Principals',
       blurb:
         'Daily dashboard, tuition pipeline, board-ready exports. Your masjid trustees will be impressed.',
-      bullets: ['Attendance roll-up', 'Tuition pipeline', 'Enrollment funnel', 'Board exports'],
+      bullets: ['Attendance roll-up', 'Tuition pipeline', 'Insights dashboard', 'CSV exports'],
       href: '/for-principals',
     },
   ];
@@ -502,24 +484,23 @@ function Availability() {
             <span className="dot" />
             Available everywhere your school is
           </span>
-          <h2>iOS, Android, and the browser on the masjid laptop.</h2>
+          <h2>Mobile-friendly web — phone, tablet, or masjid laptop.</h2>
           <p>
             Parents and teachers reach for a phone. Principals reach for the laptop in the office.
-            Talibly is the same product on all three. Same data, same flows. No &ldquo;use the
-            desktop one for that.&rdquo;
+            Talibly works on all of them — same data, same flows, no installs required. Native iOS and Android apps are on the roadmap.
           </p>
           <div className="platforms">
             <span className="platform-pill">
+              <Icon name="web" size={16} />
+              Web
+            </span>
+            <span className="platform-pill">
               <Icon name="apple" size={16} />
-              iOS
+              iOS (coming soon)
             </span>
             <span className="platform-pill">
               <Icon name="android" size={16} />
-              Android
-            </span>
-            <span className="platform-pill">
-              <Icon name="web" size={16} />
-              Web
+              Android (coming soon)
             </span>
           </div>
         </div>
@@ -568,7 +549,7 @@ function Availability() {
                     color: 'var(--muted)',
                   }}
                 >
-                  parent · iOS
+                  parent · web
                 </div>
                 <AttendanceCard status="present" time="9:05" />
                 <HifzCard
@@ -610,7 +591,7 @@ function Availability() {
                     color: 'var(--muted)',
                   }}
                 >
-                  teacher · Android
+                  teacher · web
                 </div>
                 <div
                   style={{

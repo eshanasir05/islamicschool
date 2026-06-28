@@ -14,8 +14,7 @@ const NAV_PAGES = [
     matches: ['parents', 'teachers', 'principals'],
   },
   { href: '/pricing', label: 'Pricing', key: 'pricing' as const },
-  { href: '#resources', label: 'Resources', key: 'resources' as const },
-  { href: '#contact', label: 'Contact us', key: 'contact' as const },
+  { href: '/contact', label: 'Contact', key: 'contact' as const },
 ];
 
 const PERSONA_PAGES = [
@@ -68,7 +67,7 @@ export function SiteNav() {
           <Link className="btn btn-ghost btn-login" href="/sign-in">
             Login
           </Link>
-          <Link className="btn btn-primary hide-sm" href="#demo">
+          <Link className="btn btn-primary hide-sm" href="/contact">
             Book a demo
             <Icon name="arrow" size={14} />
           </Link>

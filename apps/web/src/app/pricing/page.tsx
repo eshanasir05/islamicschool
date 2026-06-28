@@ -18,7 +18,7 @@ const SECTIONS: { heading: string; rows: [string, boolean, boolean, boolean][] }
     rows: [
       ['Multi-child feed', true, true, true],
       ['Hifz audio replay', true, true, true],
-      ['Push notifications', true, true, true],
+      ['Parent feed updates', true, true, true],
       ['Autopay tuition', true, true, true],
     ],
   },
@@ -28,7 +28,7 @@ const SECTIONS: { heading: string; rows: [string, boolean, boolean, boolean][] }
       ['60-second class wrap', true, true, true],
       ['Voice hifz recording', true, true, true],
       ['Praise & homework', true, true, true],
-      ['Offline class wrap', true, true, true],
+      ['Offline class wrap (coming soon)', false, false, false],
     ],
   },
   {
@@ -36,8 +36,8 @@ const SECTIONS: { heading: string; rows: [string, boolean, boolean, boolean][] }
     rows: [
       ['Daily dashboard', false, true, true],
       ['Tuition pipeline', false, true, true],
-      ['Enrollment funnel', false, true, true],
-      ['Board PDF / CSV exports', false, true, true],
+      ['Enrollment funnel (coming soon)', false, false, false],
+      ['Board CSV exports', false, true, true],
       ['SSO (Google / Microsoft)', false, false, true],
       ['Dedicated onboarding manager', false, false, true],
     ],
@@ -129,11 +129,11 @@ function FAQ() {
     },
     {
       q: 'What about Stripe fees on tuition?',
-      a: "Stripe's standard rates pass through. 2.9% + 30¢ for cards in the US, 0.8% capped at $5 for ACH. Talibly itself takes nothing on top of that.",
+      a: "Standard Stripe processing fees apply and pass through directly. Talibly itself takes nothing on top of that. See Stripe's website for current rates.",
     },
     {
       q: 'Can I import students from my existing spreadsheet?',
-      a: 'Yes. CSV import is built in. For bigger schools we do the import for you as part of onboarding. Usually a weekend turnaround.',
+      a: 'We handle roster import as part of onboarding — usually a weekend turnaround. Self-service CSV import is on the roadmap.',
     },
     {
       q: 'Is there a setup fee?',

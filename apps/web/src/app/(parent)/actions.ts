@@ -1,9 +1,11 @@
 'use server';
 
 import { and, desc, eq, ne } from 'drizzle-orm';
+import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
 import { env } from '@/env';
-import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
+import { stripe } from '@/lib/stripe';
 
 export async function getAnnouncements(orgId: string) {
   const rows = await db
@@ -89,6 +91,58 @@ export async function getStudentFeed(studentId: string, date: string) {
   }
 
   return { attendance, hifz, audioSignedUrl, notes };
+}
+
+export async function createParentPaymentSession(planId: string, studentId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+
+  const plan = await db.query.tuitionPlans.findFirst({
+    where: eq(schema.tuitionPlans.id, planId),
+    with: { student: true },
+  });
+  if (!plan) redirect(`/parent/${studentId}`);
+
+  // Verify caller is a guardian of this student
+  const guardianLink = await db.query.studentGuardians.findFirst({
+    where: and(
+      eq(schema.studentGuardians.studentId, plan.studentId),
+      eq(schema.studentGuardians.guardianUserId, user.id),
+    ),
+  });
+  if (!guardianLink) redirect(`/parent/${studentId}`);
+
+  const appUrl = env.NEXT_PUBLIC_APP_URL;
+
+  if (plan.status === 'past_due' && plan.stripeCustomerId) {
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: plan.stripeCustomerId,
+      return_url: `${appUrl}/parent/${plan.studentId}`,
+    });
+    redirect(portal.url);
+  }
+
+  // pending_payment — create a fresh Checkout session
+  const isRecurring = plan.frequency !== 'one_time';
+  const price = await stripe.prices.create({
+    unit_amount: plan.amountCents,
+    currency: plan.currency.toLowerCase(),
+    ...(isRecurring ? { recurring: { interval: plan.frequency === 'annual' ? 'year' : 'month' } } : {}),
+    product_data: { name: `Tuition — ${plan.student?.fullName ?? 'Student'}` },
+  });
+
+  const session = await stripe.checkout.sessions.create({
+    customer: plan.stripeCustomerId ?? undefined,
+    payment_method_types: ['card'],
+    line_items: [{ price: price.id, quantity: 1 }],
+    mode: isRecurring ? 'subscription' : 'payment',
+    success_url: `${appUrl}/parent/${plan.studentId}?payment=success`,
+    cancel_url: `${appUrl}/parent/${plan.studentId}`,
+    metadata: { planId: plan.id },
+  });
+
+  redirect(session.url!);
 }
 
 export async function getParentTuition(studentId: string) {

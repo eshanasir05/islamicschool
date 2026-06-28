@@ -136,10 +136,9 @@ function PrincipalsBento() {
               <Icon name="money" size={12} />
               Tuition pipeline
             </div>
-            <h4>$8,400 collected. $1,200 outstanding. Three nudges queued.</h4>
+            <h4>$8,400 collected. $1,200 outstanding.</h4>
             <p>
-              Paid, upcoming, and overdue, with a one-tap reminder that&apos;s actually polite. The
-              kind of message you&apos;d want to receive yourself.
+              Paid, upcoming, and overdue — all in one view. Know exactly where every tuition dollar stands before the day starts.
             </p>
             <div className="bento-art">
               <div style={{ display: 'flex', gap: 8 }}>
@@ -202,11 +201,11 @@ function PrincipalsBento() {
             <div className="bento-eyebrow">
               <Icon name="parent" size={12} />
               Enrollment funnel
+              <span style={{ marginLeft: 6, fontFamily: 'var(--font-mono)', fontSize: 9, background: '#fde68a', color: '#92400e', padding: '1px 5px', borderRadius: 4 }}>COMING SOON</span>
             </div>
             <h4>Inquiry. Tour. Registered. Paid.</h4>
             <p>
-              Every prospective family, traced from first email to first tuition charge. No more
-              &ldquo;did we follow up with the Khan family?&rdquo;
+              Every prospective family, traced from first email to first tuition charge. On the roadmap for the next release.
             </p>
           </div>
 
@@ -214,24 +213,22 @@ function PrincipalsBento() {
             <div className="bento-eyebrow">
               <Icon name="msg" size={12} />
               Messages
+              <span style={{ marginLeft: 6, fontFamily: 'var(--font-mono)', fontSize: 9, background: '#e0e7ff', color: '#3730a3', padding: '1px 5px', borderRadius: 4 }}>COMING SOON</span>
             </div>
-            <h4>Three parents waiting.</h4>
+            <h4>One inbox for every conversation.</h4>
             <p>
-              One inbox for every parent and teacher conversation. Read receipts, response times,
-              and a flag for the ones you keep meaning to reply to.
+              Direct messages between principals, teachers, and parents — in one place. On the roadmap for the next release.
             </p>
           </div>
 
           <div className="bento-cell b-c6">
             <div className="bento-eyebrow">
               <Icon name="shield" size={12} />
-              Board-ready exports
+              Board-ready CSV exports
             </div>
             <h4>Your masjid trustees won&apos;t ask twice.</h4>
             <p style={{ maxWidth: 620 }}>
-              Generate a one-page PDF or a clean CSV for any month, term, or year. Attendance
-              trends, tuition collected, enrollment growth, hifz milestones. Formatted for board
-              packets, not for more spreadsheeting on your end.
+              Export a clean CSV for any month, term, or year. Attendance by class, tuition collected, student roster, hifz milestones. Ready for your board packet or bookkeeper, not for more spreadsheeting on your end.
             </p>
             <div className="bento-art" style={{ marginTop: 16 }}>
               <div style={{ display: 'inline-flex', gap: 8 }}>
@@ -249,7 +246,7 @@ function PrincipalsBento() {
                     alignItems: 'center',
                   }}
                 >
-                  <Icon name="paper" size={14} /> board-report-nov-2026.pdf
+                  <Icon name="paper" size={14} /> attendance-nov-2026.csv
                 </div>
                 <div
                   style={{
