@@ -32,7 +32,7 @@ export default async function ParentLayout({ children }: { children: React.React
           <span>talibly</span>
         </Link>
         <div className="app-header-right">
-          <span className="app-header-user">{publicUser?.fullName ?? user.email}</span>
+          <Link href="/account" className="app-header-user" style={{ textDecoration: 'none', color: 'inherit' }}>{publicUser?.fullName ?? user.email}</Link>
           <a className="app-logout" href="/auth/signout">Sign out</a>
         </div>
       </header>
