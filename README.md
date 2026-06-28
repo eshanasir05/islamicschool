@@ -14,7 +14,9 @@ Three role-based flows:
 
 - **Teacher** — mark attendance, log hifz ayah ranges with optional audio, add praise/homework notes, send parent wrap email
 - **Parent** — daily feed per child with attendance, hifz record, teacher notes, billing status, and school announcements
-- **Principal/Admin** — dashboard with weekly stats, student/class/teacher management, tuition plans via Stripe Checkout, and announcements
+- **Principal/Admin** — dashboard with weekly stats, student/class/teacher management, tuition plans via Stripe Checkout, CSV exports, and analytics
+
+The **Insights dashboard** (`/admin/insights`) provides a monthly business-intelligence view: student/teacher/parent headcount, attendance rate, tuition collected vs. outstanding, pending plan count, payment status breakdown with visual bars, a recent-payments feed, and per-class attendance rate table — all scoped to the organisation and rendered server-side with no charting library.
 
 ---
 
@@ -61,10 +63,11 @@ A suggested path for reviewers (5–10 minutes):
 4. **Teachers** → "+ Invite teacher" to send a real invite email via Supabase
 5. **Parents** → "+ Invite parent", select a student, set relationship → invite email sent
 6. **Tuition** → click a student → "Set up plan" → choose monthly amount and guardian → copy the Stripe Checkout link → open it in a new tab → use test card `4242 4242 4242 4242` to pay → return to `/admin/tuition/[studentId]` to see the payment recorded
-7. **Exports** → download Student Roster, Payment History, and Attendance Records as CSV
-8. **Settings** → edit school name
-9. **Announcements** → post a school-wide message
-10. Click your name in the header → Account → update display name or change password
+7. **Insights** → monthly analytics: headcount KPIs, attendance rate, tuition collected vs. outstanding, payment status breakdown, recent payments, per-class attendance table
+8. **Exports** → download Student Roster, Payment History, and Attendance Records as CSV
+9. **Settings** → edit school name
+10. **Announcements** → post a school-wide message
+11. Click your name in the header → Account → update display name or change password
 
 ### As teacher — `amina@talibly.dev`
 1. Sign in → lands on `/teacher` with class list
@@ -106,6 +109,7 @@ Expiry: any future date (e.g. `12/29`). CVV: any 3 digits. ZIP: any 5 digits.
 | Teacher completes class wrap | `/teacher → attendance → hifz → notes → confirm` |
 | Parent views child feed + billing | `/parent/[studentId]` |
 | Admin downloads CSV export | `/admin/exports` |
+| Admin views analytics dashboard | `/admin/insights` |
 | Change password | `/account` |
 | Admin edits org settings | `/admin/settings` |
 

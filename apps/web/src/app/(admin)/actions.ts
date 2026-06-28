@@ -1,6 +1,6 @@
 'use server';
 
-import { and, count, desc, eq, gte, max } from 'drizzle-orm';
+import { and, count, desc, eq, gte, max, sum } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
@@ -624,6 +624,151 @@ export async function createTuitionPlan(
   revalidatePath(`/admin/tuition/${studentId}`);
   revalidatePath('/admin/tuition');
   redirect(`/admin/tuition/${studentId}?checkout_url=${encodeURIComponent(session.url ?? '')}`);
+}
+
+// ---------------------------------------------------------------------------
+// Admin Insights Dashboard
+// ---------------------------------------------------------------------------
+export async function getAdminInsights(orgId: string) {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const monthStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [
+    studentCount,
+    teacherCount,
+    parentCount,
+    monthAttendance,
+    collectedThisMonth,
+    collectedAllTime,
+    planStatusBreakdown,
+    recentPayments,
+    attendanceByClass,
+  ] = await Promise.all([
+    db.select({ cnt: count() }).from(schema.students)
+      .where(and(eq(schema.students.organizationId, orgId), eq(schema.students.status, 'active'))),
+
+    db.select({ cnt: count() }).from(schema.memberships)
+      .where(and(
+        eq(schema.memberships.organizationId, orgId),
+        eq(schema.memberships.role, 'teacher'),
+        eq(schema.memberships.status, 'active'),
+      )),
+
+    db.select({ cnt: count() }).from(schema.memberships)
+      .where(and(
+        eq(schema.memberships.organizationId, orgId),
+        eq(schema.memberships.role, 'parent'),
+        eq(schema.memberships.status, 'active'),
+      )),
+
+    db.select({ status: schema.attendanceRecords.status, cnt: count() })
+      .from(schema.attendanceRecords)
+      .where(and(
+        eq(schema.attendanceRecords.organizationId, orgId),
+        gte(schema.attendanceRecords.sessionDate, monthStart),
+      ))
+      .groupBy(schema.attendanceRecords.status),
+
+    db.select({ total: sum(schema.payments.amountCents) })
+      .from(schema.payments)
+      .where(and(
+        eq(schema.payments.organizationId, orgId),
+        eq(schema.payments.status, 'succeeded'),
+        gte(schema.payments.paidAt, monthStartDate),
+      )),
+
+    db.select({ total: sum(schema.payments.amountCents) })
+      .from(schema.payments)
+      .where(and(
+        eq(schema.payments.organizationId, orgId),
+        eq(schema.payments.status, 'succeeded'),
+      )),
+
+    db.select({
+      status: schema.tuitionPlans.status,
+      cnt: count(),
+      totalCents: sum(schema.tuitionPlans.amountCents),
+    })
+      .from(schema.tuitionPlans)
+      .where(eq(schema.tuitionPlans.organizationId, orgId))
+      .groupBy(schema.tuitionPlans.status),
+
+    db.select({
+      paymentId: schema.payments.id,
+      amountCents: schema.payments.amountCents,
+      currency: schema.payments.currency,
+      paidAt: schema.payments.paidAt,
+      receiptUrl: schema.payments.receiptUrl,
+      studentName: schema.students.fullName,
+      payerName: schema.users.fullName,
+    })
+      .from(schema.payments)
+      .innerJoin(schema.tuitionPlans, eq(schema.tuitionPlans.id, schema.payments.tuitionPlanId))
+      .innerJoin(schema.students, eq(schema.students.id, schema.tuitionPlans.studentId))
+      .innerJoin(schema.users, eq(schema.users.id, schema.payments.payerUserId))
+      .where(and(
+        eq(schema.payments.organizationId, orgId),
+        eq(schema.payments.status, 'succeeded'),
+      ))
+      .orderBy(desc(schema.payments.paidAt))
+      .limit(5),
+
+    db.select({
+      classId: schema.attendanceRecords.classId,
+      className: schema.classes.name,
+      status: schema.attendanceRecords.status,
+      cnt: count(),
+    })
+      .from(schema.attendanceRecords)
+      .innerJoin(schema.classes, eq(schema.classes.id, schema.attendanceRecords.classId))
+      .where(and(
+        eq(schema.attendanceRecords.organizationId, orgId),
+        gte(schema.attendanceRecords.sessionDate, monthStart),
+      ))
+      .groupBy(schema.attendanceRecords.classId, schema.classes.name, schema.attendanceRecords.status),
+  ]);
+
+  const presentCnt = Number(monthAttendance.find(r => r.status === 'present')?.cnt ?? 0);
+  const totalAtt = monthAttendance.reduce((s, r) => s + Number(r.cnt), 0);
+  const attendanceRatePct = totalAtt > 0 ? Math.round((presentCnt / totalAtt) * 100) : 0;
+
+  const pendingCount = Number(planStatusBreakdown.find(p => p.status === 'pending_payment')?.cnt ?? 0);
+  const outstandingCents = planStatusBreakdown
+    .filter(p => p.status === 'pending_payment' || p.status === 'past_due')
+    .reduce((s, p) => s + Number(p.totalCents ?? 0), 0);
+
+  const classSummaryMap = new Map<string, { className: string; present: number; late: number; absent: number; excused: number }>();
+  for (const row of attendanceByClass) {
+    if (!classSummaryMap.has(row.classId)) {
+      classSummaryMap.set(row.classId, { className: row.className, present: 0, late: 0, absent: 0, excused: 0 });
+    }
+    const entry = classSummaryMap.get(row.classId)!;
+    if (row.status === 'present') entry.present += Number(row.cnt);
+    else if (row.status === 'late') entry.late += Number(row.cnt);
+    else if (row.status === 'absent') entry.absent += Number(row.cnt);
+    else if (row.status === 'excused') entry.excused += Number(row.cnt);
+  }
+
+  return {
+    totalStudents: Number(studentCount[0]?.cnt ?? 0),
+    activeTeachers: Number(teacherCount[0]?.cnt ?? 0),
+    activeParents: Number(parentCount[0]?.cnt ?? 0),
+    attendanceRatePct,
+    totalAttendanceRecords: totalAtt,
+    collectedThisMonthCents: Number(collectedThisMonth[0]?.total ?? 0),
+    collectedAllTimeCents: Number(collectedAllTime[0]?.total ?? 0),
+    outstandingCents,
+    pendingCount,
+    planStatusBreakdown: planStatusBreakdown.map(p => ({
+      status: p.status,
+      count: Number(p.cnt),
+      totalCents: Number(p.totalCents ?? 0),
+    })),
+    recentPayments,
+    classSummary: [...classSummaryMap.values()],
+    monthLabel: now.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+  };
 }
 
 export async function cancelTuitionPlan(planId: string, orgId: string, studentId: string) {

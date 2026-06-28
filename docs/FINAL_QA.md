@@ -48,6 +48,17 @@ Production URL: https://islamicschool-web.vercel.app
 - [ ] `/admin` loads with weekly attendance %, hifz wins, class wrap status, tuition counts
 - [ ] Stats reflect seeded data (4 students, 2 classes, 12 payments)
 
+### Insights
+- [ ] `/admin/insights` loads for admin/principal
+- [ ] KPI cards show correct counts: 4 students, 2 teachers, 2 parents
+- [ ] Attendance Rate reflects seeded attendance records for the current month (or 0% if no records this month — expected outside of seeded Sunday dates)
+- [ ] Collected This Month shows $0 if no seeded `paidAt` timestamps fall in the current month
+- [ ] All-time collected shows the total of 12 seeded payments (4 × $50 × 3 months = $600 or equivalent)
+- [ ] Plan Status Breakdown shows Active and Pending Payment bars with correct plan counts
+- [ ] Recent Payments lists up to 5 payments with student name, payer name, amount, and receipt link
+- [ ] Attendance by Class shows a row per class with present/late/absent/excused counts and rate badge
+- [ ] Teacher/parent redirected to their home by middleware — cannot access `/admin/insights`
+
 ### Students
 - [ ] `/admin/students` lists all 4 seeded students
 - [ ] Student detail shows profile, guardian links, attendance history, hifz records
