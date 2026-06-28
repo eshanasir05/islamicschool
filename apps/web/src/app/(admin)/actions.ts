@@ -494,6 +494,42 @@ export async function unlinkGuardian(linkId: string, studentId: string) {
   redirect(`/admin/students/${studentId}`);
 }
 
+export async function getAdminParents(orgId: string) {
+  const rows = await db
+    .select({
+      userId: schema.memberships.userId,
+      parentName: schema.users.fullName,
+      parentEmail: schema.users.email,
+      studentId: schema.studentGuardians.studentId,
+      studentName: schema.students.fullName,
+      relationship: schema.studentGuardians.relationship,
+    })
+    .from(schema.memberships)
+    .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
+    .leftJoin(schema.studentGuardians, eq(schema.studentGuardians.guardianUserId, schema.memberships.userId))
+    .leftJoin(schema.students, eq(schema.students.id, schema.studentGuardians.studentId))
+    .where(
+      and(
+        eq(schema.memberships.organizationId, orgId),
+        eq(schema.memberships.role, 'parent'),
+        eq(schema.memberships.status, 'active'),
+      ),
+    )
+    .orderBy(schema.users.fullName);
+
+  // Group rows by parent
+  const map = new Map<string, { userId: string; name: string; email: string | null; students: { id: string; name: string; relationship: string | null }[] }>();
+  for (const row of rows) {
+    if (!map.has(row.userId)) {
+      map.set(row.userId, { userId: row.userId, name: row.parentName, email: row.parentEmail, students: [] });
+    }
+    if (row.studentId && row.studentName) {
+      map.get(row.userId)!.students.push({ id: row.studentId, name: row.studentName, relationship: row.relationship });
+    }
+  }
+  return [...map.values()];
+}
+
 // ---------------------------------------------------------------------------
 // Tuition management
 // ---------------------------------------------------------------------------
