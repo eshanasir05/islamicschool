@@ -27,12 +27,12 @@ export default function PasswordForm() {
 
   if (success) {
     return (
-      <p style={{ fontSize: 14, color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px' }}>
+      <div className="banner banner-success" style={{ marginBottom: 0 }}>
         Password updated successfully.{' '}
         <button type="button" onClick={() => setSuccess(false)} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 14, padding: 0 }}>
           Change again
         </button>
-      </p>
+      </div>
     );
   }
 

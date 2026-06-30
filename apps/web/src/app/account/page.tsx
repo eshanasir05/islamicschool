@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { env } from '@/env';
 import Link from 'next/link';
 import PasswordForm from './password-form';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 function roleHome(role: string) {
   if (role === 'teacher') return '/teacher';
@@ -68,7 +69,11 @@ export default async function AccountPage({ searchParams }: Props) {
           </Link>
         </div>
 
-        <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 24px', color: 'var(--fg)' }}>Account</h1>
+        <h1 className="text-h1" style={{ marginBottom: 24 }}>Account</h1>
+
+        {updated && (
+          <div className="banner banner-success">Display name updated.</div>
+        )}
 
         {/* Profile */}
         <div className="app-card" style={{ marginBottom: 16 }}>
@@ -98,14 +103,10 @@ export default async function AccountPage({ searchParams }: Props) {
                 }}
               />
             </div>
-            <button type="submit" className="btn btn-accent" style={{ alignSelf: 'flex-start', fontSize: 13, padding: '7px 14px' }}>
+            <SubmitButton className="btn btn-accent" style={{ alignSelf: 'flex-start', fontSize: 13, padding: '7px 14px' }} pendingLabel="Saving…">
               Save name
-            </button>
+            </SubmitButton>
           </form>
-
-          {updated && (
-            <p style={{ fontSize: 13, color: '#166534', marginTop: 10 }}>Name updated.</p>
-          )}
         </div>
 
         {/* Password */}

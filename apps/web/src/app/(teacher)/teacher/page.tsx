@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getTeacherClasses } from '../actions';
 import Link from 'next/link';
 import { toHijriString } from '@/lib/hijri';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export default async function TeacherHome() {
   const supabase = await createSupabaseServerClient();
@@ -27,17 +28,18 @@ export default async function TeacherHome() {
       </p>
 
       {classes.length === 0 ? (
-        <div className="feed-empty">
-          <h3>No classes assigned</h3>
-          <p>Contact your principal to be assigned to a class.</p>
-        </div>
+        <EmptyState
+          icon="principal"
+          title="No classes assigned yet"
+          body="Once your principal assigns you to a class, it will appear here and you can start the 60-second wrap."
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {classes.map(cls => (
             <Link
               key={cls.id}
               href={`/teacher/${cls.id}/attendance`}
-              className="app-card"
+              className="app-card is-interactive"
               style={{ textDecoration: 'none', display: 'block', cursor: 'pointer' }}
             >
               <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--fg)' }}>{cls.name}</div>

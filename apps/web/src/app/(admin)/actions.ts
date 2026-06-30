@@ -261,7 +261,7 @@ export async function createStudent(
     .returning({ id: schema.students.id });
   if (!row) throw new Error('Insert failed');
   revalidatePath('/admin/students');
-  redirect(`/admin/students/${row.id}`);
+  redirect(`/admin/students/${row.id}?notice=student_created`);
 }
 
 export async function updateStudent(
@@ -280,7 +280,7 @@ export async function updateStudent(
     .where(and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)));
   revalidatePath(`/admin/students/${studentId}`);
   revalidatePath('/admin/students');
-  redirect(`/admin/students/${studentId}`);
+  redirect(`/admin/students/${studentId}?notice=student_updated`);
 }
 
 export async function setStudentStatus(
@@ -294,7 +294,7 @@ export async function setStudentStatus(
     .where(and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)));
   revalidatePath(`/admin/students/${studentId}`);
   revalidatePath('/admin/students');
-  redirect(`/admin/students/${studentId}`);
+  redirect(`/admin/students/${studentId}?notice=${status === 'active' ? 'student_restored' : 'student_archived'}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -318,7 +318,7 @@ export async function createClass(
   if (!row) throw new Error('Insert failed');
   revalidatePath('/admin/classes');
   revalidatePath('/admin');
-  redirect(`/admin/classes/${row.id}`);
+  redirect(`/admin/classes/${row.id}?notice=class_created`);
 }
 
 export async function updateClass(
@@ -338,7 +338,7 @@ export async function updateClass(
     .where(and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)));
   revalidatePath('/admin/classes');
   revalidatePath('/admin');
-  redirect(`/admin/classes/${classId}`);
+  redirect(`/admin/classes/${classId}?notice=class_updated`);
 }
 
 export async function archiveClass(classId: string, orgId: string) {
@@ -348,7 +348,7 @@ export async function archiveClass(classId: string, orgId: string) {
     .where(and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)));
   revalidatePath('/admin/classes');
   revalidatePath('/admin');
-  redirect(`/admin/classes/${classId}`);
+  redirect(`/admin/classes/${classId}?notice=class_archived`);
 }
 
 export async function restoreClass(classId: string, orgId: string) {
@@ -358,7 +358,7 @@ export async function restoreClass(classId: string, orgId: string) {
     .where(and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)));
   revalidatePath('/admin/classes');
   revalidatePath('/admin');
-  redirect(`/admin/classes/${classId}`);
+  redirect(`/admin/classes/${classId}?notice=class_restored`);
 }
 
 // ---------------------------------------------------------------------------
@@ -409,7 +409,7 @@ export async function enrollStudent(classId: string, studentId: string) {
   await db.insert(schema.classEnrollments).values({ classId, studentId }).onConflictDoNothing();
   revalidatePath(`/admin/classes/${classId}`);
   revalidatePath(`/admin/students/${studentId}`);
-  redirect(`/admin/classes/${classId}`);
+  redirect(`/admin/classes/${classId}?notice=student_enrolled`);
 }
 
 export async function unenrollStudent(classId: string, studentId: string) {
@@ -422,7 +422,7 @@ export async function unenrollStudent(classId: string, studentId: string) {
       ),
     );
   revalidatePath(`/admin/classes/${classId}`);
-  redirect(`/admin/classes/${classId}`);
+  redirect(`/admin/classes/${classId}?notice=student_unenrolled`);
 }
 
 // ---------------------------------------------------------------------------
@@ -452,9 +452,7 @@ export async function linkGuardian(
     const serviceClient = await createSupabaseServiceClient();
     const result = await serviceClient.auth.admin.createUser({ email, email_confirm: true });
     if (result.error || !result.data.user) {
-      redirect(
-        `/admin/students/${studentId}?guardian_error=${encodeURIComponent(result.error?.message ?? 'Failed to create account')}`,
-      );
+      redirect(`/admin/students/${studentId}?notice=guardian_error`);
     }
     guardianUserId = result.data.user.id;
     await db
@@ -485,13 +483,13 @@ export async function linkGuardian(
   }
 
   revalidatePath(`/admin/students/${studentId}`);
-  redirect(`/admin/students/${studentId}?guardian_linked=1`);
+  redirect(`/admin/students/${studentId}?notice=guardian_linked`);
 }
 
 export async function unlinkGuardian(linkId: string, studentId: string) {
   await db.delete(schema.studentGuardians).where(eq(schema.studentGuardians.id, linkId));
   revalidatePath(`/admin/students/${studentId}`);
-  redirect(`/admin/students/${studentId}`);
+  redirect(`/admin/students/${studentId}?notice=guardian_unlinked`);
 }
 
 export async function getAdminParents(orgId: string) {
@@ -788,5 +786,5 @@ export async function cancelTuitionPlan(planId: string, orgId: string, studentId
 
   revalidatePath(`/admin/tuition/${studentId}`);
   revalidatePath('/admin/tuition');
-  redirect(`/admin/tuition/${studentId}`);
+  redirect(`/admin/tuition/${studentId}?notice=plan_cancelled`);
 }

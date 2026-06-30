@@ -7,6 +7,10 @@ import {
 } from '../../../actions';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { ToastOnParam } from '@/components/ui/toast-on-param';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 const SURAH_NAMES: Record<number, string> = {
   1: 'Al-Fatihah', 2: 'Al-Baqarah', 3: 'Al-Imran', 4: 'An-Nisa',
@@ -29,12 +33,12 @@ const labelStyle: React.CSSProperties = {
 
 type Props = {
   params: Promise<{ studentId: string }>;
-  searchParams: Promise<{ guardian_linked?: string; guardian_error?: string }>;
+  searchParams: Promise<{ notice?: string }>;
 };
 
 export default async function StudentDetailPage({ params, searchParams }: Props) {
   const { studentId } = await params;
-  const sp = await searchParams;
+  const { notice } = await searchParams;
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
   const { student, attendance, hifz, noteCount } = await getAdminStudent(studentId, orgId);
@@ -72,12 +76,13 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
 
   return (
     <main className="app-main">
-      <Link
-        href="/admin/students"
-        style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none', display: 'inline-block', marginTop: 16, marginBottom: 16 }}
-      >
-        ← All students
-      </Link>
+      <ToastOnParam notice={notice} />
+      <Breadcrumb
+        items={[
+          { label: 'Students', href: '/admin/students' },
+          { label: student.fullName },
+        ]}
+      />
 
       {/* Profile card */}
       <div className="app-card" style={{ marginBottom: 16 }}>
@@ -93,9 +98,15 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
             </Link>
             {student.status === 'active' ? (
               <form action={archiveAction}>
-                <button type="submit" className="btn btn-ghost" style={{ fontSize: 13, padding: '4px 12px', color: 'var(--muted)' }}>
-                  Archive
-                </button>
+                <ConfirmSubmit
+                  label="Archive"
+                  title="Archive this student?"
+                  body="Archived students are hidden from active rosters and reports. You can restore them at any time."
+                  confirmLabel="Archive student"
+                  variant="danger"
+                  className="btn btn-ghost"
+                  buttonStyle={{ fontSize: 13, padding: '4px 12px', color: 'var(--muted)' }}
+                />
               </form>
             ) : (
               <form action={restoreAction}>
@@ -128,18 +139,6 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
         </div>
       </div>
 
-      {/* Success/error banners */}
-      {sp.guardian_linked && (
-        <div style={{ background: 'var(--accent-50, #f3f0ff)', border: '1px solid var(--accent)', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: 'var(--fg)', marginBottom: 16 }}>
-          Guardian linked successfully. They can sign in at /sign-in — advise them to use &ldquo;Forgot password&rdquo; to set a password.
-        </div>
-      )}
-      {sp.guardian_error && (
-        <div style={{ background: '#fff8e1', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: 'var(--fg)', marginBottom: 16 }}>
-          Could not link guardian: {decodeURIComponent(sp.guardian_error)}
-        </div>
-      )}
-
       {/* Guardians */}
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>Guardians</h2>
@@ -156,9 +155,15 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
                 </div>
                 <form action={unlinkAction}>
                   <input type="hidden" name="linkId" value={g.id} />
-                  <button type="submit" className="btn btn-ghost" style={{ fontSize: 12, padding: '3px 10px', color: 'var(--muted)', height: 'auto' }}>
-                    Unlink
-                  </button>
+                  <ConfirmSubmit
+                    label="Unlink"
+                    title="Unlink this guardian?"
+                    body={`${g.guardian?.fullName ?? 'This guardian'} will lose access to this student's feed. You can re-link them later.`}
+                    confirmLabel="Unlink guardian"
+                    variant="danger"
+                    className="btn btn-ghost"
+                    buttonStyle={{ fontSize: 12, padding: '3px 10px', color: 'var(--muted)', height: 'auto' }}
+                  />
                 </form>
               </div>
             ))}
@@ -203,9 +208,9 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
                   <input type="checkbox" name="receivesNotifications" defaultChecked /> Receives notifications
                 </label>
               </div>
-              <button type="submit" className="btn btn-accent" style={{ width: '100%' }}>
+              <SubmitButton className="btn btn-accent" style={{ width: '100%' }} pendingLabel="Linking…">
                 Link guardian
-              </button>
+              </SubmitButton>
             </div>
           </div>
         </form>

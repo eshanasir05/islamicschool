@@ -1,6 +1,7 @@
 import { env } from '@/env';
 import { getAdminTuition } from '../../actions';
 import Link from 'next/link';
+import { EmptyState } from '@/components/ui/empty-state';
 
 const statusStyle: Record<string, React.CSSProperties> = {
   active: { color: 'var(--accent-700)', fontWeight: 600 },
@@ -21,9 +22,7 @@ export default async function TuitionPage() {
 
   return (
     <main className="app-main">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '24px 0 20px' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--fg)', margin: 0 }}>Tuition</h1>
-      </div>
+      <h1 className="text-h1" style={{ margin: '24px 0 20px' }}>Tuition</h1>
 
       {withPlan.length > 0 && (
         <div style={{ marginBottom: 28 }}>
@@ -35,12 +34,8 @@ export default async function TuitionPage() {
               const plan = s.tuitionPlans[0]!;
               const lastPayment = plan.payments[0];
               return (
-                <Link
-                  key={s.id}
-                  href={`/admin/tuition/${s.id}`}
-                  style={{ textDecoration: 'none' }}
-                >
-                  <div className="app-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14 }}>
+                <Link key={s.id} href={`/admin/tuition/${s.id}`} className="app-card-link">
+                  <div className="app-card is-interactive" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14 }}>
                     <div>
                       <div style={{ fontWeight: 500, color: 'var(--fg)', marginBottom: 2 }}>{s.fullName}</div>
                       <div style={{ fontSize: 13, color: 'var(--muted)' }}>
@@ -66,14 +61,10 @@ export default async function TuitionPage() {
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {withoutPlan.map(s => (
-              <Link
-                key={s.id}
-                href={`/admin/tuition/${s.id}`}
-                style={{ textDecoration: 'none' }}
-              >
-                <div className="app-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14 }}>
+              <Link key={s.id} href={`/admin/tuition/${s.id}`} className="app-card-link">
+                <div className="app-card is-interactive" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14 }}>
                   <div style={{ fontWeight: 500, color: 'var(--fg)' }}>{s.fullName}</div>
-                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>Set up plan →</div>
+                  <div style={{ fontSize: 13, color: 'var(--accent-700)' }}>Set up plan →</div>
                 </div>
               </Link>
             ))}
@@ -82,9 +73,12 @@ export default async function TuitionPage() {
       )}
 
       {students.length === 0 && (
-        <div className="feed-empty">
-          <p>No active students. Add students first.</p>
-        </div>
+        <EmptyState
+          icon="money"
+          title="No students to bill yet"
+          body="Add students first, then set up a tuition plan and send parents a secure Stripe checkout link."
+          cta={{ label: 'Go to Students', href: '/admin/students' }}
+        />
       )}
     </main>
   );

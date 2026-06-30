@@ -2,12 +2,19 @@ import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { env } from '@/env';
 import { getAnnouncements, createAnnouncement, deleteAnnouncement } from '../../actions';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { SubmitButton } from '@/components/ui/submit-button';
+import { ToastOnParam } from '@/components/ui/toast-on-param';
 
-export default async function AnnouncementsPage() {
+type Props = { searchParams: Promise<{ notice?: string }> };
+
+export default async function AnnouncementsPage({ searchParams }: Props) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
 
+  const { notice } = await searchParams;
   const orgId = env.NEXT_PUBLIC_ORG_ID;
   const announcements = await getAnnouncements(orgId);
 
@@ -19,6 +26,7 @@ export default async function AnnouncementsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     await createAnnouncement(env.NEXT_PUBLIC_ORG_ID, user.id, content);
+    redirect('/admin/announcements?notice=announcement_posted');
   };
 
   const deleteAction = async (formData: FormData) => {
@@ -26,14 +34,16 @@ export default async function AnnouncementsPage() {
     const threadId = formData.get('threadId') as string | null;
     if (!threadId) return;
     await deleteAnnouncement(threadId);
+    redirect('/admin/announcements?notice=announcement_deleted');
   };
 
   return (
     <main className="app-main">
-      <h1 style={{ fontSize: 22, fontWeight: 600, margin: '24px 0 4px', color: 'var(--fg)' }}>
+      <ToastOnParam notice={notice} />
+      <h1 className="text-h1" style={{ marginTop: 24, marginBottom: 4 }}>
         Announcements
       </h1>
-      <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>
+      <p className="text-body" style={{ marginBottom: 24 }}>
         School-wide messages visible to all parents.
       </p>
 
@@ -50,16 +60,18 @@ export default async function AnnouncementsPage() {
             required
             style={{ marginBottom: 12 }}
           />
-          <button type="submit" className="btn btn-accent" style={{ width: '100%' }}>
+          <SubmitButton className="btn btn-accent" style={{ width: '100%' }} pendingLabel="Posting…">
             Post to all parents
-          </button>
+          </SubmitButton>
         </div>
       </form>
 
       {announcements.length === 0 ? (
-        <div className="feed-empty">
-          <p>No announcements yet. Post one above.</p>
-        </div>
+        <EmptyState
+          icon="msg"
+          title="No announcements yet"
+          body="Post a school-wide message above and every parent will see it in their feed."
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {announcements.map(a => (
@@ -71,13 +83,15 @@ export default async function AnnouncementsPage() {
                 </div>
                 <form action={deleteAction}>
                   <input type="hidden" name="threadId" value={a.id} />
-                  <button
-                    type="submit"
+                  <ConfirmSubmit
+                    label="Delete"
+                    title="Delete this announcement?"
+                    body="It will be removed from every parent's feed. This cannot be undone."
+                    confirmLabel="Delete announcement"
+                    variant="danger"
                     className="btn btn-ghost"
-                    style={{ fontSize: 12, padding: '3px 10px', color: 'var(--muted)', height: 'auto' }}
-                  >
-                    Delete
-                  </button>
+                    buttonStyle={{ fontSize: 12, padding: '3px 10px', color: 'var(--muted)', height: 'auto' }}
+                  />
                 </form>
               </div>
             </div>

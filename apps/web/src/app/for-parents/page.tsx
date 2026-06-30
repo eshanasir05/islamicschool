@@ -370,6 +370,9 @@ function ParentQuote() {
           <div className="who">
             <strong>Sarah H.</strong> · Parent of two · Weekend Islamic school, New Jersey
           </div>
+          <div style={{ fontSize: 11, color: 'var(--subtle)', marginTop: 12, fontStyle: 'italic' }}>
+            Illustrative example — Talibly is newly launched.
+          </div>
         </div>
       </div>
     </section>

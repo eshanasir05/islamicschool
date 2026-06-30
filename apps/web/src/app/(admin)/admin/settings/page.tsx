@@ -3,8 +3,10 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { db, schema } from '@/lib/db';
 import { and, eq } from 'drizzle-orm';
 import { env } from '@/env';
+import { ToastOnParam } from '@/components/ui/toast-on-param';
+import { SubmitButton } from '@/components/ui/submit-button';
 
-type Props = { searchParams: Promise<{ updated?: string }> };
+type Props = { searchParams: Promise<{ notice?: string }> };
 
 const TYPE_LABELS: Record<string, string> = {
   weekend_school: 'Weekend school',
@@ -13,7 +15,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default async function AdminSettingsPage({ searchParams }: Props) {
-  const { updated } = await searchParams;
+  const { notice } = await searchParams;
 
   const org = await db.query.organizations.findFirst({
     where: eq(schema.organizations.id, env.NEXT_PUBLIC_ORG_ID),
@@ -46,18 +48,13 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
       .set({ name })
       .where(eq(schema.organizations.id, env.NEXT_PUBLIC_ORG_ID));
 
-    redirect('/admin/settings?updated=1');
+    redirect('/admin/settings?notice=settings_saved');
   }
 
   return (
     <main className="app-main">
-      <h1 style={{ fontSize: 22, fontWeight: 600, margin: '24px 0 24px', color: 'var(--fg)' }}>Settings</h1>
-
-      {updated === '1' && (
-        <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 14, color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-          Organization name updated.
-        </div>
-      )}
+      <ToastOnParam notice={notice} />
+      <h1 className="text-h1" style={{ margin: '24px 0' }}>Settings</h1>
 
       {/* Org info */}
       <div className="app-card" style={{ marginBottom: 16 }}>
@@ -82,9 +79,9 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
               }}
             />
           </div>
-          <button type="submit" className="btn btn-accent" style={{ alignSelf: 'flex-start', fontSize: 13, padding: '7px 14px' }}>
+          <SubmitButton className="btn btn-accent" style={{ alignSelf: 'flex-start', fontSize: 13, padding: '7px 14px' }} pendingLabel="Saving…">
             Save
-          </button>
+          </SubmitButton>
         </form>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>

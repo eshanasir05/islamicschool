@@ -294,6 +294,9 @@ function PrincipalQuote() {
           <div className="who">
             <strong>Imam Yusuf K.</strong> · Principal · Sunday school, 240 students, Texas
           </div>
+          <div style={{ fontSize: 11, color: 'var(--subtle)', marginTop: 12, fontStyle: 'italic' }}>
+            Illustrative example — Talibly is newly launched.
+          </div>
         </div>
       </div>
     </section>

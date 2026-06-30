@@ -237,6 +237,9 @@ function TeacherQuote() {
           <div className="who">
             <strong>Sister Aisha</strong> · Quran teacher · Full-time Islamic academy, Ontario
           </div>
+          <div style={{ fontSize: 11, color: 'var(--subtle)', marginTop: 12, fontStyle: 'italic' }}>
+            Illustrative example — Talibly is newly launched.
+          </div>
         </div>
       </div>
     </section>

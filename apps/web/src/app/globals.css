@@ -2848,3 +2848,295 @@ button {
   .success-actions .btn { justify-content: center; }
   .confirm-row { flex-direction: column; align-items: flex-start; gap: 4px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Phase 12 — UI polish: typography utilities, empty states, breadcrumbs,
+   confirm dialogs, quick actions, banners, button variants.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --success-bg: #f0fdf4;
+  --success-border: #bbf7d0;
+  --success-fg: #166534;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --error-fg: #991b1b;
+  --info-bg: var(--sky-soft);
+  --info-border: #bae6fd;
+  --info-fg: var(--sky-700);
+  --warn-bg: #fffbeb;
+  --warn-border: #fde68a;
+  --warn-fg: #92400e;
+}
+
+/* ─── Typography utilities (logged-in app) ────────────────────────────────── */
+.text-h1 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  margin: 0;
+}
+.text-h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0;
+}
+.text-body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0;
+}
+.text-label {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px 0 4px;
+}
+
+/* ─── Interactive card (clickable list rows) ──────────────────────────────── */
+.app-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.app-card-link:hover .app-card,
+.app-card.is-interactive:hover {
+  border-color: var(--border-2);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+}
+
+/* ─── Empty state ─────────────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 56px 28px;
+  background: var(--surface);
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.empty-state-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-700);
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+}
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 6px;
+}
+.empty-state-body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0;
+  max-width: 360px;
+}
+
+/* ─── Breadcrumb ──────────────────────────────────────────────────────────── */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+.breadcrumb-link {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.12s ease;
+}
+.breadcrumb-link:hover {
+  color: var(--accent-700);
+}
+.breadcrumb-current {
+  color: var(--fg);
+  font-weight: 500;
+}
+.breadcrumb-sep {
+  color: var(--subtle);
+}
+
+/* ─── Banners (inline status messages) ────────────────────────────────────── */
+.banner {
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  border: 1px solid transparent;
+}
+.banner-success { background: var(--success-bg); border-color: var(--success-border); color: var(--success-fg); }
+.banner-error   { background: var(--error-bg);   border-color: var(--error-border);   color: var(--error-fg); }
+.banner-info    { background: var(--info-bg);    border-color: var(--info-border);    color: var(--info-fg); }
+.banner-warn    { background: var(--warn-bg);    border-color: var(--warn-border);    color: var(--warn-fg); }
+
+/* ─── Quick actions (admin dashboard) ─────────────────────────────────────── */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+@media (max-width: 560px) {
+  .quick-actions { grid-template-columns: 1fr; }
+}
+.quick-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  box-shadow: var(--shadow-1);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.quick-action:hover {
+  border-color: var(--border-2);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+}
+.quick-action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-700);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.quick-action-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.quick-action-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+/* ─── Confirm dialog ──────────────────────────────────────────────────────── */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  background: rgba(12, 30, 45, 0.42);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  cursor: pointer;
+  animation: confirm-fade 0.15s ease;
+}
+.confirm-dialog {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+  padding: 28px;
+  width: 100%;
+  max-width: 400px;
+  animation: confirm-pop 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.confirm-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 8px;
+}
+.confirm-body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0 0 24px;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+@keyframes confirm-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes confirm-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── Button variants ─────────────────────────────────────────────────────── */
+.btn-danger {
+  background: var(--rose);
+  color: #fff;
+  border-color: var(--rose);
+}
+.btn-danger:hover {
+  background: #be123c;
+  border-color: #be123c;
+  transform: translateY(-1px);
+}
+.btn:disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  display: inline-block;
+  animation: btn-spin 0.6s linear infinite;
+}
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Responsive table wrapper ────────────────────────────────────────────── */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─── Reduced motion ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .confirm-backdrop,
+  .confirm-dialog { animation: none; }
+  .btn-spinner { animation-duration: 1.2s; }
+  .app-card-link:hover .app-card,
+  .quick-action:hover { transform: none; }
+}

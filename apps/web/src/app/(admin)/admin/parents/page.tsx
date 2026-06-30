@@ -1,26 +1,30 @@
 import Link from 'next/link';
 import { env } from '@/env';
 import { getAdminParents } from '../../actions';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export default async function ParentsPage() {
   const parents = await getAdminParents(env.NEXT_PUBLIC_ORG_ID);
 
   return (
     <main className="app-main">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 4 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0, color: 'var(--fg)' }}>Parents</h1>
+      <div className="page-heading">
+        <h1 className="text-h1">Parents</h1>
         <Link href="/admin/parents/invite" className="btn btn-accent" style={{ fontSize: 13, padding: '7px 14px' }}>
           + Invite parent
         </Link>
       </div>
-      <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>
+      <p className="text-body" style={{ marginBottom: 24 }}>
         {parents.length} parent{parents.length !== 1 ? 's' : ''} with portal access
       </p>
 
       {parents.length === 0 ? (
-        <div className="feed-empty">
-          <p>No parents yet. Invite one to get started.</p>
-        </div>
+        <EmptyState
+          icon="parent"
+          title="No parents yet"
+          body="Invite a parent and link them to their child. They'll see daily attendance, hifz, and tuition in their portal."
+          cta={{ label: 'Invite parent', href: '/admin/parents/invite' }}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {parents.map(p => (

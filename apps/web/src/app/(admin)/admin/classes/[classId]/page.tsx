@@ -9,11 +9,17 @@ import {
 } from '../../../actions';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { ToastOnParam } from '@/components/ui/toast-on-param';
+import { SubmitButton } from '@/components/ui/submit-button';
+import { EmptyState } from '@/components/ui/empty-state';
 
-type Props = { params: Promise<{ classId: string }> };
+type Props = { params: Promise<{ classId: string }>; searchParams: Promise<{ notice?: string }> };
 
-export default async function ClassDetailPage({ params }: Props) {
+export default async function ClassDetailPage({ params, searchParams }: Props) {
   const { classId } = await params;
+  const { notice } = await searchParams;
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
   const [{ cls, sessions }, allStudents] = await Promise.all([
@@ -50,12 +56,13 @@ export default async function ClassDetailPage({ params }: Props) {
 
   return (
     <main className="app-main">
-      <Link
-        href="/admin/classes"
-        style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none', display: 'inline-block', marginTop: 16, marginBottom: 16 }}
-      >
-        ← All classes
-      </Link>
+      <ToastOnParam notice={notice} />
+      <Breadcrumb
+        items={[
+          { label: 'Classes', href: '/admin/classes' },
+          { label: cls.name },
+        ]}
+      />
 
       {/* Class info card */}
       <div className="app-card" style={{ marginBottom: 20 }}>
@@ -82,9 +89,15 @@ export default async function ClassDetailPage({ params }: Props) {
               </form>
             ) : (
               <form action={archiveAction}>
-                <button type="submit" className="btn btn-ghost" style={{ fontSize: 13, padding: '4px 12px', color: 'var(--muted)' }}>
-                  Archive
-                </button>
+                <ConfirmSubmit
+                  label="Archive"
+                  title="Archive this class?"
+                  body="Archived classes are hidden from active lists and the dashboard. Enrollment and history are kept, and you can restore it later."
+                  confirmLabel="Archive class"
+                  variant="danger"
+                  className="btn btn-ghost"
+                  buttonStyle={{ fontSize: 13, padding: '4px 12px', color: 'var(--muted)' }}
+                />
               </form>
             )}
           </div>
@@ -116,9 +129,15 @@ export default async function ClassDetailPage({ params }: Props) {
                   </Link>
                   <form action={unenrollAction}>
                     <input type="hidden" name="studentId" value={e.studentId} />
-                    <button type="submit" className="btn btn-ghost" style={{ fontSize: 12, padding: '3px 10px', color: 'var(--muted)', height: 'auto' }}>
-                      Remove
-                    </button>
+                    <ConfirmSubmit
+                      label="Remove"
+                      title="Remove from class?"
+                      body={`${e.student?.fullName ?? 'This student'} will be unenrolled from ${cls.name}. You can add them back anytime.`}
+                      confirmLabel="Remove student"
+                      variant="danger"
+                      className="btn btn-ghost"
+                      buttonStyle={{ fontSize: 12, padding: '3px 10px', color: 'var(--muted)', height: 'auto' }}
+                    />
                   </form>
                 </div>
               ))}
@@ -133,16 +152,19 @@ export default async function ClassDetailPage({ params }: Props) {
                   <option key={s.id} value={s.id}>{s.fullName}</option>
                 ))}
               </select>
-              <button type="submit" className="btn btn-accent" style={{ flexShrink: 0 }}>
+              <SubmitButton className="btn btn-accent" style={{ flexShrink: 0 }} pendingLabel="Adding…">
                 Add
-              </button>
+              </SubmitButton>
             </form>
           )}
 
           {unenrolledStudents.length === 0 && cls.enrollments.length === 0 && (
-            <div className="feed-empty" style={{ marginTop: 0 }}>
-              <p>No students enrolled. Create students first from the Students page.</p>
-            </div>
+            <EmptyState
+              icon="users"
+              title="No students enrolled"
+              body="Add students from the Students page first, then enroll them into this class."
+              cta={{ label: 'Go to Students', href: '/admin/students' }}
+            />
           )}
         </div>
       )}
@@ -153,11 +175,13 @@ export default async function ClassDetailPage({ params }: Props) {
           Session history ({sessions.length})
         </h2>
         {sessions.length === 0 ? (
-          <div className="feed-empty" style={{ marginTop: 0 }}>
-            <p>No sessions recorded yet.</p>
-          </div>
+          <EmptyState
+            icon="cal"
+            title="No sessions yet"
+            body="Once a teacher wraps a class, attendance sessions will appear here."
+          />
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-scroll">
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr>

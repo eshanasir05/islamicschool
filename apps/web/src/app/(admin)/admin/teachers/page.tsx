@@ -1,24 +1,30 @@
 import { env } from '@/env';
 import { getAdminTeachers } from '../../actions';
 import Link from 'next/link';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export default async function TeachersPage() {
   const teachers = await getAdminTeachers(env.NEXT_PUBLIC_ORG_ID);
 
   return (
     <main className="app-main">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 4 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0, color: 'var(--fg)' }}>Teachers</h1>
+      <div className="page-heading">
+        <h1 className="text-h1">Teachers</h1>
         <Link href="/admin/teachers/invite" className="btn btn-accent" style={{ fontSize: 13, padding: '7px 14px' }}>
           + Invite teacher
         </Link>
       </div>
-      <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>
+      <p className="text-body" style={{ marginBottom: 24 }}>
         {teachers.length} teacher{teachers.length !== 1 ? 's' : ''}
       </p>
 
       {teachers.length === 0 ? (
-        <div className="feed-empty"><p>No teachers found.</p></div>
+        <EmptyState
+          icon="teacher"
+          title="No teachers yet"
+          body="Invite your first teacher by email. They'll get a sign-in link and can start wrapping classes right away."
+          cta={{ label: 'Invite teacher', href: '/admin/teachers/invite' }}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {teachers.map(t => (

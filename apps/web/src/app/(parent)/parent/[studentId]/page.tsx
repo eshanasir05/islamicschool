@@ -4,6 +4,7 @@ import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition
 import AudioPlayer from './audio-player';
 import { toHijriString } from '@/lib/hijri';
 import { env } from '@/env';
+import { EmptyState } from '@/components/ui/empty-state';
 
 type Props = { params: Promise<{ studentId: string }>; searchParams: Promise<{ payment?: string }> };
 
@@ -54,21 +55,22 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
   return (
     <main className="app-main">
       {payment === 'success' && (
-        <div style={{ margin: '16px 0', padding: '12px 16px', borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 14, color: '#166534' }}>
+        <div className="banner banner-success" style={{ marginTop: 16 }}>
           Payment received — JazakAllah khayran! Your billing is now active.
         </div>
       )}
       <p className="feed-date" style={{ marginTop: 24 }}>{todayLabel}</p>
       {hijri && <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, marginTop: -12 }}>{hijri}</p>}
-      <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 24px', color: 'var(--fg)' }}>
+      <h1 className="text-h1" style={{ marginBottom: 24 }}>
         {student.fullName}&apos;s day
       </h1>
 
       {!hasContent ? (
-        <div className="feed-empty">
-          <h3>No class today yet</h3>
-          <p>Check back after Sunday&apos;s session. Your teacher will send a summary when class wraps.</p>
-        </div>
+        <EmptyState
+          icon="cal"
+          title="No class today yet"
+          body="Check back after the next session. Your teacher will send a summary — attendance, hifz, and praise — as soon as class wraps."
+        />
       ) : (
         <>
           {attendance && (

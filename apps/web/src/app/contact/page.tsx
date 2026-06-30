@@ -79,9 +79,18 @@ export default function ContactPage() {
           <h1 style={{ fontSize: 38, fontWeight: 700, lineHeight: 1.15, margin: '0 0 12px', letterSpacing: '-0.02em' }}>
             Book a demo for your school.
           </h1>
-          <p style={{ fontSize: 17, color: 'var(--muted)', marginBottom: 40, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 17, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>
             Tell us a little about your school and we'll reach out within one business day to walk you through a live demo, in sha Allah. No pressure, no sales script.
           </p>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 24px', marginBottom: 40 }}>
+            {['Your details stay private', 'Reply within 1 business day', 'No sales pressure'].map((t) => (
+              <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)' }}>
+                <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><Icon name="check" size={14} /></span>
+                {t}
+              </span>
+            ))}
+          </div>
 
           {state === 'success' ? (
             <div style={{ padding: '32px 28px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, textAlign: 'center' }}>

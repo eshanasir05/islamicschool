@@ -3,16 +3,17 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/s
 import { db, schema } from '@/lib/db';
 import { and, eq } from 'drizzle-orm';
 import { env } from '@/env';
-import Link from 'next/link';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 type Props = { searchParams: Promise<{ status?: string; msg?: string }> };
 
-const STATUS_MESSAGES: Record<string, { text: string; color: string }> = {
-  invited:        { text: 'Invite sent! The teacher will receive an email with a sign-in link.', color: '#166534' },
-  added:          { text: 'Teacher already has an account — added to this school as a teacher.', color: '#166534' },
-  already_member: { text: 'This teacher is already a member of this school.', color: '#92400e' },
-  invalid_email:  { text: 'Please enter a valid email address.', color: '#991b1b' },
-  not_admin:      { text: 'Permission denied. Only admins can invite teachers.', color: '#991b1b' },
+const STATUS_MESSAGES: Record<string, { text: string; variant: 'success' | 'warn' | 'error' }> = {
+  invited:        { text: 'Invite sent! The teacher will receive an email with a sign-in link.', variant: 'success' },
+  added:          { text: 'Teacher already has an account — added to this school as a teacher.', variant: 'success' },
+  already_member: { text: 'This teacher is already a member of this school.', variant: 'warn' },
+  invalid_email:  { text: 'Please enter a valid email address.', variant: 'error' },
+  not_admin:      { text: 'Permission denied. Only admins can invite teachers.', variant: 'error' },
 };
 
 export default async function InviteTeacherPage({ searchParams }: Props) {
@@ -110,36 +111,26 @@ export default async function InviteTeacherPage({ searchParams }: Props) {
 
   return (
     <main className="app-main">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 24, marginBottom: 24 }}>
-        <Link href="/admin/teachers" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
-          ← Teachers
-        </Link>
-      </div>
+      <Breadcrumb
+        items={[
+          { label: 'Teachers', href: '/admin/teachers' },
+          { label: 'Invite' },
+        ]}
+      />
 
-      <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 6px', color: 'var(--fg)' }}>Invite a teacher</h1>
-      <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>
+      <h1 className="text-h1" style={{ marginBottom: 6 }}>Invite a teacher</h1>
+      <p className="text-body" style={{ marginBottom: 24 }}>
         They&apos;ll receive an email with a link to sign in. No password required on your end.
       </p>
 
       {statusInfo && (
-        <div style={{
-          padding: '10px 14px',
-          borderRadius: 8,
-          marginBottom: 20,
-          fontSize: 14,
-          color: statusInfo.color,
-          background: statusInfo.color === '#166534' ? '#f0fdf4' : statusInfo.color === '#92400e' ? '#fffbeb' : '#fef2f2',
-          border: `1px solid ${statusInfo.color === '#166534' ? '#bbf7d0' : statusInfo.color === '#92400e' ? '#fde68a' : '#fecaca'}`,
-        }}>
+        <div className={`banner banner-${statusInfo.variant}`}>
           {statusInfo.text}
         </div>
       )}
 
       {errorMsg && (
-        <div style={{
-          padding: '10px 14px', borderRadius: 8, marginBottom: 20, fontSize: 14,
-          color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca',
-        }}>
+        <div className="banner banner-error">
           {errorMsg}
         </div>
       )}
@@ -184,13 +175,13 @@ export default async function InviteTeacherPage({ searchParams }: Props) {
             </p>
           </div>
 
-          <button
-            type="submit"
+          <SubmitButton
             className="btn btn-accent"
             style={{ alignSelf: 'flex-start', marginTop: 4 }}
+            pendingLabel="Sending…"
           >
             Send invite
-          </button>
+          </SubmitButton>
         </form>
       </div>
 

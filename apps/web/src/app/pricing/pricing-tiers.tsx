@@ -174,11 +174,14 @@ export function PricingHeroAndTiers() {
                     </li>
                   ))}
                 </ul>
-                <div className="tier-cta">
+                <div className="tier-cta" style={{ flexDirection: 'column', gap: 8 }}>
                   <Link className={`btn ${t.featured ? 'btn-accent' : 'btn-primary'}`} href="/contact">
                     {t.cta}
                     <Icon name="arrow" size={14} />
                   </Link>
+                  <span style={{ fontSize: 12, color: t.featured ? 'rgba(255,255,255,0.55)' : 'var(--subtle)', textAlign: 'center' }}>
+                    No setup fee · Cancel anytime
+                  </span>
                 </div>
               </div>
             ))}

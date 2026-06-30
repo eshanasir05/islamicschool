@@ -2,6 +2,8 @@ import { env } from '@/env';
 import { getAdminClassDetail, getAdminTeachers, updateClass } from '../../../../actions';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
@@ -38,13 +40,14 @@ export default async function EditClassPage({ params }: Props) {
 
   return (
     <main className="app-main">
-      <Link
-        href={`/admin/classes/${classId}`}
-        style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none', display: 'inline-block', marginTop: 16, marginBottom: 16 }}
-      >
-        ← Back to class
-      </Link>
-      <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 24px', color: 'var(--fg)' }}>Edit class</h1>
+      <Breadcrumb
+        items={[
+          { label: 'Classes', href: '/admin/classes' },
+          { label: cls.name, href: `/admin/classes/${classId}` },
+          { label: 'Edit' },
+        ]}
+      />
+      <h1 className="text-h1" style={{ marginBottom: 24 }}>Edit class</h1>
       <form action={updateAction}>
         <div className="app-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
@@ -105,9 +108,9 @@ export default async function EditClassPage({ params }: Props) {
             <Link href={`/admin/classes/${classId}`} className="btn btn-ghost" style={{ flex: 1, textAlign: 'center', textDecoration: 'none' }}>
               Cancel
             </Link>
-            <button type="submit" className="btn btn-accent" style={{ flex: 2 }}>
+            <SubmitButton className="btn btn-accent" style={{ flex: 2 }} pendingLabel="Saving…">
               Save changes
-            </button>
+            </SubmitButton>
           </div>
         </div>
       </form>

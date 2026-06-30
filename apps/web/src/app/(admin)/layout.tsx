@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import Link from 'next/link';
 import AdminNav from './admin-nav';
 import SkeletonPage from '@/components/skeleton-page';
+import { Toaster } from '@/components/ui/toaster';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -28,6 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </header>
       <AdminNav />
       <Suspense fallback={<SkeletonPage />}>{children}</Suspense>
+      <Toaster />
     </div>
   );
 }

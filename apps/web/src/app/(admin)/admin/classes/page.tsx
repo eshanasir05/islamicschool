@@ -1,31 +1,42 @@
 import { env } from '@/env';
 import { getAdminClasses } from '../../actions';
 import Link from 'next/link';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ToastOnParam } from '@/components/ui/toast-on-param';
 
-export default async function ClassesPage() {
+type Props = { searchParams: Promise<{ notice?: string }> };
+
+export default async function ClassesPage({ searchParams }: Props) {
+  const { notice } = await searchParams;
   const classes = await getAdminClasses(env.NEXT_PUBLIC_ORG_ID);
   const active = classes.filter(c => !c.deletedAt);
   const archived = classes.filter(c => c.deletedAt);
 
   return (
     <main className="app-main">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 4 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--fg)', margin: 0 }}>Classes</h1>
+      <ToastOnParam notice={notice} />
+      <div className="page-heading">
+        <h1 className="text-h1">Classes</h1>
         <Link href="/admin/classes/new" className="btn btn-accent" style={{ fontSize: 13, padding: '6px 14px', textDecoration: 'none' }}>
           Add class
         </Link>
       </div>
-      <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>
+      <p className="text-body" style={{ marginBottom: 24 }}>
         {active.length} class{active.length !== 1 ? 'es' : ''}
       </p>
 
       {active.length === 0 ? (
-        <div className="feed-empty"><p>No classes found. Add a class to get started.</p></div>
+        <EmptyState
+          icon="principal"
+          title="No classes yet"
+          body="Add your first class, assign a teacher, and enroll students to start tracking sessions."
+          cta={{ label: 'Add class', href: '/admin/classes/new' }}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {active.map(cls => (
-            <Link key={cls.id} href={`/admin/classes/${cls.id}`} style={{ textDecoration: 'none' }}>
-              <div className="app-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+            <Link key={cls.id} href={`/admin/classes/${cls.id}`} className="app-card-link">
+              <div className="app-card is-interactive" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ fontWeight: 500, color: 'var(--fg)', marginBottom: 2 }}>{cls.name}</div>
                   <div style={{ fontSize: 13, color: 'var(--muted)' }}>

@@ -2,6 +2,8 @@ import { env } from '@/env';
 import { getAdminStudent, updateStudent } from '../../../../actions';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
@@ -35,13 +37,14 @@ export default async function EditStudentPage({ params }: Props) {
 
   return (
     <main className="app-main">
-      <Link
-        href={`/admin/students/${studentId}`}
-        style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none', display: 'inline-block', marginTop: 16, marginBottom: 16 }}
-      >
-        ← Back to student
-      </Link>
-      <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 24px', color: 'var(--fg)' }}>Edit student</h1>
+      <Breadcrumb
+        items={[
+          { label: 'Students', href: '/admin/students' },
+          { label: student.fullName, href: `/admin/students/${studentId}` },
+          { label: 'Edit' },
+        ]}
+      />
+      <h1 className="text-h1" style={{ marginBottom: 24 }}>Edit student</h1>
       <form action={updateAction}>
         <div className="app-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
@@ -88,9 +91,9 @@ export default async function EditStudentPage({ params }: Props) {
             <Link href={`/admin/students/${studentId}`} className="btn btn-ghost" style={{ flex: 1, textAlign: 'center', textDecoration: 'none' }}>
               Cancel
             </Link>
-            <button type="submit" className="btn btn-accent" style={{ flex: 2 }}>
+            <SubmitButton className="btn btn-accent" style={{ flex: 2 }} pendingLabel="Saving…">
               Save changes
-            </button>
+            </SubmitButton>
           </div>
         </div>
       </form>

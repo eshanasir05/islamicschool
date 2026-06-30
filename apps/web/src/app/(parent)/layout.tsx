@@ -5,6 +5,7 @@ import { db, schema } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import Link from 'next/link';
 import SkeletonPage from '@/components/skeleton-page';
+import { Toaster } from '@/components/ui/toaster';
 
 export default async function ParentLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -46,6 +47,7 @@ export default async function ParentLayout({ children }: { children: React.React
         </div>
       )}
       <Suspense fallback={<SkeletonPage />}>{children}</Suspense>
+      <Toaster />
     </div>
   );
 }

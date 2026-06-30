@@ -4,6 +4,8 @@ import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { env } from '@/env';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 type Props = { searchParams: Promise<{ status?: string }> };
 
@@ -15,12 +17,6 @@ const STATUS_MESSAGES: Record<string, { text: string; tone: 'success' | 'warn' |
   missing_student: { text: 'Please select a student to link this parent to.', tone: 'error' },
   not_admin:       { text: 'Permission denied. Only admins can invite parents.', tone: 'error' },
   error:           { text: 'Something went wrong. Please try again.', tone: 'error' },
-};
-
-const TONE_STYLES = {
-  success: { color: '#166534', bg: '#f0fdf4', border: '#bbf7d0' },
-  warn:    { color: '#92400e', bg: '#fffbeb', border: '#fde68a' },
-  error:   { color: '#991b1b', bg: '#fef2f2', border: '#fecaca' },
 };
 
 export default async function InviteParentPage({ searchParams }: Props) {
@@ -157,26 +153,22 @@ export default async function InviteParentPage({ searchParams }: Props) {
     redirect('/admin/parents/invite?status=invited');
   }
 
-  const toneStyle = statusInfo ? TONE_STYLES[statusInfo.tone] : null;
-
   return (
     <main className="app-main">
-      <div style={{ marginTop: 24, marginBottom: 20 }}>
-        <Link href="/admin/parents" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
-          ← Parents
-        </Link>
-      </div>
+      <Breadcrumb
+        items={[
+          { label: 'Parents', href: '/admin/parents' },
+          { label: 'Invite' },
+        ]}
+      />
 
-      <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 6px', color: 'var(--fg)' }}>Invite a parent</h1>
-      <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>
+      <h1 className="text-h1" style={{ marginBottom: 6 }}>Invite a parent</h1>
+      <p className="text-body" style={{ marginBottom: 24 }}>
         The parent will receive an email with a sign-in link and will immediately be linked to the selected student.
       </p>
 
-      {statusInfo && toneStyle && (
-        <div style={{
-          padding: '10px 14px', borderRadius: 8, marginBottom: 20, fontSize: 14,
-          color: toneStyle.color, background: toneStyle.bg, border: `1px solid ${toneStyle.border}`,
-        }}>
+      {statusInfo && (
+        <div className={`banner banner-${statusInfo.tone}`}>
           {statusInfo.text}
         </div>
       )}
@@ -253,14 +245,14 @@ export default async function InviteParentPage({ searchParams }: Props) {
             </select>
           </div>
 
-          <button
-            type="submit"
+          <SubmitButton
             className="btn btn-accent"
             style={{ alignSelf: 'flex-start', marginTop: 4 }}
             disabled={students.length === 0}
+            pendingLabel="Sending…"
           >
             Send invite
-          </button>
+          </SubmitButton>
         </form>
       </div>
 

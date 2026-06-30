@@ -6,6 +6,7 @@ import { eq, and } from 'drizzle-orm';
 import { env } from '@/env';
 import Link from 'next/link';
 import SkeletonPage from '@/components/skeleton-page';
+import { Toaster } from '@/components/ui/toaster';
 
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -29,6 +30,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
         </div>
       </header>
       <Suspense fallback={<SkeletonPage />}>{children}</Suspense>
+      <Toaster />
     </div>
   );
 }

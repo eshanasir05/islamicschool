@@ -4,10 +4,15 @@ import { db, schema } from '@/lib/db';
 import { getAdminStudentTuition, createTuitionPlan, cancelTuitionPlan } from '../../../actions';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { ToastOnParam } from '@/components/ui/toast-on-param';
+import { SubmitButton } from '@/components/ui/submit-button';
+import { EmptyState } from '@/components/ui/empty-state';
 
 type Props = {
   params: Promise<{ studentId: string }>;
-  searchParams: Promise<{ payment?: string; checkout_url?: string }>;
+  searchParams: Promise<{ payment?: string; checkout_url?: string; notice?: string }>;
 };
 
 const labelStyle: React.CSSProperties = {
@@ -33,7 +38,7 @@ function formatAmount(cents: number, currency: string) {
 
 export default async function StudentTuitionPage({ params, searchParams }: Props) {
   const { studentId } = await params;
-  const { payment, checkout_url } = await searchParams;
+  const { payment, checkout_url, notice } = await searchParams;
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
   const [{ student, plans }, guardians] = await Promise.all([
@@ -77,22 +82,23 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
 
   return (
     <main className="app-main">
-      <Link
-        href="/admin/tuition"
-        style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none', display: 'inline-block', marginTop: 16, marginBottom: 16 }}
-      >
-        ← All tuition
-      </Link>
+      <ToastOnParam notice={notice} />
+      <Breadcrumb
+        items={[
+          { label: 'Tuition', href: '/admin/tuition' },
+          { label: student.fullName },
+        ]}
+      />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--fg)', margin: 0 }}>{student.fullName}</h1>
+        <h1 className="text-h1">{student.fullName}</h1>
         <Link href={`/admin/students/${studentId}`} style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
           Student profile →
         </Link>
       </div>
 
       {payment === 'success' && (
-        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#166534' }}>
+        <div className="banner banner-success">
           Payment successful — subscription is now active.
         </div>
       )}
@@ -132,9 +138,15 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
             {activePlan.status !== 'cancelled' && (
               <form action={cancelAction}>
                 <input type="hidden" name="planId" value={activePlan.id} />
-                <button type="submit" className="btn btn-ghost" style={{ fontSize: 13, padding: '4px 12px', color: 'var(--muted)' }}>
-                  Cancel plan
-                </button>
+                <ConfirmSubmit
+                  label="Cancel plan"
+                  title="Cancel this tuition plan?"
+                  body="Billing will stop and any active Stripe subscription will be cancelled. This cannot be undone — you would need to create a new plan."
+                  confirmLabel="Cancel plan"
+                  variant="danger"
+                  className="btn btn-ghost"
+                  buttonStyle={{ fontSize: 13, padding: '4px 12px', color: 'var(--muted)' }}
+                />
               </form>
             )}
           </div>
@@ -158,7 +170,7 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
           <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>
             Payment history ({activePlan.payments.length})
           </h2>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-scroll">
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr>
@@ -200,8 +212,12 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
       )}
 
       {activePlan && activePlan.payments.length === 0 && activePlan.status === 'pending_payment' && (
-        <div className="feed-empty" style={{ marginTop: 0, marginBottom: 24 }}>
-          <p>Waiting for the parent to complete checkout. Send them the link above.</p>
+        <div style={{ marginBottom: 24 }}>
+          <EmptyState
+            icon="money"
+            title="Waiting for first payment"
+            body="The parent hasn't completed checkout yet. Send them the link above — Stripe handles the rest automatically."
+          />
         </div>
       )}
 
@@ -210,9 +226,12 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
         <div>
           <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 12 }}>Create tuition plan</h2>
           {guardians.length === 0 ? (
-            <div className="feed-empty" style={{ marginTop: 0 }}>
-              <p>No guardians linked. <Link href={`/admin/students/${studentId}`} style={{ color: 'var(--accent)' }}>Add a guardian</Link> first — they will be the billing contact.</p>
-            </div>
+            <EmptyState
+              icon="parent"
+              title="No billing contact yet"
+              body="Link a guardian to this student first — they'll be the billing contact who receives the Stripe checkout."
+              cta={{ label: 'Add a guardian', href: `/admin/students/${studentId}` }}
+            />
           ) : (
             <form action={createAction}>
               <div className="app-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -261,9 +280,9 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
                     placeholder="e.g. Sibling discount applied, agreed rate $60/mo"
                   />
                 </div>
-                <button type="submit" className="btn btn-accent">
+                <SubmitButton className="btn btn-accent" pendingLabel="Creating plan…">
                   Create plan & generate checkout link
-                </button>
+                </SubmitButton>
                 <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
                   Creates a Stripe checkout link. Send it to the parent — they enter their card once and Stripe charges automatically.
                 </p>
