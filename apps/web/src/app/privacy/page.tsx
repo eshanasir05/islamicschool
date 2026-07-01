@@ -30,7 +30,7 @@ export default function PrivacyPage() {
 
           <Section title="Who we are">
             <p>
-              Talibly is a school management platform built for North American Islamic weekend schools, full-time academies, and Quran tutors. We are incorporated in the United States. Our primary contact for privacy matters is <a href="mailto:privacy@talibly.com" style={{ color: 'var(--accent)' }}>privacy@talibly.com</a>.
+              Talibly is a school management platform built for North American Islamic weekend schools, full-time academies, and Quran tutors. We are incorporated in the United States. Our primary contact for privacy matters is <a href="mailto:info@talibly.com" style={{ color: 'var(--accent)' }}>info@talibly.com</a>.
             </p>
           </Section>
 
@@ -95,7 +95,7 @@ export default function PrivacyPage() {
               <li>Export your data in a portable format (CSV export is available in the admin dashboard).</li>
             </ul>
             <p style={{ marginTop: 12 }}>
-              To exercise these rights, contact <a href="mailto:privacy@talibly.com" style={{ color: 'var(--accent)' }}>privacy@talibly.com</a>.
+              To exercise these rights, contact <a href="mailto:info@talibly.com" style={{ color: 'var(--accent)' }}>info@talibly.com</a>.
             </p>
           </Section>
 
@@ -113,7 +113,7 @@ export default function PrivacyPage() {
 
           <Section title="Contact">
             <p>
-              Privacy questions: <a href="mailto:privacy@talibly.com" style={{ color: 'var(--accent)' }}>privacy@talibly.com</a><br />
+              Privacy questions: <a href="mailto:info@talibly.com" style={{ color: 'var(--accent)' }}>info@talibly.com</a><br />
               General inquiries: <a href="/contact" style={{ color: 'var(--accent)' }}>Contact form</a>
             </p>
           </Section>

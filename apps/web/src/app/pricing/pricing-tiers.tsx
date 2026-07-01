@@ -23,7 +23,7 @@ const TIERS: Tier[] = [
     monthly: 19,
     annualMonthly: 15,
     perNote: 'Up to 25 students',
-    cta: 'Start free trial',
+    cta: 'Book a demo',
     features: [
       'All parent app features',
       'Hifz audio recording',
@@ -59,7 +59,7 @@ const TIERS: Tier[] = [
     monthly: 249,
     annualMonthly: 199,
     perNote: '+$1 / student / month',
-    cta: 'Talk to sales',
+    cta: 'Book a demo',
     features: [
       'Everything in Weekend School',
       'Volume tuition pricing',

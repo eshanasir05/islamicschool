@@ -44,7 +44,7 @@ export default function TermsPage() {
             <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <li>Each school ("Organization") has one or more administrators who manage teacher, parent, and student accounts.</li>
               <li>You are responsible for maintaining the confidentiality of your login credentials and for all activity under your account.</li>
-              <li>You must notify us promptly at <a href="mailto:hello@talibly.com" style={{ color: 'var(--accent)' }}>hello@talibly.com</a> if you believe your account has been compromised.</li>
+              <li>You must notify us promptly at <a href="mailto:info@talibly.com" style={{ color: 'var(--accent)' }}>info@talibly.com</a> if you believe your account has been compromised.</li>
               <li>You may not share credentials between individuals or create accounts on behalf of people who have not consented.</li>
             </ul>
           </Section>
@@ -112,7 +112,7 @@ export default function TermsPage() {
 
           <Section title="Contact">
             <p>
-              Questions about these Terms: <a href="mailto:hello@talibly.com" style={{ color: 'var(--accent)' }}>hello@talibly.com</a><br />
+              Questions about these Terms: <a href="mailto:info@talibly.com" style={{ color: 'var(--accent)' }}>info@talibly.com</a><br />
               General inquiries: <a href="/contact" style={{ color: 'var(--accent)' }}>Contact form</a>
             </p>
           </Section>

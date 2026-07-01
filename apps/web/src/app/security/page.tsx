@@ -101,13 +101,13 @@ export default function SecurityPage() {
 
           <Section title="Reporting a vulnerability">
             <p>
-              If you discover a security issue, please email <a href="mailto:security@talibly.com" style={{ color: 'var(--accent)' }}>security@talibly.com</a>. We will acknowledge your report within 2 business days and work to resolve confirmed issues promptly. We ask that you do not publicly disclose vulnerabilities until we have had a reasonable opportunity to address them.
+              If you discover a security issue, please email <a href="mailto:info@talibly.com" style={{ color: 'var(--accent)' }}>info@talibly.com</a>. We will acknowledge your report within 2 business days and work to resolve confirmed issues promptly. We ask that you do not publicly disclose vulnerabilities until we have had a reasonable opportunity to address them.
             </p>
           </Section>
 
           <Section title="Questions">
             <p>
-              Security questions: <a href="mailto:security@talibly.com" style={{ color: 'var(--accent)' }}>security@talibly.com</a><br />
+              Security questions: <a href="mailto:info@talibly.com" style={{ color: 'var(--accent)' }}>info@talibly.com</a><br />
               General inquiries: <a href="/contact" style={{ color: 'var(--accent)' }}>Contact form</a>
             </p>
           </Section>

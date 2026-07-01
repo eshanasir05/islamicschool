@@ -181,7 +181,7 @@ export default function PricingPage() {
       <SiteCTA
         title="Try Talibly with your school for free, for a month."
         body="No card on file. We'll onboard, import your roster, and train your teachers. If it's not better than your current setup, walk away. Your data exports as CSV."
-        cta="Start free trial"
+        cta="Book a demo"
       />
       <SiteFooter />
     </>

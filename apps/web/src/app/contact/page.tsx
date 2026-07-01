@@ -180,7 +180,7 @@ export default function ContactPage() {
           <div style={{ marginTop: 64, paddingTop: 40, borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 32 }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Email</div>
-              <a href="mailto:hello@talibly.com" style={{ fontSize: 14, color: 'var(--accent)', textDecoration: 'none' }}>hello@talibly.com</a>
+              <a href="mailto:info@talibly.com" style={{ fontSize: 14, color: 'var(--accent)', textDecoration: 'none' }}>info@talibly.com</a>
             </div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Response time</div>
