@@ -296,40 +296,41 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
                   <input type="date" name="startDate" className="sign-in-input" style={{ marginBottom: 0 }} />
                 </div>
 
-                {siblings.length > 0 && (
-                  <div style={{ background: 'var(--accent-soft, #ecfdf5)', border: '1px solid var(--accent-200, #a7f3d0)', borderRadius: 8, padding: 12 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-700)', marginBottom: 8 }}>
-                      Sibling discount
-                    </div>
-                    <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 10px' }}>
-                      {student.fullName} shares a guardian with {siblings.map(s => s.fullName).join(', ')}. Apply a discount
-                      to this plan if your school offers a sibling rate.
-                    </p>
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-                      <select name="discountType" className="sign-in-input" style={{ marginBottom: 0, flex: 1 }} defaultValue="">
-                        <option value="">No discount</option>
-                        <option value="percent">Percent off</option>
-                        <option value="fixed">Fixed $ off</option>
-                      </select>
-                      <input
-                        type="number"
-                        name="discountValue"
-                        min={0}
-                        step="0.01"
-                        placeholder="e.g. 10"
-                        className="sign-in-input"
-                        style={{ marginBottom: 0, flex: 1 }}
-                      />
-                    </div>
+                <div style={{ background: 'var(--accent-soft, #ecfdf5)', border: '1px solid var(--accent-200, #a7f3d0)', borderRadius: 8, padding: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-700)', marginBottom: 8 }}>
+                    Discount / tuition assistance
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 10px' }}>
+                    {siblings.length > 0
+                      ? `${student.fullName} shares a guardian with ${siblings.map(s => s.fullName).join(', ')}. `
+                      : ''}
+                    Apply a sibling discount, scholarship, or other tuition assistance. This is only visible to
+                    admins and the family — never shown to teachers.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                    <select name="discountType" className="sign-in-input" style={{ marginBottom: 0, flex: 1 }} defaultValue="">
+                      <option value="">No discount</option>
+                      <option value="percent">Percent off</option>
+                      <option value="fixed">Fixed $ off</option>
+                    </select>
                     <input
-                      type="text"
-                      name="discountReason"
-                      placeholder="Reason (e.g. Sibling discount — 2 children enrolled)"
+                      type="number"
+                      name="discountValue"
+                      min={0}
+                      step="0.01"
+                      placeholder="e.g. 10"
                       className="sign-in-input"
-                      style={{ marginBottom: 0 }}
+                      style={{ marginBottom: 0, flex: 1 }}
                     />
                   </div>
-                )}
+                  <input
+                    type="text"
+                    name="discountReason"
+                    placeholder="Reason (e.g. Scholarship — community fund, Sibling discount)"
+                    className="sign-in-input"
+                    style={{ marginBottom: 0 }}
+                  />
+                </div>
 
                 <div>
                   <label style={labelStyle}>Notes (optional)</label>
