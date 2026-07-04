@@ -15,9 +15,14 @@ export default async function StudentsPage({ searchParams }: Props) {
       <ToastOnParam notice={notice} />
       <div className="page-heading">
         <h1 className="text-h1">Students</h1>
-        <Link href="/admin/students/new" className="btn btn-accent" style={{ fontSize: 13, padding: '6px 14px', textDecoration: 'none' }}>
-          Add student
-        </Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link href="/admin/import" className="btn btn-ghost" style={{ fontSize: 13, padding: '6px 14px', textDecoration: 'none' }}>
+            Import roster
+          </Link>
+          <Link href="/admin/students/new" className="btn btn-accent" style={{ fontSize: 13, padding: '6px 14px', textDecoration: 'none' }}>
+            Add student
+          </Link>
+        </div>
       </div>
       <p className="text-body" style={{ marginBottom: 24 }}>
         {students.length} enrolled

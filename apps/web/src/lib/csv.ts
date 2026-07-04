@@ -20,6 +20,47 @@ export function buildCsv(headers: string[], rows: (string | number | null | unde
   return lines.join('\r\n');
 }
 
+export function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+  const src = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  for (let i = 0; i < src.length; i++) {
+    const char = src[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (src[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ',') {
+      row.push(field);
+      field = '';
+    } else if (char === '\n') {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else {
+      field += char;
+    }
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter(r => r.some(cell => cell.trim().length > 0));
+}
+
 export function csvResponse(csv: string, filename: string): Response {
   return new Response(csv, {
     headers: {
