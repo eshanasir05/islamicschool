@@ -33,44 +33,56 @@ export async function GET() {
 
   const rows = await db
     .select({
-      attendanceId: schema.attendanceRecords.id,
-      sessionDate: schema.attendanceRecords.sessionDate,
-      status: schema.attendanceRecords.status,
-      notes: schema.attendanceRecords.notes,
-      createdAt: schema.attendanceRecords.createdAt,
+      hifzId: schema.hifzRecords.id,
+      sessionDate: schema.hifzRecords.sessionDate,
       studentName: schema.students.fullName,
       className: schema.classes.name,
+      stream: schema.hifzRecords.stream,
+      surahNumber: schema.hifzRecords.surahNumber,
+      ayahStart: schema.hifzRecords.ayahStart,
+      ayahEnd: schema.hifzRecords.ayahEnd,
+      accuracyScore: schema.hifzRecords.accuracyScore,
+      hasAudio: schema.hifzRecords.audioUrl,
       recordedBy: recorderUsers.fullName,
+      createdAt: schema.hifzRecords.createdAt,
     })
-    .from(schema.attendanceRecords)
-    .innerJoin(schema.students, eq(schema.students.id, schema.attendanceRecords.studentId))
-    .innerJoin(schema.classes, eq(schema.classes.id, schema.attendanceRecords.classId))
-    .innerJoin(recorderUsers, eq(recorderUsers.id, schema.attendanceRecords.recordedBy))
-    .where(eq(schema.attendanceRecords.organizationId, orgId))
-    .orderBy(schema.attendanceRecords.sessionDate, schema.students.fullName);
+    .from(schema.hifzRecords)
+    .innerJoin(schema.students, eq(schema.students.id, schema.hifzRecords.studentId))
+    .leftJoin(schema.classes, eq(schema.classes.id, schema.hifzRecords.classId))
+    .innerJoin(recorderUsers, eq(recorderUsers.id, schema.hifzRecords.recordedBy))
+    .where(eq(schema.hifzRecords.organizationId, orgId))
+    .orderBy(schema.hifzRecords.sessionDate, schema.students.fullName);
 
   const headers = [
-    'attendance_id',
+    'hifz_id',
     'date',
     'student_name',
     'class_name',
-    'status',
-    'notes',
+    'stream',
+    'surah_number',
+    'ayah_start',
+    'ayah_end',
+    'accuracy_score',
+    'has_audio',
     'recorded_by',
     'created_at',
   ];
 
   const data = rows.map(r => [
-    r.attendanceId,
+    r.hifzId,
     r.sessionDate,
     r.studentName,
     r.className,
-    r.status,
-    r.notes,
+    r.stream,
+    r.surahNumber,
+    r.ayahStart,
+    r.ayahEnd,
+    r.accuracyScore,
+    r.hasAudio ? 'yes' : 'no',
     r.recordedBy,
     r.createdAt ? new Date(r.createdAt).toISOString() : null,
   ]);
 
   const date = new Date().toISOString().slice(0, 10);
-  return csvResponse(buildCsv(headers, data), `talibly-attendance-${date}.csv`);
+  return csvResponse(buildCsv(headers, data), `talibly-hifz-${date}.csv`);
 }

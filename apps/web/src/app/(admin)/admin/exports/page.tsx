@@ -1,32 +1,41 @@
+import { ExportButton } from '@/components/ui/export-button';
+
 const EXPORTS = [
   {
     title: 'Student Roster',
     description: 'All students with class assignment, primary guardian name and email, and enrollment status.',
-    filename: 'students-YYYY-MM-DD.csv',
+    filename: 'talibly-roster-YYYY-MM-DD.csv',
     href: '/api/admin/exports/students',
     columns: ['student_id', 'student_name', 'grade_level', 'class_name', 'parent_name', 'parent_email', 'enrollment_status', 'enrolled_at', 'created_at'],
   },
   {
-    title: 'Payment History',
+    title: 'Tuition Ledger',
     description: 'All recorded tuition payments with Stripe IDs, receipt URLs, and payer details.',
-    filename: 'payments-YYYY-MM-DD.csv',
+    filename: 'talibly-tuition-YYYY-MM-DD.csv',
     href: '/api/admin/exports/payments',
     columns: ['payment_id', 'student_name', 'parent_name', 'parent_email', 'plan_frequency', 'amount', 'currency', 'status', 'stripe_checkout_session_id', 'stripe_payment_intent_id', 'receipt_url', 'paid_at', 'created_at'],
   },
   {
     title: 'Attendance Records',
     description: 'Full attendance history for all students across all sessions, with class name and teacher.',
-    filename: 'attendance-YYYY-MM-DD.csv',
+    filename: 'talibly-attendance-YYYY-MM-DD.csv',
     href: '/api/admin/exports/attendance',
     columns: ['attendance_id', 'date', 'student_name', 'class_name', 'status', 'notes', 'recorded_by', 'created_at'],
+  },
+  {
+    title: 'Hifz Progress',
+    description: 'Every recorded hifz session — surah, ayah range, stream, and whether audio was captured.',
+    filename: 'talibly-hifz-YYYY-MM-DD.csv',
+    href: '/api/admin/exports/hifz',
+    columns: ['hifz_id', 'date', 'student_name', 'class_name', 'stream', 'surah_number', 'ayah_start', 'ayah_end', 'accuracy_score', 'has_audio', 'recorded_by', 'created_at'],
   },
 ];
 
 export default function ExportsPage() {
   return (
     <main className="app-main">
-      <h1 style={{ fontSize: 22, fontWeight: 600, margin: '24px 0 6px', color: 'var(--fg)' }}>Exports</h1>
-      <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>
+      <h1 className="text-h1" style={{ marginTop: 24, marginBottom: 6 }}>Exports</h1>
+      <p className="text-body" style={{ marginBottom: 24 }}>
         Download school data as CSV. All exports are scoped to this school only.
       </p>
 
@@ -55,14 +64,7 @@ export default function ExportsPage() {
                   ))}
                 </div>
               </div>
-              <a
-                href={exp.href}
-                download
-                className="btn btn-accent"
-                style={{ fontSize: 13, padding: '7px 14px', whiteSpace: 'nowrap', flexShrink: 0 }}
-              >
-                ↓ Download CSV
-              </a>
+              <ExportButton href={exp.href} label="↓ Download CSV" />
             </div>
           </div>
         ))}

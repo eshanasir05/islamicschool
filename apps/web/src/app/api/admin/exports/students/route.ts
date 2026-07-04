@@ -81,5 +81,5 @@ export async function GET() {
   ]);
 
   const date = new Date().toISOString().slice(0, 10);
-  return csvResponse(buildCsv(headers, data), `students-${date}.csv`);
+  return csvResponse(buildCsv(headers, data), `talibly-roster-${date}.csv`);
 }
