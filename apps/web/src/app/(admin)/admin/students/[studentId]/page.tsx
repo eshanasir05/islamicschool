@@ -41,7 +41,7 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
   const { notice } = await searchParams;
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
-  const { student, attendance, hifz, milestones, noteCount } = await getAdminStudent(studentId, orgId);
+  const { student, attendance, hifz, milestones, noteCount, retentionFlags } = await getAdminStudent(studentId, orgId);
   if (!student) notFound();
 
   const dob = student.dateOfBirth
@@ -257,6 +257,27 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
         </div>
       )}
 
+      {/* Hifz retention flags */}
+      {(retentionFlags.noReviewInWeeks || retentionFlags.repeatedWeak || retentionFlags.noUpdateInWeeks) && (
+        <div style={{ marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {retentionFlags.noUpdateInWeeks && (
+            <div style={{ fontSize: 13, color: '#991b1b', background: '#fee2e2', borderRadius: 8, padding: '8px 12px' }}>
+              No hifz update in over 3 weeks.
+            </div>
+          )}
+          {retentionFlags.noReviewInWeeks && !retentionFlags.noUpdateInWeeks && (
+            <div style={{ fontSize: 13, color: '#92400e', background: 'var(--warn-soft)', borderRadius: 8, padding: '8px 12px' }}>
+              No sabqi/manzil review recorded in over 3 weeks.
+            </div>
+          )}
+          {retentionFlags.repeatedWeak && (
+            <div style={{ fontSize: 13, color: '#92400e', background: 'var(--warn-soft)', borderRadius: 8, padding: '8px 12px' }}>
+              Repeated weak or needs-review status in recent sessions.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Hifz records */}
       {hifz.length > 0 && (
         <div style={{ marginBottom: 24 }}>
@@ -266,13 +287,14 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
               <div
                 key={h.id}
                 className="app-card"
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, flexWrap: 'wrap', gap: 6 }}
               >
                 <span style={{ color: 'var(--muted)' }}>{h.sessionDate}</span>
                 <span style={{ color: 'var(--fg)' }}>
                   {surahName(h.surahNumber)} {h.ayahStart}–{h.ayahEnd}
                   <span style={{ color: 'var(--muted)', marginLeft: 6, textTransform: 'capitalize' }}>· {h.stream}</span>
                 </span>
+                <span className={`badge badge-${h.status}`} style={{ textTransform: 'capitalize' }}>{h.status.replace('_', ' ')}</span>
               </div>
             ))}
           </div>

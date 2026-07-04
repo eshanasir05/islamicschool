@@ -391,6 +391,8 @@ export type HifzInput = {
   ayahStart: number;
   ayahEnd: number;
   audioDataUrl?: string | null;
+  status: 'passed' | 'needs_review' | 'weak' | 'mastered';
+  mistakeType?: 'hesitation' | 'tajweed' | 'forgot_ayah' | 'repeated_correction' | null;
 };
 
 export async function submitHifz(classId: string, entries: HifzInput[]): Promise<{ uploadWarning: boolean }> {
@@ -430,6 +432,8 @@ export async function submitHifz(classId: string, entries: HifzInput[]): Promise
       surahNumber: entry.surahNumber,
       ayahStart: entry.ayahStart,
       ayahEnd: entry.ayahEnd,
+      status: entry.status,
+      mistakeType: entry.mistakeType ?? null,
       sessionDate: today,
       audioUrl,
       recordedBy: user.id,

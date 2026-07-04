@@ -14,11 +14,16 @@ type HifzEntry = {
   ayahStart: number;
   ayahEnd: number;
   audioDataUrl: string | null;
+  status: 'passed' | 'needs_review' | 'weak' | 'mastered';
+  mistakeType: '' | 'hesitation' | 'tajweed' | 'forgot_ayah' | 'repeated_correction';
 };
 
 const STEPS = [{ label: 'Attendance' }, { label: 'Hifz' }, { label: 'Notes' }, { label: 'Confirm' }];
 
-const DEFAULT_ENTRY: HifzEntry = { stream: 'sabak', surahNumber: 2, ayahStart: 1, ayahEnd: 5, audioDataUrl: null };
+const DEFAULT_ENTRY: HifzEntry = {
+  stream: 'sabak', surahNumber: 2, ayahStart: 1, ayahEnd: 5, audioDataUrl: null,
+  status: 'passed', mistakeType: '',
+};
 
 export default function HifzClient({ classId, students }: { classId: string; students: Student[] }) {
   const router = useRouter();
@@ -63,10 +68,14 @@ export default function HifzClient({ classId, students }: { classId: string; stu
 
   async function handleNext() {
     setSaving(true);
-    const inputs: HifzInput[] = students.map(s => ({
-      studentId: s.id,
-      ...(entries[s.id] ?? DEFAULT_ENTRY),
-    }));
+    const inputs: HifzInput[] = students.map(s => {
+      const entry = entries[s.id] ?? DEFAULT_ENTRY;
+      return {
+        studentId: s.id,
+        ...entry,
+        mistakeType: entry.mistakeType === '' ? null : entry.mistakeType,
+      };
+    });
     const { uploadWarning } = await submitHifz(classId, inputs);
     if (uploadWarning) {
       setAudioWarning(true);
@@ -94,9 +103,9 @@ export default function HifzClient({ classId, students }: { classId: string; stu
               <div className="hifz-field">
                 <label>Stream</label>
                 <select value={entry.stream} onChange={e => updateEntry(s.id, { stream: e.target.value as HifzEntry['stream'] })}>
-                  <option value="sabak">Sabak</option>
-                  <option value="sabqi">Sabqi</option>
-                  <option value="manzil">Manzil</option>
+                  <option value="sabak">Sabak (new memorization)</option>
+                  <option value="sabqi">Sabqi (recent review)</option>
+                  <option value="manzil">Manzil (old review)</option>
                 </select>
               </div>
               <div className="hifz-field">
@@ -114,6 +123,27 @@ export default function HifzClient({ classId, students }: { classId: string; stu
                 <input type="number" min={1} value={entry.ayahEnd}
                   onChange={e => updateEntry(s.id, { ayahEnd: Number(e.target.value) })} />
               </div>
+              <div className="hifz-field">
+                <label>Status</label>
+                <select value={entry.status} onChange={e => updateEntry(s.id, { status: e.target.value as HifzEntry['status'] })}>
+                  <option value="passed">Passed</option>
+                  <option value="needs_review">Needs review</option>
+                  <option value="weak">Weak</option>
+                  <option value="mastered">Mastered</option>
+                </select>
+              </div>
+              {(entry.status === 'needs_review' || entry.status === 'weak') && (
+                <div className="hifz-field">
+                  <label>Mistake type</label>
+                  <select value={entry.mistakeType} onChange={e => updateEntry(s.id, { mistakeType: e.target.value as HifzEntry['mistakeType'] })}>
+                    <option value="">— None noted —</option>
+                    <option value="hesitation">Hesitation</option>
+                    <option value="tajweed">Tajweed issue</option>
+                    <option value="forgot_ayah">Forgot ayah</option>
+                    <option value="repeated_correction">Repeated correction</option>
+                  </select>
+                </div>
+              )}
               <div className="hifz-field">
                 <label>Recording</label>
                 <button

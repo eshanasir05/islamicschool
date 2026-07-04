@@ -472,6 +472,68 @@ async function seedTonightPractice() {
 }
 
 // ---------------------------------------------------------------------------
+// 13b. Hifz retention demo data (Khadijah: repeated weak; Bilal: mastered)
+// ---------------------------------------------------------------------------
+async function seedHifzRetentionDemo() {
+  console.log('→ Seeding hifz retention demo data...');
+  const daysAgo = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const rows = [
+    {
+      id: 'a1b2c3d4-0009-0000-0000-000000000001',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.khadijah,
+      classId: CLASS_IDS.advanced,
+      stream: 'sabqi' as const,
+      surahNumber: 2,
+      ayahStart: 21,
+      ayahEnd: 30,
+      status: 'needs_review' as const,
+      mistakeType: 'hesitation' as const,
+      sessionDate: daysAgo(4),
+      teacherNotes: 'Hesitated on a few ayahs — recommend extra review this week.',
+      recordedBy: USER_IDS.idris,
+    },
+    {
+      id: 'a1b2c3d4-0009-0000-0000-000000000002',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.khadijah,
+      classId: CLASS_IDS.advanced,
+      stream: 'sabqi' as const,
+      surahNumber: 2,
+      ayahStart: 21,
+      ayahEnd: 30,
+      status: 'weak' as const,
+      mistakeType: 'repeated_correction' as const,
+      sessionDate: daysAgo(1),
+      teacherNotes: 'Same portion still needs work — repeated corrections today.',
+      recordedBy: USER_IDS.idris,
+    },
+    {
+      id: 'a1b2c3d4-0009-0000-0000-000000000003',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.bilal,
+      classId: CLASS_IDS.advanced,
+      stream: 'manzil' as const,
+      surahNumber: 2,
+      ayahStart: 1,
+      ayahEnd: 20,
+      status: 'mastered' as const,
+      mistakeType: null,
+      sessionDate: daysAgo(2),
+      teacherNotes: 'Flawless revision — ready to move to the next manzil portion.',
+      recordedBy: USER_IDS.idris,
+    },
+  ];
+  await db.insert(schema.hifzRecords).values(rows).onConflictDoNothing();
+  console.log('  ✓ 3 hifz retention demo records');
+}
+
+// ---------------------------------------------------------------------------
 // 14. Tuition plans + payment history
 // ---------------------------------------------------------------------------
 async function seedTuition() {
@@ -530,6 +592,7 @@ async function main() {
     await seedHomework();
     await seedHifzMilestones();
     await seedTonightPractice();
+    await seedHifzRetentionDemo();
     await seedTuition();
     console.log('\n✅ Seed complete.\n');
   } catch (err) {

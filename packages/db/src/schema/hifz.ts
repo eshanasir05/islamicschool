@@ -20,6 +20,8 @@ export const hifzRecords = pgTable('hifz_records', {
   ayahEnd: integer('ayah_end').notNull(),
   sessionDate: date('session_date').notNull(),
   accuracyScore: integer('accuracy_score'),
+  status: text('status', { enum: ['passed', 'needs_review', 'weak', 'mastered'] }).default('passed').notNull(),
+  mistakeType: text('mistake_type', { enum: ['hesitation', 'tajweed', 'forgot_ayah', 'repeated_correction'] }),
   audioUrl: text('audio_url'),
   teacherNotes: text('teacher_notes'),
   recordedBy: uuid('recorded_by')

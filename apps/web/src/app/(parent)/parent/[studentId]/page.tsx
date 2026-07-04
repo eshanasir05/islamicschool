@@ -103,11 +103,12 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
 
           {hifz && (
             <div style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: audioSignedUrl ? 10 : 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: audioSignedUrl ? 10 : 0, flexWrap: 'wrap' }}>
                 <span className={`badge badge-${hifz.stream}`} style={{ textTransform: 'capitalize' }}>{hifz.stream}</span>
                 <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)' }}>
                   {surahName(hifz.surahNumber)} {hifz.ayahStart}–{hifz.ayahEnd}
                 </span>
+                <span className={`badge badge-${hifz.status}`} style={{ textTransform: 'capitalize' }}>{hifz.status.replace('_', ' ')}</span>
               </div>
               {audioSignedUrl && <AudioPlayer src={audioSignedUrl} />}
               {!audioSignedUrl && hifz.audioUrl && (

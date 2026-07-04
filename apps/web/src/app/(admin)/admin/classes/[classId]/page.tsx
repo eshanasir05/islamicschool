@@ -22,7 +22,7 @@ export default async function ClassDetailPage({ params, searchParams }: Props) {
   const { notice } = await searchParams;
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
-  const [{ cls, sessions, homework, milestones }, allStudents] = await Promise.all([
+  const [{ cls, sessions, homework, milestones, hifzProgress }, allStudents] = await Promise.all([
     getAdminClassDetail(classId, orgId),
     getAdminStudents(orgId),
   ]);
@@ -198,6 +198,38 @@ export default async function ClassDetailPage({ params, searchParams }: Props) {
           </div>
         )}
       </div>
+
+      {/* Hifz progress */}
+      {hifzProgress.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>
+            Hifz progress ({hifzProgress.length})
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {hifzProgress.map(p => (
+              <div key={p.studentId} className="app-card" style={{ fontSize: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 500, color: 'var(--fg)' }}>{p.studentName}</span>
+                  {p.latest ? (
+                    <span className={`badge badge-${p.latest.status}`} style={{ textTransform: 'capitalize' }}>
+                      {p.latest.status.replace('_', ' ')}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>No hifz recorded</span>
+                  )}
+                </div>
+                {(p.retentionFlags.noReviewInWeeks || p.retentionFlags.repeatedWeak || p.retentionFlags.noUpdateInWeeks) && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: '#991b1b' }}>
+                    {p.retentionFlags.noUpdateInWeeks && 'No update in 3+ weeks. '}
+                    {p.retentionFlags.noReviewInWeeks && !p.retentionFlags.noUpdateInWeeks && 'No review in 3+ weeks. '}
+                    {p.retentionFlags.repeatedWeak && 'Repeated weak status.'}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent hifz milestones */}
       <div style={{ marginBottom: 24 }}>

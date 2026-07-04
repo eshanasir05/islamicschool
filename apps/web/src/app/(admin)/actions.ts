@@ -8,6 +8,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe';
 import { env } from '@/env';
 import { notifyAllGuardiansInOrg, createNotification } from '@/lib/notifications';
+import { getHifzRetentionFlags } from '@/lib/hifz-retention';
 
 export async function getAdminStats(orgId: string) {
   const sevenDaysAgo = new Date();
@@ -121,7 +122,8 @@ export async function getAdminStudent(studentId: string, orgId: string) {
     db.select({ cnt: count() }).from(schema.studentNotes)
       .where(and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.organizationId, orgId))),
   ]);
-  return { student, attendance, hifz, milestones, noteCount: Number(noteCount[0]?.cnt ?? 0) };
+  const retentionFlags = getHifzRetentionFlags(hifz);
+  return { student, attendance, hifz, milestones, noteCount: Number(noteCount[0]?.cnt ?? 0), retentionFlags };
 }
 
 export async function getAdminClasses(orgId: string) {
@@ -387,7 +389,7 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
 
   const enrolledStudentIds = cls?.enrollments.map(e => e.studentId) ?? [];
 
-  const [sessionRows, homework, milestones] = await Promise.all([
+  const [sessionRows, homework, milestones, classHifzRecords] = await Promise.all([
     db
       .select({
         sessionDate: schema.attendanceRecords.sessionDate,
@@ -423,6 +425,16 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
           orderBy: (m, { desc }) => desc(m.achievedDate),
           limit: 10,
         }),
+    enrolledStudentIds.length === 0
+      ? Promise.resolve([])
+      : db.query.hifzRecords.findMany({
+          where: and(
+            inArray(schema.hifzRecords.studentId, enrolledStudentIds),
+            eq(schema.hifzRecords.organizationId, orgId),
+          ),
+          with: { student: { columns: { fullName: true } } },
+          orderBy: (h, { desc }) => desc(h.sessionDate),
+        }),
   ]);
 
   // Pivot attendance counts by session date
@@ -437,7 +449,24 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
     .map(([date, c]) => ({ date, ...c, total: c.present + c.absent + c.late + c.excused }))
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  return { cls, sessions, homework, milestones };
+  // Latest hifz record + retention flags per enrolled student (records already sorted desc by sessionDate)
+  const hifzByStudent = new Map<string, typeof classHifzRecords>();
+  for (const rec of classHifzRecords) {
+    const list = hifzByStudent.get(rec.studentId) ?? [];
+    list.push(rec);
+    hifzByStudent.set(rec.studentId, list);
+  }
+  const hifzProgress = (cls?.enrollments ?? []).map(e => {
+    const records = hifzByStudent.get(e.studentId) ?? [];
+    return {
+      studentId: e.studentId,
+      studentName: e.student?.fullName ?? 'Student',
+      latest: records[0] ?? null,
+      retentionFlags: getHifzRetentionFlags(records),
+    };
+  });
+
+  return { cls, sessions, homework, milestones, hifzProgress };
 }
 
 export async function enrollStudent(classId: string, studentId: string) {
