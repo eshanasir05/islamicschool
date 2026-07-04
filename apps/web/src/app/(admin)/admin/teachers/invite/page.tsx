@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { env } from '@/env';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { logActivity } from '@/lib/activity-log';
 
 type Props = { searchParams: Promise<{ status?: string; msg?: string }> };
 
@@ -49,6 +50,9 @@ export default async function InviteTeacherPage({ searchParams }: Props) {
       redirect('/admin/teachers/invite?status=not_admin');
     }
 
+    const callerUser = await db.query.users.findFirst({ where: eq(schema.users.id, caller.id), columns: { fullName: true } });
+    const actorName = callerUser?.fullName ?? 'Unknown';
+
     // Check if this email already exists in public.users
     const existingUser = await db.query.users.findFirst({
       where: eq(schema.users.email, email),
@@ -72,6 +76,12 @@ export default async function InviteTeacherPage({ searchParams }: Props) {
         .insert(schema.memberships)
         .values({ userId: existingUser.id, organizationId: orgId, role: 'teacher', status: 'active' })
         .onConflictDoNothing();
+
+      await logActivity({
+        organizationId: orgId, actorUserId: caller.id, actorName,
+        action: 'teacher.linked', targetType: 'teacher', targetId: existingUser.id,
+        metadata: { targetLabel: existingUser.fullName },
+      });
 
       redirect('/admin/teachers/invite?status=added');
     }
@@ -105,6 +115,12 @@ export default async function InviteTeacherPage({ searchParams }: Props) {
       .insert(schema.memberships)
       .values({ userId: newUserId, organizationId: orgId, role: 'teacher', status: 'active' })
       .onConflictDoNothing();
+
+    await logActivity({
+      organizationId: orgId, actorUserId: caller.id, actorName,
+      action: 'teacher.invited', targetType: 'teacher', targetId: newUserId,
+      metadata: { targetLabel: displayName },
+    });
 
     redirect('/admin/teachers/invite?status=invited');
   }

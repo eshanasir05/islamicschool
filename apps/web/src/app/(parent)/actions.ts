@@ -7,6 +7,7 @@ import { db, schema } from '@/lib/db';
 import { env } from '@/env';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe';
+import { logActivity } from '@/lib/activity-log';
 
 export async function getAnnouncements(orgId: string) {
   const rows = await db
@@ -191,6 +192,16 @@ export async function submitAbsenceReason(
       eq(schema.attendanceRecords.id, attendanceId),
       eq(schema.attendanceRecords.studentId, studentId),
     ));
+
+  const [student, actorRow] = await Promise.all([
+    db.query.students.findFirst({ where: eq(schema.students.id, studentId), columns: { fullName: true } }),
+    db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { fullName: true } }),
+  ]);
+  await logActivity({
+    organizationId: env.NEXT_PUBLIC_ORG_ID, actorUserId: user.id, actorName: actorRow?.fullName ?? 'Unknown',
+    action: 'absence_reason.submitted', targetType: 'student', targetId: studentId,
+    metadata: { targetLabel: student?.fullName ?? 'a student' },
+  });
 
   revalidatePath(`/parent/${studentId}`);
   redirect(`/parent/${studentId}?notice=absence_reason_submitted`);

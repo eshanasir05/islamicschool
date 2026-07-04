@@ -4,11 +4,24 @@ import { and, count, desc, eq, gte, inArray, max, ne, sql, sum } from 'drizzle-o
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
-import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe';
 import { env } from '@/env';
 import { notifyAllGuardiansInOrg, createNotification } from '@/lib/notifications';
 import { getHifzRetentionFlags } from '@/lib/hifz-retention';
+import { logActivity } from '@/lib/activity-log';
+
+// Resolves who is calling — used only to attribute Activity Log entries.
+// Every admin mutation is already gated to admin/principal roles by
+// middleware, so this never performs its own authorization; it just
+// looks up a display name for the person already known to be allowed.
+async function getActorContext(): Promise<{ userId: string | null; name: string }> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { userId: null, name: 'Unknown' };
+  const row = await db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { fullName: true } });
+  return { userId: user.id, name: row?.fullName ?? 'Unknown' };
+}
 
 export async function getAdminStats(orgId: string) {
   const sevenDaysAgo = new Date();
@@ -245,6 +258,13 @@ export async function createAnnouncement(orgId: string, userId: string, content:
     link: '/parent',
   });
 
+  const actorRow = await db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { fullName: true } });
+  await logActivity({
+    organizationId: orgId, actorUserId: userId, actorName: actorRow?.fullName ?? 'Unknown',
+    action: 'announcement.posted', targetType: 'announcement', targetId: thread.id,
+    metadata: { targetLabel: content.length > 60 ? `${content.slice(0, 60)}…` : content },
+  });
+
   revalidatePath('/admin/announcements');
   revalidatePath('/parent');
 }
@@ -274,6 +294,14 @@ export async function createStudent(
     })
     .returning({ id: schema.students.id });
   if (!row) throw new Error('Insert failed');
+
+  const actor = await getActorContext();
+  await logActivity({
+    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
+    action: 'student.created', targetType: 'student', targetId: row.id,
+    metadata: { targetLabel: data.fullName },
+  });
+
   revalidatePath('/admin/students');
   redirect(`/admin/students/${row.id}?notice=student_created`);
 }
@@ -292,6 +320,14 @@ export async function updateStudent(
       medicalNotes: data.medicalNotes ?? null,
     })
     .where(and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)));
+
+  const actor = await getActorContext();
+  await logActivity({
+    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
+    action: 'student.updated', targetType: 'student', targetId: studentId,
+    metadata: { targetLabel: data.fullName },
+  });
+
   revalidatePath(`/admin/students/${studentId}`);
   revalidatePath('/admin/students');
   redirect(`/admin/students/${studentId}?notice=student_updated`);
@@ -306,6 +342,15 @@ export async function setStudentStatus(
     .update(schema.students)
     .set({ status })
     .where(and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)));
+
+  const student = await db.query.students.findFirst({ where: eq(schema.students.id, studentId), columns: { fullName: true } });
+  const actor = await getActorContext();
+  await logActivity({
+    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
+    action: status === 'active' ? 'student.restored' : 'student.archived', targetType: 'student', targetId: studentId,
+    metadata: { targetLabel: student?.fullName ?? studentId },
+  });
+
   revalidatePath(`/admin/students/${studentId}`);
   revalidatePath('/admin/students');
   redirect(`/admin/students/${studentId}?notice=${status === 'active' ? 'student_restored' : 'student_archived'}`);
@@ -330,6 +375,14 @@ export async function createClass(
     })
     .returning({ id: schema.classes.id });
   if (!row) throw new Error('Insert failed');
+
+  const actor = await getActorContext();
+  await logActivity({
+    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
+    action: 'class.created', targetType: 'class', targetId: row.id,
+    metadata: { targetLabel: data.name },
+  });
+
   revalidatePath('/admin/classes');
   revalidatePath('/admin');
   redirect(`/admin/classes/${row.id}?notice=class_created`);
@@ -350,6 +403,14 @@ export async function updateClass(
       primaryTeacherId: data.primaryTeacherId || null,
     })
     .where(and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)));
+
+  const actor = await getActorContext();
+  await logActivity({
+    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
+    action: 'class.updated', targetType: 'class', targetId: classId,
+    metadata: { targetLabel: data.name },
+  });
+
   revalidatePath('/admin/classes');
   revalidatePath('/admin');
   redirect(`/admin/classes/${classId}?notice=class_updated`);
@@ -557,6 +618,13 @@ export async function linkGuardian(
       body: 'You can now see attendance, hifz progress, and tuition in your parent portal.',
       link: `/parent/${studentId}`,
     });
+
+    const actor = await getActorContext();
+    await logActivity({
+      organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
+      action: 'guardian.linked', targetType: 'guardian', targetId: guardianUserId,
+      metadata: { targetLabel: `${email} → ${student?.fullName ?? 'a student'}` },
+    });
   }
 
   revalidatePath(`/admin/students/${studentId}`);
@@ -564,7 +632,19 @@ export async function linkGuardian(
 }
 
 export async function unlinkGuardian(linkId: string, studentId: string) {
+  const link = await db.query.studentGuardians.findFirst({
+    where: eq(schema.studentGuardians.id, linkId),
+    with: { guardian: { columns: { fullName: true } } },
+  });
   await db.delete(schema.studentGuardians).where(eq(schema.studentGuardians.id, linkId));
+
+  const actor = await getActorContext();
+  await logActivity({
+    organizationId: env.NEXT_PUBLIC_ORG_ID, actorUserId: actor.userId, actorName: actor.name,
+    action: 'guardian.unlinked', targetType: 'guardian', targetId: link?.guardianUserId ?? null,
+    metadata: { targetLabel: link?.guardian?.fullName ?? 'a guardian' },
+  });
+
   revalidatePath(`/admin/students/${studentId}`);
   redirect(`/admin/students/${studentId}?notice=guardian_unlinked`);
 }
@@ -926,6 +1006,15 @@ export async function createTuitionPlan(
     metadata: { planId: plan.id },
   });
 
+  const actor = await getActorContext();
+  const isSiblingDiscount = hasDiscount && /sibling/i.test(data.discountReason ?? 'Sibling discount');
+  await logActivity({
+    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
+    action: hasDiscount ? (isSiblingDiscount ? 'sibling_discount.applied' : 'tuition_assistance.applied') : 'tuition_plan.created',
+    targetType: 'tuition_plan', targetId: plan.id,
+    metadata: { targetLabel: data.studentName },
+  });
+
   revalidatePath(`/admin/tuition/${studentId}`);
   revalidatePath('/admin/tuition');
   redirect(`/admin/tuition/${studentId}?checkout_url=${encodeURIComponent(session.url ?? '')}`);
@@ -1269,6 +1358,13 @@ export async function convertTrialToStudent(
   await db.update(schema.trialPlacements)
     .set({ status: 'converted', convertedStudentId: student.id, convertedAt: new Date() })
     .where(eq(schema.trialPlacements.id, trialId));
+
+  const actor = await getActorContext();
+  await logActivity({
+    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
+    action: 'inquiry.converted', targetType: 'student', targetId: student.id,
+    metadata: { targetLabel: `${trial.studentFirstName} ${trial.studentLastName}` },
+  });
 
   revalidatePath('/admin/trials');
   revalidatePath('/admin/students');

@@ -18,3 +18,4 @@ export * from './notifications';
 export * from './homework';
 export * from './hifz-milestones';
 export * from './trial-placements';
+export * from './activity-log';

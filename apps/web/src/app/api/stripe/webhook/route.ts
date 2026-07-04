@@ -4,6 +4,7 @@ import { db, schema } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
 import { env } from '@/env';
 import { createNotification } from '@/lib/notifications';
+import { logActivity } from '@/lib/activity-log';
 
 function formatCents(cents: number, currency: string) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
 
       const plan = await db.query.tuitionPlans.findFirst({
         where: eq(schema.tuitionPlans.stripeSubscriptionId, subscriptionId),
+        with: { student: { columns: { fullName: true } } },
       });
       if (!plan || !plan.guardianUserId) break;
 
@@ -79,6 +81,12 @@ export async function POST(req: NextRequest) {
         body: `${formatCents(invoice.amount_paid, invoice.currency)} — thank you.`,
         link: `/parent/${plan.studentId}`,
       });
+
+      await logActivity({
+        organizationId: plan.organizationId, actorUserId: null, actorName: 'Stripe',
+        action: 'payment.succeeded', targetType: 'tuition_plan', targetId: plan.id,
+        metadata: { targetLabel: plan.student?.fullName ?? 'a student', amount: formatCents(invoice.amount_paid, invoice.currency) },
+      });
       break;
     }
 
@@ -98,6 +106,7 @@ export async function POST(req: NextRequest) {
 
       const plan = await db.query.tuitionPlans.findFirst({
         where: eq(schema.tuitionPlans.stripeSubscriptionId, subscriptionId),
+        with: { student: { columns: { fullName: true } } },
       });
       if (!plan) break;
 
@@ -116,6 +125,12 @@ export async function POST(req: NextRequest) {
           link: `/parent/${plan.studentId}`,
         });
       }
+
+      await logActivity({
+        organizationId: plan.organizationId, actorUserId: null, actorName: 'Stripe',
+        action: 'payment.failed', targetType: 'tuition_plan', targetId: plan.id,
+        metadata: { targetLabel: plan.student?.fullName ?? 'a student' },
+      });
       break;
     }
   }

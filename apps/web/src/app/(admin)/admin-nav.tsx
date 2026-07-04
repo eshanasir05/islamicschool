@@ -17,6 +17,7 @@ const NAV = [
   { href: '/admin/board-pack', label: 'Board Pack' },
   { href: '/admin/announcements', label: 'Announcements' },
   { href: '/admin/exports', label: 'Exports' },
+  { href: '/admin/activity', label: 'Activity Log' },
   { href: '/admin/settings', label: 'Settings' },
 ];
 

@@ -4,10 +4,11 @@ import { db, schema } from '@/lib/db';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { env } from '@/env';
 import { buildCsv, csvResponse } from '@/lib/csv';
+import { logActivity } from '@/lib/activity-log';
 
 export const runtime = 'nodejs';
 
-async function getCallerRole(): Promise<string | null> {
+async function getCaller(): Promise<{ userId: string; role: string; name: string } | null> {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -18,12 +19,14 @@ async function getCallerRole(): Promise<string | null> {
       eq(schema.memberships.status, 'active'),
     ),
   });
-  return membership?.role ?? null;
+  if (!membership) return null;
+  const userRow = await db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { fullName: true } });
+  return { userId: user.id, role: membership.role, name: userRow?.fullName ?? 'Unknown' };
 }
 
 export async function GET() {
-  const role = await getCallerRole();
-  if (!role || !['admin', 'principal'].includes(role)) {
+  const caller = await getCaller();
+  if (!caller || !['admin', 'principal'].includes(caller.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -79,6 +82,12 @@ export async function GET() {
     r.enrolledAt,
     r.createdAt ? new Date(r.createdAt).toISOString() : null,
   ]);
+
+  await logActivity({
+    organizationId: orgId, actorUserId: caller.userId, actorName: caller.name,
+    action: 'csv_export.downloaded', targetType: 'roster_export', targetId: null,
+    metadata: { targetLabel: 'roster' },
+  });
 
   const date = new Date().toISOString().slice(0, 10);
   return csvResponse(buildCsv(headers, data), `talibly-roster-${date}.csv`);

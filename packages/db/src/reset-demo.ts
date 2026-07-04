@@ -85,6 +85,7 @@ async function main() {
     }
 
     const orgScoped = [
+      { name: 'activity_log', table: schema.activityLog },
       { name: 'notifications', table: schema.notifications },
       { name: 'trial_placements', table: schema.trialPlacements },
       { name: 'hifz_milestones', table: schema.hifzMilestones },

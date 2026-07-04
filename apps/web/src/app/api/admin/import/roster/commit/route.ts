@@ -3,11 +3,12 @@ import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { env } from '@/env';
+import { logActivity } from '@/lib/activity-log';
 import type { ParsedRosterRow } from '../parse/route';
 
 export const runtime = 'nodejs';
 
-async function getCallerRole(): Promise<string | null> {
+async function getCaller(): Promise<{ userId: string; role: string; name: string } | null> {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -18,12 +19,14 @@ async function getCallerRole(): Promise<string | null> {
       eq(schema.memberships.status, 'active'),
     ),
   });
-  return membership?.role ?? null;
+  if (!membership) return null;
+  const userRow = await db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { fullName: true } });
+  return { userId: user.id, role: membership.role, name: userRow?.fullName ?? 'Unknown' };
 }
 
 export async function POST(req: Request) {
-  const role = await getCallerRole();
-  if (!role || !['admin', 'principal'].includes(role)) {
+  const caller = await getCaller();
+  if (!caller || !['admin', 'principal'].includes(caller.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -124,6 +127,14 @@ export async function POST(req: Request) {
     } catch (err) {
       rowErrors.push({ rowIndex: row.rowIndex, message: err instanceof Error ? err.message : 'Unknown error' });
     }
+  }
+
+  if (studentsCreated > 0) {
+    await logActivity({
+      organizationId: orgId, actorUserId: caller.userId, actorName: caller.name,
+      action: 'roster_import.completed', targetType: 'roster_import', targetId: null,
+      metadata: { targetLabel: `${studentsCreated} student${studentsCreated === 1 ? '' : 's'}` },
+    });
   }
 
   return NextResponse.json({

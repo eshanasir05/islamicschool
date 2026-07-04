@@ -741,6 +741,38 @@ async function seedTuition() {
   console.log('  ✓ 4 tuition plans, 12 payments');
 }
 
+async function seedActivityLog() {
+  console.log('→ Seeding activity log demo data...');
+  const now = Date.now();
+  const daysAgo = (n: number) => new Date(now - n * 24 * 60 * 60 * 1000);
+
+  const idFor = (n: number) => `a1b2c3d4-0009-0000-0000-${String(n).padStart(12, '0')}`;
+
+  const rows = [
+    { id: idFor(1), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'student.created', targetType: 'student', targetId: STUDENT_IDS.aisha, metadata: { targetLabel: 'Aisha Hassan' }, createdAt: daysAgo(30) },
+    { id: idFor(2), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'class.created', targetType: 'class', targetId: CLASS_IDS.beginners, metadata: { targetLabel: 'Hifz Circle — Beginners' }, createdAt: daysAgo(29) },
+    { id: idFor(3), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'teacher.invited', targetType: 'teacher', targetId: USER_IDS.amina, metadata: { targetLabel: 'Sister Amina' }, createdAt: daysAgo(28) },
+    { id: idFor(4), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'guardian.linked', targetType: 'guardian', targetId: USER_IDS.sarah, metadata: { targetLabel: 'sarah@talibly.dev → Aisha Hassan' }, createdAt: daysAgo(27) },
+    { id: idFor(5), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'tuition_plan.created', targetType: 'tuition_plan', targetId: null, metadata: { targetLabel: 'Aisha Hassan' }, createdAt: daysAgo(26) },
+    { id: idFor(6), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'sibling_discount.applied', targetType: 'tuition_plan', targetId: null, metadata: { targetLabel: 'Yusuf Hassan' }, createdAt: daysAgo(26) },
+    { id: idFor(7), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'roster_import.completed', targetType: 'roster_import', targetId: null, metadata: { targetLabel: '4 students' }, createdAt: daysAgo(25) },
+    { id: idFor(8), organizationId: ORG_ID, actorUserId: USER_IDS.amina, actorName: 'Sister Amina', action: 'attendance.submitted', targetType: 'class', targetId: CLASS_IDS.beginners, metadata: { targetLabel: 'Hifz Circle — Beginners' }, createdAt: daysAgo(7) },
+    { id: idFor(9), organizationId: ORG_ID, actorUserId: USER_IDS.amina, actorName: 'Sister Amina', action: 'hifz_record.created', targetType: 'class', targetId: CLASS_IDS.beginners, metadata: { targetLabel: '2 records — Hifz Circle — Beginners' }, createdAt: daysAgo(7) },
+    { id: idFor(10), organizationId: ORG_ID, actorUserId: USER_IDS.amina, actorName: 'Sister Amina', action: 'adab_note.added', targetType: 'student', targetId: STUDENT_IDS.aisha, metadata: { targetLabel: 'Aisha Hassan' }, createdAt: daysAgo(6) },
+    { id: idFor(11), organizationId: ORG_ID, actorUserId: USER_IDS.amina, actorName: 'Sister Amina', action: 'homework.assigned', targetType: 'class', targetId: CLASS_IDS.beginners, metadata: { targetLabel: 'Memorize Surah Al-Fatihah — Hifz Circle — Beginners' }, createdAt: daysAgo(5) },
+    { id: idFor(12), organizationId: ORG_ID, actorUserId: USER_IDS.amina, actorName: 'Sister Amina', action: 'hifz_milestone.created', targetType: 'student', targetId: STUDENT_IDS.yusuf, metadata: { targetLabel: 'Juz 30 completed — Yusuf Hassan' }, createdAt: daysAgo(4) },
+    { id: idFor(13), organizationId: ORG_ID, actorUserId: USER_IDS.idris, actorName: 'Brother Idris', action: 'attendance.submitted', targetType: 'class', targetId: CLASS_IDS.advanced, metadata: { targetLabel: 'Hifz Circle — Advanced' }, createdAt: daysAgo(3) },
+    { id: idFor(14), organizationId: ORG_ID, actorUserId: USER_IDS.idris, actorName: 'Brother Idris', action: 'trial_assessment.completed', targetType: 'trial_placement', targetId: null, metadata: { targetLabel: 'a prospective student' }, createdAt: daysAgo(3) },
+    { id: idFor(15), organizationId: ORG_ID, actorUserId: USER_IDS.sarah, actorName: 'Sarah Hassan', action: 'absence_reason.submitted', targetType: 'student', targetId: STUDENT_IDS.yusuf, metadata: { targetLabel: 'Yusuf Hassan' }, createdAt: daysAgo(2) },
+    { id: idFor(16), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'announcement.posted', targetType: 'announcement', targetId: null, metadata: { targetLabel: 'Jummah reminder' }, createdAt: daysAgo(1) },
+    { id: idFor(17), organizationId: ORG_ID, actorUserId: null, actorName: 'Stripe', action: 'payment.succeeded', targetType: 'tuition_plan', targetId: null, metadata: { targetLabel: 'Bilal Yusuf' }, createdAt: daysAgo(1) },
+    { id: idFor(18), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'csv_export.downloaded', targetType: 'roster_export', targetId: null, metadata: { targetLabel: 'roster' }, createdAt: daysAgo(0) },
+  ];
+
+  await db.insert(schema.activityLog).values(rows).onConflictDoNothing();
+  console.log(`  ✓ ${rows.length} activity log entries`);
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -765,6 +797,7 @@ async function main() {
     await seedAttendanceFollowUpDemo();
     await seedTrialPlacements();
     await seedTuition();
+    await seedActivityLog();
     console.log('\n✅ Seed complete.\n');
   } catch (err) {
     console.error('\n❌ Seed failed:', err);

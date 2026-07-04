@@ -8,6 +8,12 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/s
 import { env } from '@/env';
 import { Resend } from 'resend';
 import { notifyGuardians, notifyClassGuardians } from '@/lib/notifications';
+import { logActivity } from '@/lib/activity-log';
+
+async function actorName(userId: string): Promise<string> {
+  const row = await db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { fullName: true } });
+  return row?.fullName ?? 'Unknown';
+}
 
 // ---------------------------------------------------------------------------
 // Authorization helpers — every mutation below must verify the calling
@@ -304,6 +310,12 @@ export async function createHomework(
     link: '/parent',
   });
 
+  await logActivity({
+    organizationId: orgId, actorUserId: user.id, actorName: await actorName(user.id),
+    action: 'homework.assigned', targetType: 'class', targetId: classId,
+    metadata: { targetLabel: `${data.title} — ${cls?.name ?? 'a class'}` },
+  });
+
   revalidatePath('/teacher/homework');
   revalidatePath('/parent');
   redirect('/teacher/homework?notice=homework_assigned');
@@ -396,6 +408,12 @@ export async function createMilestone(
     link: `/parent/${studentId}`,
   });
 
+  await logActivity({
+    organizationId: orgId, actorUserId: user.id, actorName: await actorName(user.id),
+    action: 'hifz_milestone.created', targetType: 'student', targetId: studentId,
+    metadata: { targetLabel: `${data.label} — ${student?.fullName ?? 'a student'}` },
+  });
+
   revalidatePath('/teacher/milestones');
   revalidatePath('/parent');
   redirect('/teacher/milestones?notice=milestone_recorded');
@@ -417,6 +435,11 @@ export async function submitAttendance(
   await assertTeacherOwnsClass(classId, user.id);
 
   const today = new Date().toISOString().slice(0, 10);
+
+  const existing = await db.query.attendanceRecords.findFirst({
+    where: and(eq(schema.attendanceRecords.classId, classId), eq(schema.attendanceRecords.sessionDate, today)),
+    columns: { id: true },
+  });
 
   const rows = records.map(r => ({
     organizationId: env.NEXT_PUBLIC_ORG_ID,
@@ -453,6 +476,13 @@ export async function submitAttendance(
       }),
     ));
   }
+
+  const cls = await db.query.classes.findFirst({ where: eq(schema.classes.id, classId), columns: { name: true } });
+  await logActivity({
+    organizationId: env.NEXT_PUBLIC_ORG_ID, actorUserId: user.id, actorName: await actorName(user.id),
+    action: existing ? 'attendance.updated' : 'attendance.submitted', targetType: 'class', targetId: classId,
+    metadata: { targetLabel: cls?.name ?? 'a class' },
+  });
 
   revalidatePath('/admin');
 }
@@ -538,6 +568,15 @@ export async function submitHifz(classId: string, entries: HifzInput[]): Promise
     });
   }
 
+  if (entries.length > 0) {
+    const cls = await db.query.classes.findFirst({ where: eq(schema.classes.id, classId), columns: { name: true } });
+    await logActivity({
+      organizationId: env.NEXT_PUBLIC_ORG_ID, actorUserId: user.id, actorName: await actorName(user.id),
+      action: 'hifz_record.created', targetType: 'class', targetId: classId,
+      metadata: { targetLabel: `${entries.length} record${entries.length === 1 ? '' : 's'} — ${cls?.name ?? 'a class'}` },
+    });
+  }
+
   revalidatePath('/admin');
   return { uploadWarning };
 }
@@ -589,6 +628,14 @@ export async function submitNotes(classId: string, notes: NoteInput[]) {
       body: n.content.length > 100 ? `${n.content.slice(0, 100)}…` : n.content,
       link: `/parent/${n.studentId}`,
     });
+
+    if (n.noteType === 'praise') {
+      await logActivity({
+        organizationId: env.NEXT_PUBLIC_ORG_ID, actorUserId: user.id, actorName: await actorName(user.id),
+        action: 'adab_note.added', targetType: 'student', targetId: n.studentId,
+        metadata: { targetLabel: student?.fullName ?? 'a student' },
+      });
+    }
   }
 
   revalidatePath('/parent');
@@ -707,6 +754,13 @@ export async function submitPlacementAssessment(
       assessedAt: new Date(),
     })
     .where(eq(schema.trialPlacements.id, trialId));
+
+  const trial = await db.query.trialPlacements.findFirst({ where: eq(schema.trialPlacements.id, trialId), columns: { studentFirstName: true, studentLastName: true, organizationId: true } });
+  await logActivity({
+    organizationId: trial?.organizationId ?? env.NEXT_PUBLIC_ORG_ID, actorUserId: user.id, actorName: await actorName(user.id),
+    action: 'trial_assessment.completed', targetType: 'trial_placement', targetId: trialId,
+    metadata: { targetLabel: trial ? `${trial.studentFirstName} ${trial.studentLastName}` : 'a trial student' },
+  });
 
   revalidatePath('/teacher/trials');
   redirect('/teacher/trials?notice=assessment_submitted');
