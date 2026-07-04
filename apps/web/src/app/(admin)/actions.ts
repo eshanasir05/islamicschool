@@ -1,6 +1,6 @@
 'use server';
 
-import { and, count, desc, eq, gte, inArray, max, sum } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, max, ne, sum } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
@@ -687,6 +687,96 @@ export async function getAttendanceFollowUp(orgId: string) {
   }
 
   return followUps.sort((a, b) => a.studentName.localeCompare(b.studentName));
+}
+
+// ---------------------------------------------------------------------------
+// Family Household View — derived from guardian links, no dedicated table
+// ---------------------------------------------------------------------------
+export async function getFamilyProfile(guardianUserId: string, orgId: string) {
+  const guardian = await db.query.users.findFirst({
+    where: eq(schema.users.id, guardianUserId),
+  });
+  if (!guardian) return null;
+
+  const guardianLinks = await db.query.studentGuardians.findMany({
+    where: eq(schema.studentGuardians.guardianUserId, guardianUserId),
+    with: {
+      student: {
+        with: {
+          enrollments: { with: { class: true } },
+          guardians: { with: { guardian: true } },
+        },
+      },
+    },
+  });
+
+  const students = guardianLinks
+    .map(l => l.student)
+    .filter((s): s is NonNullable<typeof s> => !!s && s.organizationId === orgId);
+
+  // Co-guardians — everyone else linked to any of this family's students.
+  const coGuardianMap = new Map<string, { id: string; fullName: string; email: string | null }>();
+  for (const student of students) {
+    for (const link of student.guardians) {
+      if (link.guardian && link.guardianUserId !== guardianUserId) {
+        coGuardianMap.set(link.guardianUserId, {
+          id: link.guardianUserId,
+          fullName: link.guardian.fullName,
+          email: link.guardian.email,
+        });
+      }
+    }
+  }
+
+  const studentIds = students.map(s => s.id);
+
+  const [tuitionPlans, recentNotes, recentHomework, recentHifz, attendanceFollowUp] = await Promise.all([
+    studentIds.length === 0 ? Promise.resolve([]) : db.query.tuitionPlans.findMany({
+      where: and(inArray(schema.tuitionPlans.studentId, studentIds), ne(schema.tuitionPlans.status, 'cancelled')),
+      with: { student: { columns: { fullName: true } } },
+      orderBy: (t, { desc }) => desc(t.createdAt),
+    }),
+    studentIds.length === 0 ? Promise.resolve([]) : db.query.studentNotes.findMany({
+      where: inArray(schema.studentNotes.studentId, studentIds),
+      with: { student: { columns: { fullName: true } } },
+      orderBy: (n, { desc }) => desc(n.createdAt),
+      limit: 5,
+    }),
+    studentIds.length === 0 ? Promise.resolve([]) : (async () => {
+      const classIds = [...new Set(students.flatMap(s => s.enrollments.map(e => e.classId)))];
+      if (classIds.length === 0) return [];
+      return db.query.homeworkAssignments.findMany({
+        where: and(inArray(schema.homeworkAssignments.classId, classIds), eq(schema.homeworkAssignments.archived, false)),
+        orderBy: (h, { desc }) => desc(h.dueDate),
+        limit: 5,
+      });
+    })(),
+    studentIds.length === 0 ? Promise.resolve([]) : db.query.hifzRecords.findMany({
+      where: inArray(schema.hifzRecords.studentId, studentIds),
+      with: { student: { columns: { fullName: true } } },
+      orderBy: (h, { desc }) => desc(h.sessionDate),
+      limit: 5,
+    }),
+    getAttendanceFollowUp(orgId),
+  ]);
+
+  const familyAttendanceConcerns = attendanceFollowUp.filter(f => studentIds.includes(f.studentId));
+
+  return {
+    guardian,
+    coGuardians: [...coGuardianMap.values()],
+    students: students.map(s => ({
+      id: s.id,
+      fullName: s.fullName,
+      status: s.status,
+      className: s.enrollments[0]?.class?.name ?? 'Not enrolled',
+    })),
+    tuitionPlans,
+    recentNotes,
+    recentHomework,
+    recentHifz,
+    attendanceConcerns: familyAttendanceConcerns,
+  };
 }
 
 // ---------------------------------------------------------------------------

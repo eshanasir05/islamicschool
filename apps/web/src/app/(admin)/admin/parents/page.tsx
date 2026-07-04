@@ -28,21 +28,23 @@ export default async function ParentsPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {parents.map(p => (
-            <div key={p.userId} className="app-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontWeight: 500, color: 'var(--fg)', marginBottom: 2 }}>{p.name}</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)' }}>{p.email}</div>
+            <Link key={p.userId} href={`/admin/families/${p.userId}`} className="app-card-link">
+              <div className="app-card is-interactive" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontWeight: 500, color: 'var(--fg)', marginBottom: 2 }}>{p.name}</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>{p.email}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  {p.students.length > 0 ? (
+                    <div style={{ fontSize: 13, color: 'var(--fg)' }}>
+                      {p.students.map(s => s.name).join(', ')}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: 'var(--muted)' }}>No student linked</div>
+                  )}
+                </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                {p.students.length > 0 ? (
-                  <div style={{ fontSize: 13, color: 'var(--fg)' }}>
-                    {p.students.map(s => s.name).join(', ')}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>No student linked</div>
-                )}
-              </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
