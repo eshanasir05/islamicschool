@@ -426,7 +426,53 @@ async function seedHifzMilestones() {
 }
 
 // ---------------------------------------------------------------------------
-// 13. Tuition plans + payment history
+// 13. Tonight's Practice demo data (today's session for Yusuf)
+// ---------------------------------------------------------------------------
+async function seedTonightPractice() {
+  console.log("→ Seeding tonight's practice demo data...");
+  const today = new Date().toISOString().slice(0, 10);
+
+  await db.insert(schema.attendanceRecords).values({
+    organizationId: ORG_ID,
+    classId: CLASS_IDS.beginners,
+    studentId: STUDENT_IDS.yusuf,
+    sessionDate: today,
+    status: 'present',
+    arrivalTime: new Date(`${today}T09:05:00-05:00`),
+    recordedBy: USER_IDS.amina,
+  }).onConflictDoNothing();
+
+  await db.insert(schema.hifzRecords).values({
+    id: 'a1b2c3d4-0007-0000-0000-000000000001',
+    organizationId: ORG_ID,
+    studentId: STUDENT_IDS.yusuf,
+    classId: CLASS_IDS.beginners,
+    stream: 'sabak',
+    surahNumber: 67,
+    ayahStart: 1,
+    ayahEnd: 5,
+    sessionDate: today,
+    audioUrl: null,
+    recordedBy: USER_IDS.amina,
+  }).onConflictDoNothing();
+
+  await db.insert(schema.studentNotes).values({
+    id: 'a1b2c3d4-0008-0000-0000-000000000001',
+    organizationId: ORG_ID,
+    studentId: STUDENT_IDS.yusuf,
+    classId: CLASS_IDS.beginners,
+    noteType: 'praise',
+    category: 'Effort',
+    content: 'He improved his confidence today.',
+    visibleToParent: true,
+    createdBy: USER_IDS.amina,
+  }).onConflictDoNothing();
+
+  console.log("  ✓ tonight's practice demo (Yusuf)");
+}
+
+// ---------------------------------------------------------------------------
+// 14. Tuition plans + payment history
 // ---------------------------------------------------------------------------
 async function seedTuition() {
   console.log('→ Seeding tuition plans + payments...');
@@ -483,6 +529,7 @@ async function main() {
     await seedHistoricalRecords();
     await seedHomework();
     await seedHifzMilestones();
+    await seedTonightPractice();
     await seedTuition();
     console.log('\n✅ Seed complete.\n');
   } catch (err) {

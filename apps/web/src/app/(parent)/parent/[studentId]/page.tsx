@@ -14,6 +14,14 @@ const SURAH_NAMES: Record<number, string> = {
 };
 function surahName(n: number) { return SURAH_NAMES[n] ?? `Surah ${n}`; }
 
+function practiceSuggestion(hifz: { stream: string; surahNumber: number; ayahStart: number; ayahEnd: number } | null | undefined): string | null {
+  if (!hifz) return null;
+  const range = `${surahName(hifz.surahNumber)} ${hifz.ayahStart}–${hifz.ayahEnd}`;
+  if (hifz.stream === 'sabak') return `Review ${range} twice after Maghrib.`;
+  if (hifz.stream === 'sabqi') return `Revise ${range} once tonight.`;
+  return `Give ${range} a quick recap before bed.`;
+}
+
 export default async function ParentFeedPage({ params, searchParams }: Props) {
   const { studentId } = await params;
   const { payment } = await searchParams;
@@ -44,10 +52,13 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
     seenNoteIds.add(n.id);
     return true;
   });
-  const praiseNotes = uniqueNotes.filter(n => n.noteType === 'praise');
   const homeworkNotes = uniqueNotes.filter(n => n.noteType === 'homework');
+  const todayPraise = uniqueNotes.find(n => n.noteType === 'praise' && n.createdAt && new Date(n.createdAt).toISOString().slice(0, 10) === today);
+  const praiseNotes = uniqueNotes.filter(n => n.noteType === 'praise' && n.id !== todayPraise?.id);
 
-  const hasContent = attendance || hifz || praiseNotes.length > 0 || homeworkNotes.length > 0;
+  const hasTonight = !!(attendance || hifz || todayPraise);
+  const suggestion = practiceSuggestion(hifz);
+  const nextHomework = homework[0];
 
   async function payNowAction() {
     'use server';
@@ -67,36 +78,34 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
         {student.fullName}&apos;s day
       </h1>
 
-      {!hasContent ? (
+      {!hasTonight ? (
         <EmptyState
           icon="cal"
-          title="No class today yet"
+          title="No class update yet today"
           body="Check back after the next session. Your teacher will send a summary — attendance, hifz, and praise — as soon as class wraps."
         />
       ) : (
-        <>
+        <div className="app-card" style={{ marginBottom: 12, border: '1px solid var(--accent-200, #a7f3d0)' }}>
+          <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent-700)', marginBottom: 10 }}>
+            Tonight with {student.fullName.split(' ')[0]}
+          </div>
+
           {attendance && (
-            <div className="app-card" style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 6 }}>Attendance</div>
-                  <span className={`badge badge-${attendance.status}`} style={{ textTransform: 'capitalize' }}>{attendance.status}</span>
-                </div>
-                {attendance.arrivalTime && (
-                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                    Arrived {new Date(attendance.arrivalTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                  </div>
-                )}
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <span className={`badge badge-${attendance.status}`} style={{ textTransform: 'capitalize' }}>{attendance.status}</span>
+              {attendance.arrivalTime && (
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  Arrived {new Date(attendance.arrivalTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                </span>
+              )}
             </div>
           )}
 
           {hifz && (
-            <div className="app-card" style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 8 }}>Hifz</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: audioSignedUrl ? 12 : 0 }}>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: audioSignedUrl ? 10 : 0 }}>
                 <span className={`badge badge-${hifz.stream}`} style={{ textTransform: 'capitalize' }}>{hifz.stream}</span>
-                <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--fg)' }}>
+                <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)' }}>
                   {surahName(hifz.surahNumber)} {hifz.ayahStart}–{hifz.ayahEnd}
                 </span>
               </div>
@@ -107,26 +116,52 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
             </div>
           )}
 
-          {praiseNotes.slice(0, 3).map(note => (
-            <div key={note.id} className="app-card" style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)' }}>Praise</div>
-                {note.category && <span className="badge badge-praise">{note.category}</span>}
+          {suggestion && (
+            <div style={{ background: 'var(--accent-soft, #ecfdf5)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-700)', marginBottom: 4 }}>
+                Practice tonight
               </div>
-              <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>&ldquo;{note.content}&rdquo;</p>
+              <p style={{ fontSize: 14, color: 'var(--fg)', margin: 0 }}>{suggestion}</p>
             </div>
-          ))}
+          )}
 
-          {homeworkNotes.slice(0, 2).map(note => (
-            <div key={note.id} className="app-card" style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 8 }}>
-                Teacher note
+          {todayPraise && (
+            <div style={{ marginBottom: nextHomework ? 14 : 0 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)' }}>Teacher note</div>
+                {todayPraise.category && <span className="badge badge-praise">{todayPraise.category}</span>}
               </div>
-              <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>{note.content}</p>
+              <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>&ldquo;{todayPraise.content}&rdquo;</p>
             </div>
-          ))}
-        </>
+          )}
+
+          {nextHomework && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Due next class: </span>
+              <span style={{ fontSize: 13, color: 'var(--fg)', fontWeight: 500 }}>{nextHomework.title}</span>
+            </div>
+          )}
+        </div>
       )}
+
+      {praiseNotes.slice(0, 3).map(note => (
+        <div key={note.id} className="app-card" style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)' }}>Praise</div>
+            {note.category && <span className="badge badge-praise">{note.category}</span>}
+          </div>
+          <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>&ldquo;{note.content}&rdquo;</p>
+        </div>
+      ))}
+
+      {homeworkNotes.slice(0, 2).map(note => (
+        <div key={note.id} className="app-card" style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 8 }}>
+            Teacher note
+          </div>
+          <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>{note.content}</p>
+        </div>
+      ))}
 
       {homework.length > 0 && (
         <div style={{ marginTop: 32 }}>

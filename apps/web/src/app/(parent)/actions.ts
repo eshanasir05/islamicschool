@@ -59,6 +59,7 @@ export async function getStudentFeed(studentId: string, date: string) {
         eq(schema.hifzRecords.organizationId, orgId),
       ),
       with: { student: true },
+      orderBy: (h, { desc }) => desc(h.createdAt),
     }),
     db.query.studentNotes.findMany({
       where: and(
