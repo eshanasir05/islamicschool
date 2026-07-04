@@ -3,7 +3,8 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { env } from '@/env';
-import { getAdminStats, getOnboardingChecklist } from '../actions';
+import { getAdminStats, getOnboardingChecklist, getAttendanceFollowUp, getAdminTuition, getAdminTrials } from '../actions';
+import { getActivityLog, describeActivity } from '@/lib/activity-log';
 import { Icon, type IconName } from '@/components/marketing/icon';
 import { EmptyState } from '@/components/ui/empty-state';
 import { OnboardingChecklist } from '@/components/ui/onboarding-checklist';
@@ -14,15 +15,55 @@ const QUICK_ACTIONS: { href: string; icon: IconName; label: string; sub: string 
   { href: '/admin/announcements', icon: 'msg', label: 'Post announcement', sub: 'Message all parents' },
 ];
 
+function timeAgo(date: Date) {
+  const mins = Math.round((Date.now() - date.getTime()) / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
 export default async function AdminHome() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
 
-  const stats = await getAdminStats(env.NEXT_PUBLIC_ORG_ID);
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
+  const [stats, attendanceFollowUp, tuitionStudents, trials, recentActivity] = await Promise.all([
+    getAdminStats(orgId),
+    getAttendanceFollowUp(orgId),
+    getAdminTuition(orgId),
+    getAdminTrials(orgId),
+    getActivityLog(orgId),
+  ]);
   const cookieStore = await cookies();
   const checklistDismissed = cookieStore.get('onboarding_dismissed')?.value === 'true';
-  const checklist = checklistDismissed ? null : await getOnboardingChecklist(env.NEXT_PUBLIC_ORG_ID);
+  const checklist = checklistDismissed ? null : await getOnboardingChecklist(orgId);
+
+  const tuitionConcerns = tuitionStudents.filter(s =>
+    s.tuitionPlans.some(p => p.status === 'past_due' || p.status === 'pending_payment'),
+  ).length;
+  const pendingTrials = trials.filter(t => t.status === 'scheduled' || t.status === 'assessed').length;
+  const attentionItems = [
+    attendanceFollowUp.length > 0 && {
+      href: '/admin/attendance-follow-up',
+      icon: 'shield' as IconName,
+      label: `${attendanceFollowUp.length} student${attendanceFollowUp.length === 1 ? '' : 's'} need attendance follow-up`,
+      tone: 'danger' as const,
+    },
+    tuitionConcerns > 0 && {
+      href: '/admin/tuition',
+      icon: 'money' as IconName,
+      label: `${tuitionConcerns} tuition plan${tuitionConcerns === 1 ? '' : 's'} past due or pending payment`,
+      tone: 'warn' as const,
+    },
+    pendingTrials > 0 && {
+      href: '/admin/trials',
+      icon: 'cal' as IconName,
+      label: `${pendingTrials} trial${pendingTrials === 1 ? '' : 's'} awaiting assessment or placement`,
+      tone: 'info' as const,
+    },
+  ].filter((x): x is Exclude<typeof x, false> => !!x);
 
   const attendanceColor =
     stats.attendancePct >= 80 ? 'var(--accent-700)' :
@@ -39,6 +80,18 @@ export default async function AdminHome() {
       </p>
 
       {checklist && checklist.some(i => !i.done) && <OnboardingChecklist items={checklist} />}
+
+      {attentionItems.length > 0 && (
+        <div className="attention-list">
+          {attentionItems.map(item => (
+            <Link key={item.href + item.label} href={item.href} className={`attention-row tone-${item.tone}`}>
+              <span className="attention-row-icon"><Icon name={item.icon} size={16} /></span>
+              <span className="attention-row-label">{item.label}</span>
+              <Icon name="chevron-right" size={14} />
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="quick-actions">
         {QUICK_ACTIONS.map(a => (
@@ -109,6 +162,33 @@ export default async function AdminHome() {
           ))}
         </div>
       )}
+
+      <div className="section-head-row" style={{ margin: '28px 0 10px' }}>
+        <h2 className="text-h2">Recent activity</h2>
+        <Link href="/admin/activity" className="link-arrow">
+          View full log <Icon name="arrow" size={12} />
+        </Link>
+      </div>
+      {recentActivity.length === 0 ? (
+        <p className="text-body">Nothing recorded yet — activity shows up here as your school uses Talibly.</p>
+      ) : (
+        <div className="activity-list" style={{ marginBottom: 12 }}>
+          {recentActivity.slice(0, 5).map(entry => (
+            <div key={entry.id} className="activity-row">
+              <span className="activity-main">
+                <span className="activity-title">
+                  <strong>{entry.actorName}</strong> {describeActivity(entry)}
+                </span>
+                <span className="activity-time">{timeAgo(new Date(entry.createdAt))}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Link href="/admin/board-pack" className="link-arrow" style={{ marginBottom: 24, display: 'inline-flex' }}>
+        View Board Pack <Icon name="arrow" size={12} />
+      </Link>
     </main>
   );
 }

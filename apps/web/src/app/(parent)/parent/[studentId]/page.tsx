@@ -336,10 +336,10 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
             {tuition.payments.length > 0 && (
               <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
                 <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 8 }}>
-                  Recent payments
+                  {tuition.status === 'active' ? 'Last payment' : 'Recent payments'}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {tuition.payments.map(p => (
+                  {(tuition.status === 'active' ? tuition.payments.slice(0, 1) : tuition.payments).map(p => (
                     <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                       <div style={{ color: 'var(--fg)' }}>
                         {p.paidAt ? new Date(p.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}

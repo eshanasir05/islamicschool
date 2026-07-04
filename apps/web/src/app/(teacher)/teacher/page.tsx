@@ -23,6 +23,7 @@ export default async function TeacherHome() {
 
   const name = publicUser?.fullName?.trim();
   const now = new Date();
+  const today = now.toISOString().slice(0, 10);
   const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   const hijri = toHijriString(now);
   const ayah = ayahOfTheDay(now);
@@ -63,6 +64,7 @@ export default async function TeacherHome() {
               cls.academicYear,
               cls.gradeLevel,
             ].filter(Boolean);
+            const wrappedToday = cls.lastSession?.date === today;
 
             return (
               <div key={cls.id} className="tclass">
@@ -70,7 +72,10 @@ export default async function TeacherHome() {
                   <Icon name="book" size={20} />
                 </div>
                 <div className="tclass-body">
-                  <div className="tclass-name">{cls.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <div className="tclass-name">{cls.name}</div>
+                    {wrappedToday && <span className="badge badge-present">Wrapped today</span>}
+                  </div>
                   <div className="tclass-meta">
                     {meta.length > 0 && (
                       <span><Icon name="cal" size={13} />{meta.join(' · ')}</span>
@@ -95,7 +100,7 @@ export default async function TeacherHome() {
                     href={`/teacher/${cls.id}/attendance`}
                     className={`btn ${cls.accent === 'green' ? 'btn-accent' : 'btn-outline-sky'}`}
                   >
-                    Start class session <Icon name="arrow" size={14} />
+                    {wrappedToday ? 'Update today’s session' : 'Start class session'} <Icon name="arrow" size={14} />
                   </Link>
                 </div>
               </div>
