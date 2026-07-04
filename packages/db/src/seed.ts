@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import * as schema from './schema/index.js';
 
@@ -431,12 +432,18 @@ async function seedTuition() {
   console.log('→ Seeding tuition plans + payments...');
 
   const planRows = [
-    { id: 'a1b2c3d4-0004-0000-0000-000000000001', organizationId: ORG_ID, studentId: STUDENT_IDS.aisha,    amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
-    { id: 'a1b2c3d4-0004-0000-0000-000000000002', organizationId: ORG_ID, studentId: STUDENT_IDS.yusuf,    amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
-    { id: 'a1b2c3d4-0004-0000-0000-000000000003', organizationId: ORG_ID, studentId: STUDENT_IDS.bilal,    amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
-    { id: 'a1b2c3d4-0004-0000-0000-000000000004', organizationId: ORG_ID, studentId: STUDENT_IDS.khadijah, amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
+    { id: 'a1b2c3d4-0004-0000-0000-000000000001', organizationId: ORG_ID, studentId: STUDENT_IDS.aisha,    guardianUserId: USER_IDS.sarah, amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
+    { id: 'a1b2c3d4-0004-0000-0000-000000000002', organizationId: ORG_ID, studentId: STUDENT_IDS.yusuf,    guardianUserId: USER_IDS.sarah, amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
+    { id: 'a1b2c3d4-0004-0000-0000-000000000003', organizationId: ORG_ID, studentId: STUDENT_IDS.bilal,    guardianUserId: USER_IDS.omar,  amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
+    { id: 'a1b2c3d4-0004-0000-0000-000000000004', organizationId: ORG_ID, studentId: STUDENT_IDS.khadijah, guardianUserId: USER_IDS.omar,  amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
   ];
-  await db.insert(schema.tuitionPlans).values(planRows).onConflictDoNothing();
+  await db
+    .insert(schema.tuitionPlans)
+    .values(planRows)
+    .onConflictDoUpdate({
+      target: schema.tuitionPlans.id,
+      set: { guardianUserId: sql`excluded.guardian_user_id` },
+    });
 
   const paymentRows = [];
   for (let i = 0; i < planRows.length; i++) {

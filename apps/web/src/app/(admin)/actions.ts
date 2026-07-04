@@ -583,7 +583,14 @@ export async function getAdminParents(orgId: string) {
 export async function getAdminTuition(orgId: string) {
   const students = await db.query.students.findMany({
     where: and(eq(schema.students.organizationId, orgId), eq(schema.students.status, 'active')),
-    with: { tuitionPlans: { with: { payments: { orderBy: (p, { desc }) => desc(p.paidAt), limit: 1 } } } },
+    with: {
+      tuitionPlans: {
+        with: {
+          guardian: { columns: { fullName: true, email: true } },
+          payments: { orderBy: (p, { desc }) => desc(p.paidAt), limit: 1 },
+        },
+      },
+    },
     orderBy: (s, { asc }) => asc(s.fullName),
   });
   return students;
