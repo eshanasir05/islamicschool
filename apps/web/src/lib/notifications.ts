@@ -8,7 +8,9 @@ export type NotificationType =
   | 'guardian_linked'
   | 'payment_succeeded'
   | 'payment_failed'
-  | 'lead_submitted';
+  | 'lead_submitted'
+  | 'homework_assigned'
+  | 'hifz_milestone';
 
 type NotificationInput = {
   organizationId: string;
@@ -51,6 +53,33 @@ export async function notifyGuardians(
   await Promise.all(
     links.map(link =>
       createNotification({ ...input, organizationId, userId: link.guardianUserId }),
+    ),
+  );
+}
+
+/** Notify every guardian of every student enrolled in a class (used for homework). */
+export async function notifyClassGuardians(
+  classId: string,
+  organizationId: string,
+  input: Omit<NotificationInput, 'organizationId' | 'userId'>,
+) {
+  const enrollments = await db.query.classEnrollments.findMany({
+    where: eq(schema.classEnrollments.classId, classId),
+    columns: { studentId: true },
+  });
+  if (enrollments.length === 0) return;
+  const studentIds = enrollments.map(e => e.studentId);
+
+  const links = await db.query.studentGuardians.findMany({
+    where: and(
+      inArray(schema.studentGuardians.studentId, studentIds),
+      eq(schema.studentGuardians.receivesNotifications, true),
+    ),
+  });
+  const uniqueGuardianIds = [...new Set(links.map(l => l.guardianUserId))];
+  await Promise.all(
+    uniqueGuardianIds.map(userId =>
+      createNotification({ ...input, organizationId, userId }),
     ),
   );
 }

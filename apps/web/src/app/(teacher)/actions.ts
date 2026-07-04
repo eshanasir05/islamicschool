@@ -7,7 +7,7 @@ import { db, schema } from '@/lib/db';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { env } from '@/env';
 import { Resend } from 'resend';
-import { notifyGuardians } from '@/lib/notifications';
+import { notifyGuardians, notifyClassGuardians } from '@/lib/notifications';
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -198,6 +198,74 @@ export async function getClassStudents(classId: string) {
     with: { student: true },
   });
   return enrollments.map(e => e.student);
+}
+
+// ---------------------------------------------------------------------------
+// Homework
+// ---------------------------------------------------------------------------
+export async function getTeacherHomeworkOverview(teacherId: string) {
+  const classes = await db.query.classes.findMany({
+    where: and(
+      eq(schema.classes.primaryTeacherId, teacherId),
+      eq(schema.classes.organizationId, env.NEXT_PUBLIC_ORG_ID),
+    ),
+    orderBy: (c, { asc }) => asc(c.name),
+  });
+  if (classes.length === 0) return [];
+
+  const classIds = classes.map(c => c.id);
+  const assignments = await db.query.homeworkAssignments.findMany({
+    where: and(
+      inArray(schema.homeworkAssignments.classId, classIds),
+      eq(schema.homeworkAssignments.archived, false),
+    ),
+    orderBy: (h, { desc }) => desc(h.dueDate),
+  });
+
+  return classes.map(cls => ({
+    ...cls,
+    homework: assignments.filter(a => a.classId === cls.id),
+  }));
+}
+
+export async function createHomework(
+  classId: string,
+  orgId: string,
+  teacherId: string,
+  data: { title: string; description?: string; dueDate: string },
+) {
+  const [row] = await db.insert(schema.homeworkAssignments).values({
+    organizationId: orgId,
+    classId,
+    title: data.title,
+    description: data.description ?? null,
+    dueDate: data.dueDate,
+    createdBy: teacherId,
+  }).returning({ id: schema.homeworkAssignments.id });
+  if (!row) throw new Error('Failed to create homework');
+
+  const cls = await db.query.classes.findFirst({
+    where: eq(schema.classes.id, classId),
+    columns: { name: true },
+  });
+
+  await notifyClassGuardians(classId, orgId, {
+    type: 'homework_assigned',
+    title: `New homework: ${data.title}`,
+    body: `${cls?.name ?? 'Class'} — due ${new Date(`${data.dueDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+    link: '/parent',
+  });
+
+  revalidatePath('/teacher/homework');
+  revalidatePath('/parent');
+  redirect('/teacher/homework?notice=homework_assigned');
+}
+
+export async function archiveHomework(id: string) {
+  await db.update(schema.homeworkAssignments).set({ archived: true }).where(eq(schema.homeworkAssignments.id, id));
+  revalidatePath('/teacher/homework');
+  revalidatePath('/parent');
+  redirect('/teacher/homework?notice=homework_archived');
 }
 
 // ---------------------------------------------------------------------------

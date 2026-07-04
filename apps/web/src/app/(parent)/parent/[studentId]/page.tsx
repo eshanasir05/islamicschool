@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession } from '../../actions';
+import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession, getStudentHomework } from '../../actions';
 import AudioPlayer from './audio-player';
 import { toHijriString } from '@/lib/hijri';
 import { env } from '@/env';
@@ -27,10 +27,11 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
   if (!student) redirect('/parent');
 
   const today = new Date().toISOString().slice(0, 10);
-  const [{ attendance, hifz, audioSignedUrl, notes }, announcements, tuition] = await Promise.all([
+  const [{ attendance, hifz, audioSignedUrl, notes }, announcements, tuition, homework] = await Promise.all([
     getStudentFeed(studentId, today),
     getAnnouncements(env.NEXT_PUBLIC_ORG_ID),
     getParentTuition(studentId),
+    getStudentHomework(studentId),
   ]);
 
   const now = new Date();
@@ -118,12 +119,33 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
           {homeworkNotes.slice(0, 2).map(note => (
             <div key={note.id} className="app-card" style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 8 }}>
-                Homework
+                Teacher note
               </div>
               <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>{note.content}</p>
             </div>
           ))}
         </>
+      )}
+
+      {homework.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>Homework</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {homework.map(hw => (
+              <div key={hw.id} className="app-card">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)' }}>{hw.title}</span>
+                  <span className="badge badge-homework" style={{ whiteSpace: 'nowrap' }}>
+                    Due {new Date(`${hw.dueDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+                {hw.description && (
+                  <p style={{ fontSize: 14, color: 'var(--fg-2)', lineHeight: 1.5, margin: '8px 0 0' }}>{hw.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {tuition && (

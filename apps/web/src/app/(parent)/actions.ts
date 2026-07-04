@@ -1,6 +1,6 @@
 'use server';
 
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
 import { env } from '@/env';
@@ -91,6 +91,24 @@ export async function getStudentFeed(studentId: string, date: string) {
   }
 
   return { attendance, hifz, audioSignedUrl, notes };
+}
+
+export async function getStudentHomework(studentId: string) {
+  const enrollments = await db.query.classEnrollments.findMany({
+    where: eq(schema.classEnrollments.studentId, studentId),
+    columns: { classId: true },
+  });
+  if (enrollments.length === 0) return [];
+  const classIds = enrollments.map(e => e.classId);
+
+  return db.query.homeworkAssignments.findMany({
+    where: and(
+      eq(schema.homeworkAssignments.archived, false),
+      inArray(schema.homeworkAssignments.classId, classIds),
+    ),
+    orderBy: (h, { asc }) => asc(h.dueDate),
+    limit: 5,
+  });
 }
 
 export async function createParentPaymentSession(planId: string, studentId: string) {

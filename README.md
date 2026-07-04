@@ -12,9 +12,11 @@ Talibly is a SaaS MVP for North American Islamic weekend schools. A teacher can 
 
 Three role-based flows:
 
-- **Teacher** — mark attendance, log hifz ayah ranges with optional audio, add praise/homework notes, send parent wrap email
-- **Parent** — daily feed per child with attendance, hifz record, teacher notes, billing status, and school announcements
-- **Principal/Admin** — dashboard with weekly stats, student/class/teacher management, tuition plans via Stripe Checkout, CSV exports, and analytics
+- **Teacher** — mark attendance, log hifz ayah ranges with optional audio, add praise notes, assign class homework (one task, one due date), send parent wrap email
+- **Parent** — daily feed per child with attendance, hifz record, teacher notes, homework due dates, billing status, and school announcements
+- **Principal/Admin** — dashboard with weekly stats, student/class/teacher management, tuition plans via Stripe Checkout, CSV exports, homework by class, and analytics
+
+Homework is a real, class-scoped feature (`homework_assignments` table) — a teacher assigns a task with a title, optional instructions, and a due date from `/teacher/homework`; every guardian of an enrolled student gets an in-app notification immediately, and the assignment shows in the parent feed and on the admin class detail page.
 
 The **Insights dashboard** (`/admin/insights`) provides a monthly business-intelligence view: student/teacher/parent headcount, attendance rate, tuition collected vs. outstanding, pending plan count, payment status breakdown with visual bars, a recent-payments feed, and per-class attendance rate table — all scoped to the organisation and rendered server-side with no charting library.
 

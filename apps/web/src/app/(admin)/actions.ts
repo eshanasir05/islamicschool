@@ -373,7 +373,7 @@ export async function restoreClass(classId: string, orgId: string) {
 // Class detail + enrollment
 // ---------------------------------------------------------------------------
 export async function getAdminClassDetail(classId: string, orgId: string) {
-  const [cls, sessionRows] = await Promise.all([
+  const [cls, sessionRows, homework] = await Promise.all([
     db.query.classes.findFirst({
       where: and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)),
       with: {
@@ -396,6 +396,15 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
       )
       .groupBy(schema.attendanceRecords.sessionDate, schema.attendanceRecords.status)
       .orderBy(desc(schema.attendanceRecords.sessionDate)),
+    db.query.homeworkAssignments.findMany({
+      where: and(
+        eq(schema.homeworkAssignments.classId, classId),
+        eq(schema.homeworkAssignments.organizationId, orgId),
+        eq(schema.homeworkAssignments.archived, false),
+      ),
+      orderBy: (h, { desc }) => desc(h.dueDate),
+      limit: 10,
+    }),
   ]);
 
   // Pivot attendance counts by session date
@@ -410,7 +419,7 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
     .map(([date, c]) => ({ date, ...c, total: c.present + c.absent + c.late + c.excused }))
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  return { cls, sessions };
+  return { cls, sessions, homework };
 }
 
 export async function enrollStudent(classId: string, studentId: string) {

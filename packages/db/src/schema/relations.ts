@@ -2,6 +2,7 @@ import { relations } from 'drizzle-orm';
 import { attendanceRecords } from './attendance';
 import { classes, classEnrollments } from './classes';
 import { hifzRecords } from './hifz';
+import { homeworkAssignments } from './homework';
 import { memberships } from './memberships';
 import { studentNotes } from './notes';
 import { organizations } from './organizations';
@@ -50,7 +51,13 @@ export const classesRelations = relations(classes, ({ many, one }) => ({
   attendanceRecords: many(attendanceRecords),
   hifzRecords: many(hifzRecords),
   notes: many(studentNotes),
+  homeworkAssignments: many(homeworkAssignments),
   primaryTeacher: one(users, { fields: [classes.primaryTeacherId], references: [users.id] }),
+}));
+
+export const homeworkAssignmentsRelations = relations(homeworkAssignments, ({ one }) => ({
+  class: one(classes, { fields: [homeworkAssignments.classId], references: [classes.id] }),
+  creator: one(users, { fields: [homeworkAssignments.createdBy], references: [users.id] }),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({

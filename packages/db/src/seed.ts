@@ -350,7 +350,41 @@ async function seedHistoricalRecords() {
 }
 
 // ---------------------------------------------------------------------------
-// 11. Tuition plans + payment history
+// 11. Homework assignments
+// ---------------------------------------------------------------------------
+async function seedHomework() {
+  console.log('→ Seeding homework...');
+  const today = new Date();
+  const nextSunday = new Date(today);
+  nextSunday.setDate(today.getDate() + ((7 - today.getDay()) % 7 || 7));
+  const dueDate = nextSunday.toISOString().slice(0, 10);
+
+  const rows = [
+    {
+      id: 'a1b2c3d4-0005-0000-0000-000000000001',
+      organizationId: ORG_ID,
+      classId: CLASS_IDS.beginners,
+      title: 'Review Al-Baqarah 1–10',
+      description: 'Practice the ayahs recited in class this week with a parent before next Sunday.',
+      dueDate,
+      createdBy: USER_IDS.amina,
+    },
+    {
+      id: 'a1b2c3d4-0005-0000-0000-000000000002',
+      organizationId: ORG_ID,
+      classId: CLASS_IDS.advanced,
+      title: 'Revise Al-Baqarah 11–30',
+      description: 'Revision (sabqi) portion for the advanced circle — be ready to recite from memory.',
+      dueDate,
+      createdBy: USER_IDS.idris,
+    },
+  ];
+  await db.insert(schema.homeworkAssignments).values(rows).onConflictDoNothing();
+  console.log('  ✓ 2 homework assignments');
+}
+
+// ---------------------------------------------------------------------------
+// 12. Tuition plans + payment history
 // ---------------------------------------------------------------------------
 async function seedTuition() {
   console.log('→ Seeding tuition plans + payments...');
@@ -399,6 +433,7 @@ async function main() {
     await seedGuardians();
     await seedConsents();
     await seedHistoricalRecords();
+    await seedHomework();
     await seedTuition();
     console.log('\n✅ Seed complete.\n');
   } catch (err) {

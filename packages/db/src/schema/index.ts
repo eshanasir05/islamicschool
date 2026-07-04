@@ -15,3 +15,4 @@ export * from './consents';
 export * from './relations';
 export * from './leads';
 export * from './notifications';
+export * from './homework';

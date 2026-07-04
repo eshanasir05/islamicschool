@@ -22,7 +22,7 @@ export default async function ClassDetailPage({ params, searchParams }: Props) {
   const { notice } = await searchParams;
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
-  const [{ cls, sessions }, allStudents] = await Promise.all([
+  const [{ cls, sessions, homework }, allStudents] = await Promise.all([
     getAdminClassDetail(classId, orgId),
     getAdminStudents(orgId),
   ]);
@@ -168,6 +168,36 @@ export default async function ClassDetailPage({ params, searchParams }: Props) {
           )}
         </div>
       )}
+
+      {/* Recent homework */}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>
+          Recent homework ({homework.length})
+        </h2>
+        {homework.length === 0 ? (
+          <EmptyState
+            icon="book"
+            title="No homework assigned yet"
+            body="Once the teacher assigns homework for this class, it will appear here."
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {homework.map(hw => (
+              <div key={hw.id} className="app-card" style={{ fontSize: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ fontWeight: 500, color: 'var(--fg)' }}>{hw.title}</span>
+                  <span style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                    Due {new Date(`${hw.dueDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+                {hw.description && (
+                  <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6 }}>{hw.description}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Session history */}
       <div style={{ marginBottom: 24 }}>

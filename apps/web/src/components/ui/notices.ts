@@ -41,4 +41,11 @@ export const NOTICES: Record<string, { type: NoticeType; message: string }> = {
   settings_saved: { type: 'success', message: 'Settings saved.' },
   profile_saved: { type: 'success', message: 'Profile updated.' },
   password_changed: { type: 'success', message: 'Password updated.' },
+
+  // Homework
+  homework_assigned: { type: 'success', message: 'Homework assigned. Parents have been notified.' },
+  homework_archived: { type: 'success', message: 'Homework archived.' },
+
+  // Hifz milestones
+  milestone_recorded: { type: 'success', message: 'Milestone recorded. Parents have been notified.' },
 };
