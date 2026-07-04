@@ -2501,6 +2501,14 @@ button {
   color: var(--fg);
   border-color: var(--border-2);
 }
+/* Below ~400px there isn't room for logo + help link + bell + full name
+   + sign-out all in one 56px row — drop the display name (still visible
+   on /account) and tighten spacing rather than let it wrap awkwardly. */
+@media (max-width: 480px) {
+  .app-header { padding: 0 12px; }
+  .app-header-right { gap: 8px; }
+  .app-header-user { display: none; }
+}
 .app-main {
   flex: 1;
   padding: 24px;
