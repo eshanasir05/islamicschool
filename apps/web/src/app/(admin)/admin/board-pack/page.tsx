@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getBoardPack } from '../../actions';
 import { ExportButton } from '@/components/ui/export-button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { MarkBoardPackViewed } from '@/components/ui/mark-board-pack-viewed';
 
 function fmt(cents: number) {
   return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -24,6 +25,7 @@ export default async function BoardPackPage() {
 
   return (
     <main className="app-main">
+      <MarkBoardPackViewed />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
         <h1 className="text-h1">Board pack</h1>
       </div>

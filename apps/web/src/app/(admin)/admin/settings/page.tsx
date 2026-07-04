@@ -1,10 +1,12 @@
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { db, schema } from '@/lib/db';
 import { and, eq } from 'drizzle-orm';
 import { env } from '@/env';
 import { ToastOnParam } from '@/components/ui/toast-on-param';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { restoreOnboardingChecklist } from '../../actions';
 
 type Props = { searchParams: Promise<{ notice?: string }> };
 
@@ -22,6 +24,10 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
   });
 
   if (!org) return <main className="app-main"><p>Organization not found.</p></main>;
+
+  const address = (org.address ?? {}) as { street?: string; city?: string; state?: string; zip?: string };
+  const cookieStore = await cookies();
+  const checklistDismissed = cookieStore.get('onboarding_dismissed')?.value === 'true';
 
   async function updateOrgAction(formData: FormData) {
     'use server';
@@ -43,9 +49,15 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
       redirect('/admin/settings');
     }
 
+    const street = (formData.get('street') as string | null)?.trim() ?? '';
+    const city = (formData.get('city') as string | null)?.trim() ?? '';
+    const state = (formData.get('state') as string | null)?.trim() ?? '';
+    const zip = (formData.get('zip') as string | null)?.trim() ?? '';
+    const hasAddress = street || city || state || zip;
+
     await db
       .update(schema.organizations)
-      .set({ name })
+      .set({ name, address: hasAddress ? { street, city, state, zip } : null })
       .where(eq(schema.organizations.id, env.NEXT_PUBLIC_ORG_ID));
 
     redirect('/admin/settings?notice=settings_saved');
@@ -79,6 +91,56 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
               }}
             />
           </div>
+
+          <div>
+            <label htmlFor="street" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Street address
+            </label>
+            <input
+              id="street"
+              name="street"
+              type="text"
+              defaultValue={address.street ?? ''}
+              placeholder="123 Main St"
+              style={{
+                width: '100%', padding: '9px 12px', borderRadius: 8,
+                border: '1px solid var(--border)', fontSize: 14,
+                background: 'var(--surface)', color: 'var(--fg)',
+                boxSizing: 'border-box', maxWidth: 400,
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ flex: '2 1 160px' }}>
+              <label htmlFor="city" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                City
+              </label>
+              <input
+                id="city" name="city" type="text" defaultValue={address.city ?? ''}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, background: 'var(--surface)', color: 'var(--fg)', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ flex: '1 1 80px' }}>
+              <label htmlFor="state" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                State
+              </label>
+              <input
+                id="state" name="state" type="text" defaultValue={address.state ?? ''}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, background: 'var(--surface)', color: 'var(--fg)', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ flex: '1 1 90px' }}>
+              <label htmlFor="zip" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                ZIP
+              </label>
+              <input
+                id="zip" name="zip" type="text" defaultValue={address.zip ?? ''}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, background: 'var(--surface)', color: 'var(--fg)', boxSizing: 'border-box' }}
+              />
+            </div>
+          </div>
+
           <SubmitButton className="btn btn-accent" style={{ alignSelf: 'flex-start', fontSize: 13, padding: '7px 14px' }} pendingLabel="Saving…">
             Save
           </SubmitButton>
@@ -116,6 +178,18 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
           Go to Account →
         </a>
       </div>
+
+      {checklistDismissed && (
+        <div className="app-card" style={{ marginTop: 16 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', margin: '0 0 12px' }}>Getting started checklist</h2>
+          <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 12px' }}>
+            You dismissed the setup checklist from the dashboard.
+          </p>
+          <form action={async () => { 'use server'; await restoreOnboardingChecklist(); }}>
+            <button type="submit" className="btn btn-ghost" style={{ fontSize: 13 }}>Show it again</button>
+          </form>
+        </div>
+      )}
     </main>
   );
 }

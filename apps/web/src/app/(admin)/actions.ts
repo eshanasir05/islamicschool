@@ -1274,3 +1274,130 @@ export async function convertTrialToStudent(
   revalidatePath('/admin/students');
   redirect(`/admin/students/${student.id}?notice=trial_converted`);
 }
+
+// ---------------------------------------------------------------------------
+// Onboarding checklist — a calm, dismissible setup guide for a new school
+// admin. Each item's completion is derived from real org data (or, for the
+// two items with no natural completion signal — reviewing the Board Pack —
+// a lightweight "visited" cookie set the first time that page renders).
+// ---------------------------------------------------------------------------
+export type OnboardingItem = {
+  key: string;
+  label: string;
+  sub: string;
+  href: string;
+  done: boolean;
+};
+
+export async function getOnboardingChecklist(orgId: string): Promise<OnboardingItem[]> {
+  const { cookies } = await import('next/headers');
+  const cookieStore = await cookies();
+  const boardPackViewed = cookieStore.get('onboarding_board_pack_viewed')?.value === 'true';
+
+  const [
+    org,
+    classCount,
+    teacherCount,
+    studentCount,
+    guardianLinkCount,
+    tuitionPlanCount,
+    announcementCount,
+    homeworkCount,
+    parentCount,
+  ] = await Promise.all([
+    db.query.organizations.findFirst({ where: eq(schema.organizations.id, orgId) }),
+    db.select({ cnt: count() }).from(schema.classes)
+      .where(and(eq(schema.classes.organizationId, orgId), sql`${schema.classes.deletedAt} IS NULL`)),
+    db.select({ cnt: count() }).from(schema.memberships)
+      .where(and(eq(schema.memberships.organizationId, orgId), eq(schema.memberships.role, 'teacher'), eq(schema.memberships.status, 'active'))),
+    db.select({ cnt: count() }).from(schema.students)
+      .where(and(eq(schema.students.organizationId, orgId), eq(schema.students.status, 'active'))),
+    db.select({ cnt: count() }).from(schema.studentGuardians)
+      .innerJoin(schema.students, eq(schema.students.id, schema.studentGuardians.studentId))
+      .where(eq(schema.students.organizationId, orgId)),
+    db.select({ cnt: count() }).from(schema.tuitionPlans)
+      .where(eq(schema.tuitionPlans.organizationId, orgId)),
+    db.select({ cnt: count() }).from(schema.messageThreads)
+      .where(and(eq(schema.messageThreads.organizationId, orgId), eq(schema.messageThreads.scope, 'school_wide'))),
+    db.select({ cnt: count() }).from(schema.homeworkAssignments)
+      .innerJoin(schema.classes, eq(schema.classes.id, schema.homeworkAssignments.classId))
+      .where(eq(schema.classes.organizationId, orgId)),
+    db.select({ cnt: count() }).from(schema.memberships)
+      .where(and(eq(schema.memberships.organizationId, orgId), eq(schema.memberships.role, 'parent'), eq(schema.memberships.status, 'active'))),
+  ]);
+
+  const hasAddress = !!(org?.address && Object.values(org.address as Record<string, string>).some(v => v?.trim()));
+
+  return [
+    {
+      key: 'profile', label: 'Add school profile', href: '/admin/settings',
+      sub: 'Confirm your school name and address',
+      done: !!org && !!org.name && hasAddress,
+    },
+    {
+      key: 'classes', label: 'Add classes', href: '/admin/classes/new',
+      sub: 'Create the classes your school runs',
+      done: Number(classCount[0]?.cnt ?? 0) > 0,
+    },
+    {
+      key: 'teachers', label: 'Add teachers', href: '/admin/teachers/invite',
+      sub: 'Invite teachers so they can log in',
+      done: Number(teacherCount[0]?.cnt ?? 0) > 0,
+    },
+    {
+      key: 'students', label: 'Import students', href: '/admin/import',
+      sub: 'Bring in your roster via CSV, or add students one by one',
+      done: Number(studentCount[0]?.cnt ?? 0) > 0,
+    },
+    {
+      key: 'guardians', label: 'Link guardians', href: '/admin/students',
+      sub: 'Connect each student to their parent(s)',
+      done: Number(guardianLinkCount[0]?.cnt ?? 0) > 0,
+    },
+    {
+      key: 'tuition', label: 'Create tuition plans', href: '/admin/tuition',
+      sub: 'Set up billing for enrolled students',
+      done: Number(tuitionPlanCount[0]?.cnt ?? 0) > 0,
+    },
+    {
+      key: 'announcement', label: 'Post first announcement', href: '/admin/announcements',
+      sub: 'Send a school-wide message to all parents',
+      done: Number(announcementCount[0]?.cnt ?? 0) > 0,
+    },
+    {
+      key: 'homework', label: 'Assign first homework', href: '/admin/classes',
+      sub: 'Homework is assigned by teachers — check a class to see it appear here',
+      done: Number(homeworkCount[0]?.cnt ?? 0) > 0,
+    },
+    {
+      key: 'board_pack', label: 'Review Board Pack', href: '/admin/board-pack',
+      sub: 'See the snapshot your board or principal would see',
+      done: boardPackViewed,
+    },
+    {
+      key: 'parents', label: 'Invite parents', href: '/admin/parents/invite',
+      sub: 'Give parents access to their child’s daily feed',
+      done: Number(parentCount[0]?.cnt ?? 0) > 0,
+    },
+  ];
+}
+
+export async function markBoardPackViewed() {
+  const { cookies } = await import('next/headers');
+  const cookieStore = await cookies();
+  cookieStore.set('onboarding_board_pack_viewed', 'true', { maxAge: 60 * 60 * 24 * 365, path: '/' });
+}
+
+export async function dismissOnboardingChecklist() {
+  const { cookies } = await import('next/headers');
+  const cookieStore = await cookies();
+  cookieStore.set('onboarding_dismissed', 'true', { maxAge: 60 * 60 * 24 * 365, path: '/' });
+  revalidatePath('/admin');
+}
+
+export async function restoreOnboardingChecklist() {
+  const { cookies } = await import('next/headers');
+  const cookieStore = await cookies();
+  cookieStore.delete('onboarding_dismissed');
+  revalidatePath('/admin');
+}

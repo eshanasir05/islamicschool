@@ -1,10 +1,12 @@
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { env } from '@/env';
-import { getAdminStats } from '../actions';
+import { getAdminStats, getOnboardingChecklist } from '../actions';
 import { Icon, type IconName } from '@/components/marketing/icon';
 import { EmptyState } from '@/components/ui/empty-state';
+import { OnboardingChecklist } from '@/components/ui/onboarding-checklist';
 
 const QUICK_ACTIONS: { href: string; icon: IconName; label: string; sub: string }[] = [
   { href: '/admin/students/new', icon: 'plus', label: 'Add student', sub: 'Enroll a new student' },
@@ -18,6 +20,9 @@ export default async function AdminHome() {
   if (!user) redirect('/sign-in');
 
   const stats = await getAdminStats(env.NEXT_PUBLIC_ORG_ID);
+  const cookieStore = await cookies();
+  const checklistDismissed = cookieStore.get('onboarding_dismissed')?.value === 'true';
+  const checklist = checklistDismissed ? null : await getOnboardingChecklist(env.NEXT_PUBLIC_ORG_ID);
 
   const attendanceColor =
     stats.attendancePct >= 80 ? 'var(--accent-700)' :
@@ -32,6 +37,8 @@ export default async function AdminHome() {
       <p className="text-body" style={{ marginBottom: 24 }}>
         {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
       </p>
+
+      {checklist && checklist.some(i => !i.done) && <OnboardingChecklist items={checklist} />}
 
       <div className="quick-actions">
         {QUICK_ACTIONS.map(a => (
