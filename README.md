@@ -190,7 +190,29 @@ pnpm --filter @skooly/web typecheck         # TypeScript check
 pnpm --filter @skooly/web lint              # Biome lint
 pnpm --filter @skooly/db db:push            # Push schema changes
 pnpm --filter @skooly/db db:seed            # Seed demo data
+pnpm --filter @skooly/db db:reset-demo      # Wipe + reseed the demo org only (see below)
 ```
+
+---
+
+## Resetting demo data
+
+Before a pilot call or demo video, you can wipe the demo org back to a clean, fully-seeded state with one command. This is safe to run repeatedly — it never touches any organization other than the fixed demo org, and it never deletes Supabase Auth accounts (those are idempotently upserted by the seed script, not recreated).
+
+```bash
+cd packages/db
+ALLOW_DEMO_RESET=true DEMO_ORG_ID=a1b2c3d4-0000-0000-0000-000000000001 pnpm db:reset-demo
+```
+
+Both environment variables are required and checked before anything is deleted:
+- `ALLOW_DEMO_RESET=true` — explicit confirmation you intend to run a destructive reset
+- `DEMO_ORG_ID` — must exactly match the hardcoded demo org id above, as a second explicit confirmation of *what* you're wiping
+
+Missing or incorrect values cause the script to refuse to run and exit immediately with no changes made.
+
+What it does, in FK-safe order: deletes all messages/threads, notifications, trial placements, hifz milestones/records, student notes, homework, attendance, payments, tuition plans, consents, guardian links, and enrollments scoped to the demo org, then deletes the demo org's students and classes, then re-runs `db:seed` to restore the full demo dataset (admin/teacher/parent accounts, 4 students across 2 classes with siblings, historical attendance/hifz/notes, homework, hifz milestones, Tonight's Practice data, absence follow-ups, trial placements, tuition plans + payments, sibling discounts).
+
+Not touched by the reset: `contact_submissions` (inbound leads) — this table has no organization scoping in the schema, so it is intentionally left alone rather than risk deleting real inbound inquiries in a shared environment. Clear it manually via the Supabase dashboard if needed.
 
 ---
 
