@@ -63,6 +63,9 @@ export default async function TuitionPage() {
                         <span style={{ color: 'var(--muted)', fontSize: 12 }}>
                           {' '}/ {plan.frequency === 'one_time' ? 'one time' : plan.frequency}
                         </span>
+                        {plan.baseAmountCents && (
+                          <span className="badge badge-present" style={{ marginLeft: 6, fontSize: 10 }}>discount</span>
+                        )}
                       </td>
                       <td style={{ padding: '8px 8px' }}>
                         <span className={statusBadge[plan.status] ?? 'badge'} style={{ textTransform: 'capitalize' }}>

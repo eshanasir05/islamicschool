@@ -182,6 +182,14 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
                     {' '}/ {tuition.frequency === 'one_time' ? 'one time' : tuition.frequency}
                   </span>
                 </div>
+                {tuition.baseAmountCents && (
+                  <div style={{ fontSize: 12, color: 'var(--accent-700)', marginTop: 2 }}>
+                    {tuition.discountReason ?? 'Discount applied'} — was{' '}
+                    <span style={{ textDecoration: 'line-through' }}>
+                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: tuition.currency }).format(tuition.baseAmountCents / 100)}
+                    </span>
+                  </div>
+                )}
               </div>
               <span className={
                 tuition.status === 'active' ? 'badge badge-present' :

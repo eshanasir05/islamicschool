@@ -1,7 +1,7 @@
 import { env } from '@/env';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
-import { getAdminStudentTuition, createTuitionPlan, cancelTuitionPlan } from '../../../actions';
+import { getAdminStudentTuition, getSiblingStudents, createTuitionPlan, cancelTuitionPlan } from '../../../actions';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
@@ -41,12 +41,13 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
   const { payment, checkout_url, notice } = await searchParams;
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
-  const [{ student, plans }, guardians] = await Promise.all([
+  const [{ student, plans }, guardians, siblings] = await Promise.all([
     getAdminStudentTuition(studentId, orgId),
     db.query.studentGuardians.findMany({
       where: and(eq(schema.studentGuardians.studentId, studentId)),
       with: { guardian: true },
     }),
+    getSiblingStudents(studentId, orgId),
   ]);
   if (!student) notFound();
 
@@ -62,6 +63,13 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
     const guardianValue = formData.get('guardian') as string;
     const [guardianUserId, guardianEmail] = guardianValue.split('|');
     if (!amountDollars || !frequency || !guardianUserId || !guardianEmail) return;
+
+    const discountTypeRaw = formData.get('discountType') as string;
+    const discountType = discountTypeRaw === 'percent' || discountTypeRaw === 'fixed' ? discountTypeRaw : undefined;
+    const discountValueRaw = formData.get('discountValue') as string;
+    const discountValue = discountType && discountValueRaw ? parseFloat(discountValueRaw) : undefined;
+    const discountReason = (formData.get('discountReason') as string)?.trim() || undefined;
+
     await createTuitionPlan(env.NEXT_PUBLIC_ORG_ID, studentId, {
       amountCents: Math.round(amountDollars * 100),
       frequency,
@@ -70,6 +78,9 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
       guardianUserId,
       guardianEmail,
       studentName: student.fullName,
+      discountType,
+      discountValue,
+      discountReason,
     });
   };
 
@@ -130,7 +141,17 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
                 <span style={{ fontWeight: 400, fontSize: 14, color: 'var(--muted)' }}>
                   {' '}/ {activePlan.frequency === 'one_time' ? 'one time' : activePlan.frequency}
                 </span>
+                {activePlan.baseAmountCents && (
+                  <span className="badge badge-present" style={{ marginLeft: 8, fontSize: 11 }}>
+                    {activePlan.discountType === 'percent' ? `${activePlan.discountValue}% off` : `$${activePlan.discountValue} off`}
+                  </span>
+                )}
               </div>
+              {activePlan.baseAmountCents && (
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2, textDecoration: 'line-through' }}>
+                  {formatAmount(activePlan.baseAmountCents, activePlan.currency)}
+                </div>
+              )}
               <div style={{ fontSize: 13, marginTop: 4, textTransform: 'capitalize', color: statusColor[activePlan.status] ?? 'var(--muted)' }}>
                 {activePlan.status.replace('_', ' ')}
               </div>
@@ -157,6 +178,9 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
           )}
           {activePlan.startDate && (
             <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>Start: {activePlan.startDate}</div>
+          )}
+          {activePlan.discountReason && (
+            <div style={{ fontSize: 13, color: 'var(--accent-700)', marginTop: 4, fontStyle: 'italic' }}>{activePlan.discountReason}</div>
           )}
           {activePlan.slidingScaleNotes && (
             <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4, fontStyle: 'italic' }}>{activePlan.slidingScaleNotes}</div>
@@ -271,13 +295,49 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
                   <label style={labelStyle}>Start date (optional)</label>
                   <input type="date" name="startDate" className="sign-in-input" style={{ marginBottom: 0 }} />
                 </div>
+
+                {siblings.length > 0 && (
+                  <div style={{ background: 'var(--accent-soft, #ecfdf5)', border: '1px solid var(--accent-200, #a7f3d0)', borderRadius: 8, padding: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-700)', marginBottom: 8 }}>
+                      Sibling discount
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 10px' }}>
+                      {student.fullName} shares a guardian with {siblings.map(s => s.fullName).join(', ')}. Apply a discount
+                      to this plan if your school offers a sibling rate.
+                    </p>
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                      <select name="discountType" className="sign-in-input" style={{ marginBottom: 0, flex: 1 }} defaultValue="">
+                        <option value="">No discount</option>
+                        <option value="percent">Percent off</option>
+                        <option value="fixed">Fixed $ off</option>
+                      </select>
+                      <input
+                        type="number"
+                        name="discountValue"
+                        min={0}
+                        step="0.01"
+                        placeholder="e.g. 10"
+                        className="sign-in-input"
+                        style={{ marginBottom: 0, flex: 1 }}
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      name="discountReason"
+                      placeholder="Reason (e.g. Sibling discount — 2 children enrolled)"
+                      className="sign-in-input"
+                      style={{ marginBottom: 0 }}
+                    />
+                  </div>
+                )}
+
                 <div>
-                  <label style={labelStyle}>Notes / sliding scale (optional)</label>
+                  <label style={labelStyle}>Notes (optional)</label>
                   <textarea
                     name="slidingScaleNotes"
                     className="note-textarea"
                     rows={2}
-                    placeholder="e.g. Sibling discount applied, agreed rate $60/mo"
+                    placeholder="e.g. agreed rate discussed with family"
                   />
                 </div>
                 <SubmitButton className="btn btn-accent" pendingLabel="Creating plan…">

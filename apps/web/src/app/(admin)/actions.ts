@@ -589,11 +589,19 @@ export async function getAdminTuition(orgId: string) {
           guardian: { columns: { fullName: true, email: true } },
           payments: { orderBy: (p, { desc }) => desc(p.paidAt), limit: 1 },
         },
+        orderBy: (t, { desc }) => desc(t.createdAt),
       },
     },
     orderBy: (s, { asc }) => asc(s.fullName),
   });
-  return students;
+  // Prefer the most recent non-cancelled plan for the ledger summary row.
+  return students.map(s => ({
+    ...s,
+    tuitionPlans: [
+      ...s.tuitionPlans.filter(p => p.status !== 'cancelled'),
+      ...s.tuitionPlans.filter(p => p.status === 'cancelled'),
+    ],
+  }));
 }
 
 export async function getAdminStudentTuition(studentId: string, orgId: string) {
@@ -610,6 +618,32 @@ export async function getAdminStudentTuition(studentId: string, orgId: string) {
   return { student, plans };
 }
 
+// Other active students sharing at least one guardian with this student —
+// used to offer a sibling discount when creating a tuition plan.
+export async function getSiblingStudents(studentId: string, orgId: string) {
+  const guardianLinks = await db.query.studentGuardians.findMany({
+    where: eq(schema.studentGuardians.studentId, studentId),
+    columns: { guardianUserId: true },
+  });
+  const guardianIds = guardianLinks.map(g => g.guardianUserId);
+  if (guardianIds.length === 0) return [];
+
+  const siblingLinks = await db.query.studentGuardians.findMany({
+    where: inArray(schema.studentGuardians.guardianUserId, guardianIds),
+    with: { student: { columns: { id: true, fullName: true, status: true, organizationId: true } } },
+  });
+
+  const seen = new Set<string>([studentId]);
+  const siblings: { id: string; fullName: string }[] = [];
+  for (const link of siblingLinks) {
+    const s = link.student;
+    if (!s || seen.has(s.id) || s.status !== 'active' || s.organizationId !== orgId) continue;
+    seen.add(s.id);
+    siblings.push({ id: s.id, fullName: s.fullName });
+  }
+  return siblings;
+}
+
 export async function createTuitionPlan(
   orgId: string,
   studentId: string,
@@ -621,8 +655,19 @@ export async function createTuitionPlan(
     guardianUserId: string;
     guardianEmail: string;
     studentName: string;
+    discountType?: 'percent' | 'fixed';
+    discountValue?: number;
+    discountReason?: string;
   },
 ) {
+  const hasDiscount = !!data.discountType && !!data.discountValue && data.discountValue > 0;
+  const discountCents = !hasDiscount
+    ? 0
+    : data.discountType === 'percent'
+      ? Math.round(data.amountCents * (data.discountValue! / 100))
+      : Math.round(data.discountValue! * 100);
+  const finalAmountCents = Math.max(0, data.amountCents - discountCents);
+
   const customer = await stripe.customers.create({
     email: data.guardianEmail,
     metadata: { orgId, studentId, guardianUserId: data.guardianUserId },
@@ -632,7 +677,7 @@ export async function createTuitionPlan(
   const isRecurring = data.frequency !== 'one_time';
 
   const price = await stripe.prices.create({
-    unit_amount: data.amountCents,
+    unit_amount: finalAmountCents,
     currency: 'usd',
     ...(isRecurring
       ? { recurring: { interval } }
@@ -657,7 +702,11 @@ export async function createTuitionPlan(
       organizationId: orgId,
       studentId,
       guardianUserId: data.guardianUserId,
-      amountCents: data.amountCents,
+      amountCents: finalAmountCents,
+      baseAmountCents: hasDiscount ? data.amountCents : null,
+      discountType: hasDiscount ? data.discountType : null,
+      discountValue: hasDiscount ? data.discountValue : null,
+      discountReason: hasDiscount ? (data.discountReason?.trim() || 'Sibling discount') : null,
       currency: 'USD',
       frequency: data.frequency,
       startDate: data.startDate ?? null,

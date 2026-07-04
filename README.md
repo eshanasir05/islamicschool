@@ -215,3 +215,4 @@ These are intentional MVP trade-offs, not bugs:
 - **No in-app messaging** — schema has `message_threads`/`messages` tables but no UI; school-wide announcements are the only communication channel
 - **No date filter on exports** — CSV exports return all records; date-range filtering is a natural next step
 - **Invited users have no password until they use "Forgot password"** — this is by design; Supabase invite links log the user in directly
+- **Sibling discounts apply directly to the charged amount, not as a separate Stripe Coupon** — when an admin applies a sibling discount, the Stripe Checkout price is created at the already-discounted amount. This is fully real (the family is genuinely charged less) but it won't appear as a separate "discount" line item on the Stripe invoice/receipt — only the final total shows. A full Stripe Coupon/Promotion Code integration is a natural next step if that line-item breakdown matters.

@@ -23,6 +23,12 @@ export const tuitionPlans = pgTable('tuition_plans', {
   stripeCustomerId: text('stripe_customer_id'),
   stripeCheckoutSessionId: text('stripe_checkout_session_id'),
   guardianUserId: uuid('guardian_user_id').references(() => users.id),
+  // Sibling / family discount — amountCents above is always the final charged
+  // amount; baseAmountCents is the sticker rate before the discount was applied.
+  baseAmountCents: integer('base_amount_cents'),
+  discountType: text('discount_type', { enum: ['percent', 'fixed'] }),
+  discountValue: integer('discount_value'),
+  discountReason: text('discount_reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
