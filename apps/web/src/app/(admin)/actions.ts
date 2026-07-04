@@ -1,6 +1,6 @@
 'use server';
 
-import { and, count, desc, eq, gte, inArray, max, ne, sum } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, max, ne, sql, sum } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
@@ -1082,6 +1082,45 @@ export async function getAdminInsights(orgId: string) {
     classSummary: [...classSummaryMap.values()],
     milestonesThisMonth: Number(milestonesThisMonth[0]?.cnt ?? 0),
     monthLabel: now.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Board Meeting Pack — consolidated report for principals/board members
+// ---------------------------------------------------------------------------
+export async function getBoardPack(orgId: string) {
+  const [insights, activeClassesRow, attendanceFollowUp, adabHighlights, recentLeads, notificationStats, failedPastDuePayments] = await Promise.all([
+    getAdminInsights(orgId),
+    db.select({ cnt: count() }).from(schema.classes)
+      .where(and(eq(schema.classes.organizationId, orgId), sql`${schema.classes.deletedAt} IS NULL`)),
+    getAttendanceFollowUp(orgId),
+    getAdminAdabHighlights(orgId),
+    db.select().from(schema.contactSubmissions)
+      .orderBy(desc(schema.contactSubmissions.createdAt))
+      .limit(5),
+    db.select({
+      total: count(),
+      read: sum(sql`case when ${schema.notifications.readAt} is not null then 1 else 0 end`),
+    }).from(schema.notifications).where(eq(schema.notifications.organizationId, orgId)),
+    db.select({ cnt: count() }).from(schema.payments)
+      .where(and(eq(schema.payments.organizationId, orgId), eq(schema.payments.status, 'failed'))),
+  ]);
+
+  const repeatedAbsenceStudents = attendanceFollowUp.filter(f => f.twoInARow || f.threeIn30Days);
+
+  const totalNotifications = Number(notificationStats[0]?.total ?? 0);
+  const readNotifications = Number(notificationStats[0]?.read ?? 0);
+  const notificationReadRatePct = totalNotifications > 0 ? Math.round((readNotifications / totalNotifications) * 100) : null;
+
+  return {
+    ...insights,
+    activeClasses: Number(activeClassesRow[0]?.cnt ?? 0),
+    repeatedAbsenceStudents,
+    adabHighlights: adabHighlights.slice(0, 5),
+    recentLeads,
+    notificationReadRatePct,
+    failedPastDuePaymentsCount: Number(failedPastDuePayments[0]?.cnt ?? 0)
+      + (insights.planStatusBreakdown.find(p => p.status === 'past_due')?.count ?? 0),
   };
 }
 
