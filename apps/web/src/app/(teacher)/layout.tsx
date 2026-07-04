@@ -9,6 +9,7 @@ import { Toaster } from '@/components/ui/toaster';
 import TeacherNav from './teacher-nav';
 import TeacherUserMenu from './teacher-user-menu';
 import { NotificationBell } from '@/components/ui/notification-bell';
+import { HelpLink } from '@/components/ui/help-link';
 
 function initialsOf(s: string) {
   const parts = s.trim().split(/\s+/).filter(Boolean);
@@ -37,6 +38,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
           <span>talibly</span>
         </Link>
         <div className="app-header-right">
+          <HelpLink />
           <NotificationBell />
           <TeacherUserMenu name={name} initials={initials} />
         </div>

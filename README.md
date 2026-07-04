@@ -238,3 +238,20 @@ These are intentional MVP trade-offs, not bugs:
 - **No date filter on exports** — CSV exports return all records; date-range filtering is a natural next step
 - **Invited users have no password until they use "Forgot password"** — this is by design; Supabase invite links log the user in directly
 - **Sibling discounts apply directly to the charged amount, not as a separate Stripe Coupon** — when an admin applies a sibling discount, the Stripe Checkout price is created at the already-discounted amount. This is fully real (the family is genuinely charged less) but it won't appear as a separate "discount" line item on the Stripe invoice/receipt — only the final total shows. A full Stripe Coupon/Promotion Code integration is a natural next step if that line-item breakdown matters.
+
+The same list, written for a non-technical audience, is public at `/known-limitations`.
+
+---
+
+## Recommended pilot setup
+
+For running a real (small, single-school) pilot rather than just a demo walkthrough:
+
+1. **Start from a clean org.** Either use a fresh Supabase project seeded once via `pnpm --filter @skooly/db db:seed`, or reset the existing demo org first (see "Resetting demo data" above) so the pilot school isn't mixed in with sample data.
+2. **Set the school's real profile** in Admin → Settings (name, address) before inviting anyone — this is also the first item on the in-app Getting Started checklist.
+3. **Invite one admin/principal account first**, have them work through the Getting Started checklist end to end (classes → teachers → students → guardians → tuition → announcement → homework → Board Pack → parent invites) before inviting teachers or parents, so the first real users don't land on an empty dashboard.
+4. **Invite teachers next**, and have each one run attendance + hifz + notes for a real class session before the pilot goes live, so any Supabase Storage / email deliverability issues surface early.
+5. **Invite parents last**, once there's already real data (attendance, hifz, an announcement) for them to see on first login.
+6. **Set expectations against the [known limitations](/known-limitations) page** — no SMS, no native app, single school per deployment — before the school commits further.
+7. **Check the Activity Log** (Admin → Activity Log) periodically during the pilot — it's the fastest way to confirm real usage is happening without asking each user directly.
+8. **Keep support simple** — the in-app "Need help?" link and `info@talibly.com` are the only support channel right now; there's no ticketing system, so plan to respond to pilot schools directly by email.

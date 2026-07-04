@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC_PATHS = ['/', '/for-parents', '/for-teachers', '/for-principals', '/pricing', '/sign-in', '/auth/callback', '/auth/reset', '/api', '/forgot-password', '/update-password', '/contact', '/privacy', '/terms', '/security', '/demo'];
+const PUBLIC_PATHS = ['/', '/for-parents', '/for-teachers', '/for-principals', '/pricing', '/sign-in', '/auth/callback', '/auth/reset', '/api', '/forgot-password', '/update-password', '/contact', '/privacy', '/terms', '/security', '/demo', '/quick-start', '/known-limitations'];
 const PROTECTED_PREFIXES = ['/teacher', '/parent', '/admin'];
 
 function isPublic(pathname: string) {

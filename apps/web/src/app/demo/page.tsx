@@ -54,7 +54,7 @@ export default function DemoPage() {
 
           <div style={{ marginTop: 32, padding: '16px 20px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
             <p style={{ fontSize: 13, color: '#92400e', margin: 0, lineHeight: 1.6 }}>
-              <strong>Note:</strong> This demo environment is provided for evaluators, portfolio reviewers, and prospective customers. Magic link sign-in requires Supabase SMTP configuration — use password sign-in. Demo data resets periodically.
+              <strong>Note:</strong> This demo environment is provided for evaluators, portfolio reviewers, and prospective customers. Magic link sign-in requires Supabase SMTP configuration — use password sign-in. Demo data may be reset without notice, so don&apos;t rely on anything you enter here being permanent.
             </p>
           </div>
 

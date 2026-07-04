@@ -314,7 +314,7 @@ export default function ForPrincipalsPage() {
         <PrincipalQuote />
         <SiteCTA
           title="Run your school like the secular one across the street."
-          body="We'll do the data migration, train your teachers, and set up tuition with your existing Stripe. Or open a fresh account for you."
+          body="We'll do the data migration, train your teachers, and get your tuition plans set up in Talibly."
         />
       </PageLayout>
       <SiteFooter />

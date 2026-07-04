@@ -28,6 +28,12 @@ export function SiteFooter() {
             <Link href="/security">Security</Link>
           </div>
           <div className="footer-col">
+            <h5>Resources</h5>
+            <Link href="/demo">Try the demo</Link>
+            <Link href="/quick-start">Quick start</Link>
+            <Link href="/known-limitations">Known limitations</Link>
+          </div>
+          <div className="footer-col">
             <h5>Legal</h5>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>

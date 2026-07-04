@@ -38,7 +38,7 @@ const SECTIONS: { heading: string; rows: [string, boolean, boolean, boolean][] }
       ['Tuition pipeline', false, true, true],
       ['Enrollment funnel (coming soon)', false, false, false],
       ['Board CSV exports', false, true, true],
-      ['SSO (Google / Microsoft)', false, false, true],
+      ['SSO (Google / Microsoft) (coming soon)', false, false, false],
       ['Dedicated onboarding manager', false, false, true],
     ],
   },
