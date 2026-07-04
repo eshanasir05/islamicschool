@@ -63,10 +63,10 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
     return (
       <main className="app-main">
         <div className="success-screen" style={{ paddingTop: 64 }}>
-          <h2>Class wrapped!</h2>
+          <h2>Class session complete!</h2>
           <p>Parents have been notified. JazakAllah khair.</p>
           <div className="success-actions">
-            <Link href="/teacher" className="btn btn-ghost">Wrap another class</Link>
+            <Link href="/teacher" className="btn btn-ghost">Start another class session</Link>
             <Link href="/parent" className="btn btn-accent">View as parent →</Link>
           </div>
         </div>

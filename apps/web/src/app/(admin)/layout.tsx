@@ -7,6 +7,7 @@ import Link from 'next/link';
 import AdminNav from './admin-nav';
 import SkeletonPage from '@/components/skeleton-page';
 import { Toaster } from '@/components/ui/toaster';
+import { NotificationBell } from '@/components/ui/notification-bell';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -23,6 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <span>talibly</span>
         </Link>
         <div className="app-header-right">
+          <NotificationBell />
           <Link href="/account" className="app-header-user" style={{ textDecoration: 'none', color: 'inherit' }}>{publicUser?.fullName ?? user.email}</Link>
           <a className="app-logout" href="/auth/signout">Sign out</a>
         </div>

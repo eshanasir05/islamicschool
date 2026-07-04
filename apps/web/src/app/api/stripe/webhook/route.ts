@@ -3,6 +3,11 @@ import { eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
 import { env } from '@/env';
+import { createNotification } from '@/lib/notifications';
+
+function formatCents(cents: number, currency: string) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
+}
 
 export const runtime = 'nodejs';
 
@@ -65,6 +70,15 @@ export async function POST(req: NextRequest) {
         receiptUrl: invoice.hosted_invoice_url ?? null,
         paidAt: new Date(invoice.status_transitions?.paid_at ? invoice.status_transitions.paid_at * 1000 : Date.now()),
       });
+
+      await createNotification({
+        organizationId: plan.organizationId,
+        userId: plan.guardianUserId,
+        type: 'payment_succeeded',
+        title: 'Payment received',
+        body: `${formatCents(invoice.amount_paid, invoice.currency)} — thank you.`,
+        link: `/parent/${plan.studentId}`,
+      });
       break;
     }
 
@@ -81,10 +95,27 @@ export async function POST(req: NextRequest) {
       const invoice = event.data.object as unknown as { subscription?: string | null };
       const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : null;
       if (!subscriptionId) break;
+
+      const plan = await db.query.tuitionPlans.findFirst({
+        where: eq(schema.tuitionPlans.stripeSubscriptionId, subscriptionId),
+      });
+      if (!plan) break;
+
       await db
         .update(schema.tuitionPlans)
         .set({ status: 'past_due' })
         .where(eq(schema.tuitionPlans.stripeSubscriptionId, subscriptionId));
+
+      if (plan.guardianUserId) {
+        await createNotification({
+          organizationId: plan.organizationId,
+          userId: plan.guardianUserId,
+          type: 'payment_failed',
+          title: 'Payment failed',
+          body: 'We could not process your tuition payment. Please update your billing information.',
+          link: `/parent/${plan.studentId}`,
+        });
+      }
       break;
     }
   }

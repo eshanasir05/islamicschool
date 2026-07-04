@@ -2,11 +2,20 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { db, schema } from '@/lib/db';
-import { eq, and } from 'drizzle-orm';
-import { env } from '@/env';
+import { eq } from 'drizzle-orm';
 import Link from 'next/link';
 import SkeletonPage from '@/components/skeleton-page';
 import { Toaster } from '@/components/ui/toaster';
+import TeacherNav from './teacher-nav';
+import TeacherUserMenu from './teacher-user-menu';
+import { NotificationBell } from '@/components/ui/notification-bell';
+
+function initialsOf(s: string) {
+  const parts = s.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'T';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+}
 
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -17,6 +26,9 @@ export default async function TeacherLayout({ children }: { children: React.Reac
     where: eq(schema.users.id, user.id),
   });
 
+  const name = publicUser?.fullName?.trim() || user.email || 'Teacher';
+  const initials = initialsOf(name);
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -25,11 +37,16 @@ export default async function TeacherLayout({ children }: { children: React.Reac
           <span>talibly</span>
         </Link>
         <div className="app-header-right">
-          <Link href="/account" className="app-header-user" style={{ textDecoration: 'none', color: 'inherit' }}>{publicUser?.fullName ?? user.email}</Link>
-          <a className="app-logout" href="/auth/signout">Sign out</a>
+          <NotificationBell />
+          <TeacherUserMenu name={name} initials={initials} />
         </div>
       </header>
-      <Suspense fallback={<SkeletonPage />}>{children}</Suspense>
+      <div className="teacher-shell">
+        <TeacherNav />
+        <div className="teacher-content">
+          <Suspense fallback={<SkeletonPage />}>{children}</Suspense>
+        </div>
+      </div>
       <Toaster />
     </div>
   );

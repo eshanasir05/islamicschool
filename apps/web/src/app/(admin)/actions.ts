@@ -7,6 +7,7 @@ import { db, schema } from '@/lib/db';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe';
 import { env } from '@/env';
+import { notifyAllGuardiansInOrg, createNotification } from '@/lib/notifications';
 
 export async function getAdminStats(orgId: string) {
   const sevenDaysAgo = new Date();
@@ -229,6 +230,13 @@ export async function createAnnouncement(orgId: string, userId: string, content:
     threadId: thread.id,
     senderUserId: userId,
     content,
+  });
+
+  await notifyAllGuardiansInOrg(orgId, {
+    type: 'announcement',
+    title: 'New school announcement',
+    body: content.length > 100 ? `${content.slice(0, 100)}…` : content,
+    link: '/parent',
   });
 
   revalidatePath('/admin/announcements');
@@ -479,6 +487,19 @@ export async function linkGuardian(
       relationship: relationship || null,
       isPrimary,
       receivesNotifications,
+    });
+
+    const student = await db.query.students.findFirst({
+      where: eq(schema.students.id, studentId),
+      columns: { fullName: true },
+    });
+    await createNotification({
+      organizationId: orgId,
+      userId: guardianUserId,
+      type: 'guardian_linked',
+      title: `You've been linked to ${student?.fullName ?? 'a student'}'s account`,
+      body: 'You can now see attendance, hifz progress, and tuition in your parent portal.',
+      link: `/parent/${studentId}`,
     });
   }
 

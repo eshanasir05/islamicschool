@@ -1,23 +1,195 @@
 'use server';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { env } from '@/env';
 import { Resend } from 'resend';
+import { notifyGuardians } from '@/lib/notifications';
 
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 export async function getTeacherClasses(teacherId: string) {
-  return db.query.classes.findMany({
+  const classes = await db.query.classes.findMany({
     where: and(
       eq(schema.classes.primaryTeacherId, teacherId),
       eq(schema.classes.organizationId, env.NEXT_PUBLIC_ORG_ID),
     ),
+    orderBy: (c, { asc }) => asc(c.name),
   });
+  if (classes.length === 0) return [];
+
+  const classIds = classes.map(c => c.id);
+
+  // Student count + most recent session date per class — both derived from
+  // existing rows, no schema changes.
+  const [counts, lastSessions] = await Promise.all([
+    db
+      .select({ classId: schema.classEnrollments.classId, count: sql<number>`count(*)::int` })
+      .from(schema.classEnrollments)
+      .where(inArray(schema.classEnrollments.classId, classIds))
+      .groupBy(schema.classEnrollments.classId),
+    db
+      .select({ classId: schema.attendanceRecords.classId, last: sql<string>`max(${schema.attendanceRecords.sessionDate})` })
+      .from(schema.attendanceRecords)
+      .where(inArray(schema.attendanceRecords.classId, classIds))
+      .groupBy(schema.attendanceRecords.classId),
+  ]);
+
+  const countMap = new Map(counts.map(c => [c.classId, c.count]));
+  const lastMap = new Map(lastSessions.map(s => [s.classId, s.last]));
+  const relevantDates = [...new Set([...lastMap.values()].filter((d): d is string => !!d))];
+
+  // Breakdown of each class's most recent session: present / hifz / notes.
+  const presentMap = new Map<string, number>();
+  const hifzMap = new Map<string, number>();
+  const notesMap = new Map<string, number>();
+
+  if (relevantDates.length > 0) {
+    const [attRows, hifzRows, noteRows] = await Promise.all([
+      db.select({
+        classId: schema.attendanceRecords.classId,
+        sessionDate: schema.attendanceRecords.sessionDate,
+        status: schema.attendanceRecords.status,
+      }).from(schema.attendanceRecords)
+        .where(and(inArray(schema.attendanceRecords.classId, classIds), inArray(schema.attendanceRecords.sessionDate, relevantDates))),
+      db.select({
+        classId: schema.hifzRecords.classId,
+        sessionDate: schema.hifzRecords.sessionDate,
+      }).from(schema.hifzRecords)
+        .where(and(inArray(schema.hifzRecords.classId, classIds), inArray(schema.hifzRecords.sessionDate, relevantDates))),
+      db.select({
+        classId: schema.studentNotes.classId,
+        d: sql<string>`to_char(${schema.studentNotes.createdAt}, 'YYYY-MM-DD')`,
+      }).from(schema.studentNotes)
+        .where(inArray(schema.studentNotes.classId, classIds)),
+    ]);
+
+    for (const r of attRows) {
+      if (r.classId && r.status === 'present' && lastMap.get(r.classId) === r.sessionDate) {
+        presentMap.set(r.classId, (presentMap.get(r.classId) ?? 0) + 1);
+      }
+    }
+    for (const r of hifzRows) {
+      if (r.classId && lastMap.get(r.classId) === r.sessionDate) {
+        hifzMap.set(r.classId, (hifzMap.get(r.classId) ?? 0) + 1);
+      }
+    }
+    for (const r of noteRows) {
+      if (r.classId && lastMap.get(r.classId) === r.d) {
+        notesMap.set(r.classId, (notesMap.get(r.classId) ?? 0) + 1);
+      }
+    }
+  }
+
+  return classes.map((c, i) => {
+    const lastDate = lastMap.get(c.id) ?? null;
+    return {
+      ...c,
+      accent: (i % 2 === 0 ? 'green' : 'sky') as 'green' | 'sky',
+      studentCount: countMap.get(c.id) ?? 0,
+      lastSession: lastDate
+        ? {
+            date: lastDate,
+            present: presentMap.get(c.id) ?? 0,
+            hifz: hifzMap.get(c.id) ?? 0,
+            notes: notesMap.get(c.id) ?? 0,
+          }
+        : null,
+    };
+  });
+}
+
+export type TeacherActivity = {
+  id: string;
+  kind: 'attendance' | 'hifz' | 'note';
+  title: string;
+  detail: string;
+  at: Date | null;
+};
+
+// Recent attendance sessions + hifz + notes across the teacher's classes,
+// newest first. Used for the dashboard "Recent activity" panel and the full
+// /teacher/activity page.
+export async function getTeacherRecentActivity(teacherId: string, limit = 5): Promise<TeacherActivity[]> {
+  const teacherClasses = await db.query.classes.findMany({
+    where: and(
+      eq(schema.classes.primaryTeacherId, teacherId),
+      eq(schema.classes.organizationId, env.NEXT_PUBLIC_ORG_ID),
+    ),
+    columns: { id: true, name: true },
+  });
+  const classIds = teacherClasses.map(c => c.id);
+  if (classIds.length === 0) return [];
+  const classNameById = new Map(teacherClasses.map(c => [c.id, c.name]));
+
+  const [attRows, hifz, notes] = await Promise.all([
+    db.select({
+      classId: schema.attendanceRecords.classId,
+      sessionDate: schema.attendanceRecords.sessionDate,
+      createdAt: schema.attendanceRecords.createdAt,
+    }).from(schema.attendanceRecords).where(inArray(schema.attendanceRecords.classId, classIds)),
+    db.query.hifzRecords.findMany({
+      where: inArray(schema.hifzRecords.classId, classIds),
+      with: { student: { columns: { fullName: true } } },
+      orderBy: (h, { desc }) => desc(h.createdAt),
+      limit: 20,
+    }),
+    db.query.studentNotes.findMany({
+      where: inArray(schema.studentNotes.classId, classIds),
+      with: { student: { columns: { fullName: true } } },
+      orderBy: (n, { desc }) => desc(n.createdAt),
+      limit: 20,
+    }),
+  ]);
+
+  const items: TeacherActivity[] = [];
+
+  // One "attendance completed" event per (class, session date), timestamped at
+  // the latest record in that session.
+  const sessionAt = new Map<string, Date>();
+  for (const r of attRows) {
+    if (!r.classId || !r.createdAt) continue;
+    const key = `${r.classId}|${r.sessionDate}`;
+    const t = new Date(r.createdAt);
+    const prev = sessionAt.get(key);
+    if (!prev || t > prev) sessionAt.set(key, t);
+  }
+  for (const [key, at] of sessionAt) {
+    const classId = key.split('|')[0]!;
+    items.push({
+      id: `att-${key}`,
+      kind: 'attendance',
+      title: `Attendance completed for ${classNameById.get(classId) ?? 'class'}`,
+      detail: 'Attendance',
+      at,
+    });
+  }
+
+  for (const h of hifz) {
+    items.push({
+      id: `hifz-${h.id}`,
+      kind: 'hifz',
+      title: `Hifz recorded for ${h.student?.fullName ?? 'a student'}`,
+      detail: `${surahName(h.surahNumber)} ${h.ayahStart}–${h.ayahEnd}`,
+      at: h.createdAt,
+    });
+  }
+  for (const n of notes) {
+    items.push({
+      id: `note-${n.id}`,
+      kind: 'note',
+      title: `Note sent to parents for ${n.student?.fullName ?? 'a student'}`,
+      detail: n.noteType === 'homework' ? 'Homework' : n.category ? n.category : 'Note',
+      at: n.createdAt,
+    });
+  }
+
+  items.sort((a, b) => (b.at?.getTime() ?? 0) - (a.at?.getTime() ?? 0));
+  return items.slice(0, limit);
 }
 
 export async function getClassStudents(classId: string) {
@@ -132,6 +304,17 @@ export async function submitHifz(classId: string, entries: HifzInput[]): Promise
         consentVerified: true,
       }).onConflictDoNothing();
     }
+
+    const student = await db.query.students.findFirst({
+      where: eq(schema.students.id, entry.studentId),
+      columns: { fullName: true },
+    });
+    await notifyGuardians(entry.studentId, env.NEXT_PUBLIC_ORG_ID, {
+      type: 'hifz_recorded',
+      title: `Hifz recorded for ${student?.fullName ?? 'your child'}`,
+      body: `${surahName(entry.surahNumber)} ${entry.ayahStart}–${entry.ayahEnd}`,
+      link: `/parent/${entry.studentId}`,
+    });
   }
 
   revalidatePath('/admin');
@@ -167,6 +350,27 @@ export async function submitNotes(classId: string, notes: NoteInput[]) {
   }));
 
   await db.insert(schema.studentNotes).values(rows);
+
+  const NOTE_TITLE: Record<NoteInput['noteType'], string> = {
+    praise: 'New praise',
+    homework: 'Homework assigned',
+    concern: 'A note from your teacher',
+    general: 'New note',
+  };
+  for (const n of notes) {
+    if (!n.content.trim()) continue;
+    const student = await db.query.students.findFirst({
+      where: eq(schema.students.id, n.studentId),
+      columns: { fullName: true },
+    });
+    await notifyGuardians(n.studentId, env.NEXT_PUBLIC_ORG_ID, {
+      type: 'note_added',
+      title: `${NOTE_TITLE[n.noteType]} for ${student?.fullName ?? 'your child'}`,
+      body: n.content.length > 100 ? `${n.content.slice(0, 100)}…` : n.content,
+      link: `/parent/${n.studentId}`,
+    });
+  }
+
   revalidatePath('/parent');
 }
 

@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
+import { env } from '@/env';
+import { notifyOrgAdmins } from '@/lib/notifications';
 
 export const runtime = 'nodejs';
 
@@ -57,6 +59,14 @@ export async function POST(req: NextRequest) {
     console.error('Contact DB save failed:', err);
     return NextResponse.json({ error: 'Something went wrong. Please try again or email us directly.' }, { status: 500 });
   }
+
+  // In-app notification for the org's admins — best-effort, never blocks the response.
+  await notifyOrgAdmins(env.NEXT_PUBLIC_ORG_ID, {
+    type: 'lead_submitted',
+    title: `New lead: ${schoolName}`,
+    body: `${contactName} · ${SCHOOL_TYPE_LABEL[schoolType]} · ${COUNT_LABEL[studentCount]}`,
+    link: '/admin',
+  }).catch(() => null);
 
   // Step 2: Resend notification — optional. Failure here does not lose the lead.
   const apiKey = process.env.RESEND_API_KEY;
