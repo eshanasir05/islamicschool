@@ -41,7 +41,7 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
   const { notice } = await searchParams;
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
-  const { student, attendance, hifz, noteCount } = await getAdminStudent(studentId, orgId);
+  const { student, attendance, hifz, milestones, noteCount } = await getAdminStudent(studentId, orgId);
   if (!student) notFound();
 
   const dob = student.dateOfBirth
@@ -231,6 +231,26 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
               >
                 <span style={{ color: 'var(--muted)' }}>{a.sessionDate}</span>
                 <span className={`badge badge-${a.status}`} style={{ textTransform: 'capitalize' }}>{a.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Hifz milestones */}
+      {milestones.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 8 }}>Hifz milestones</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {milestones.map(m => (
+              <div key={m.id} className="app-card" style={{ fontSize: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--fg)', fontWeight: 500 }}>{m.label}</span>
+                  <span style={{ color: 'var(--muted)' }}>{m.achievedDate}</span>
+                </div>
+                {m.teacherNotes && (
+                  <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>{m.teacherNotes}</div>
+                )}
               </div>
             ))}
           </div>

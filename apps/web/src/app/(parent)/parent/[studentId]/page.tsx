@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession, getStudentHomework } from '../../actions';
+import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession, getStudentHomework, getStudentMilestones } from '../../actions';
 import AudioPlayer from './audio-player';
 import { toHijriString } from '@/lib/hijri';
 import { env } from '@/env';
@@ -27,11 +27,12 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
   if (!student) redirect('/parent');
 
   const today = new Date().toISOString().slice(0, 10);
-  const [{ attendance, hifz, audioSignedUrl, notes }, announcements, tuition, homework] = await Promise.all([
+  const [{ attendance, hifz, audioSignedUrl, notes }, announcements, tuition, homework, milestones] = await Promise.all([
     getStudentFeed(studentId, today),
     getAnnouncements(env.NEXT_PUBLIC_ORG_ID),
     getParentTuition(studentId),
     getStudentHomework(studentId),
+    getStudentMilestones(studentId),
   ]);
 
   const now = new Date();
@@ -141,6 +142,27 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
                 </div>
                 {hw.description && (
                   <p style={{ fontSize: 14, color: 'var(--fg-2)', lineHeight: 1.5, margin: '8px 0 0' }}>{hw.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {milestones.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>Hifz milestones</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {milestones.map(m => (
+              <div key={m.id} className="app-card">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)' }}>{m.label}</span>
+                  <span className="badge badge-sabak" style={{ whiteSpace: 'nowrap' }}>
+                    {new Date(`${m.achievedDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+                {m.teacherNotes && (
+                  <p style={{ fontSize: 14, color: 'var(--fg-2)', lineHeight: 1.5, margin: '8px 0 0' }}>{m.teacherNotes}</p>
                 )}
               </div>
             ))}

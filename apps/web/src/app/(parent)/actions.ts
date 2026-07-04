@@ -111,6 +111,14 @@ export async function getStudentHomework(studentId: string) {
   });
 }
 
+export async function getStudentMilestones(studentId: string) {
+  return db.query.hifzMilestones.findMany({
+    where: eq(schema.hifzMilestones.studentId, studentId),
+    orderBy: (m, { desc }) => desc(m.achievedDate),
+    limit: 5,
+  });
+}
+
 export async function createParentPaymentSession(planId: string, studentId: string) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();

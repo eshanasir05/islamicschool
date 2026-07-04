@@ -269,6 +269,80 @@ export async function archiveHomework(id: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Hifz milestones
+// ---------------------------------------------------------------------------
+const MILESTONE_LABEL: Record<'surah_completed' | 'juz_completed' | 'revision_completed', string> = {
+  surah_completed: 'Surah completed',
+  juz_completed: 'Juz completed',
+  revision_completed: 'Revision completed',
+};
+
+export async function getTeacherMilestonesOverview(teacherId: string) {
+  const classes = await db.query.classes.findMany({
+    where: and(
+      eq(schema.classes.primaryTeacherId, teacherId),
+      eq(schema.classes.organizationId, env.NEXT_PUBLIC_ORG_ID),
+    ),
+    orderBy: (c, { asc }) => asc(c.name),
+    with: {
+      enrollments: { with: { student: true } },
+    },
+  });
+  if (classes.length === 0) return [];
+
+  const studentIds = classes.flatMap(c => c.enrollments.map(e => e.studentId));
+
+  const allMilestones = studentIds.length === 0
+    ? []
+    : await db.query.hifzMilestones.findMany({
+        where: inArray(schema.hifzMilestones.studentId, studentIds),
+        with: { student: { columns: { fullName: true } } },
+        orderBy: (m, { desc }) => desc(m.achievedDate),
+      });
+
+  return classes.map(cls => {
+    const classStudentIds = new Set(cls.enrollments.map(e => e.studentId));
+    return {
+      ...cls,
+      milestones: allMilestones.filter(m => classStudentIds.has(m.studentId)),
+    };
+  });
+}
+
+export async function createMilestone(
+  studentId: string,
+  orgId: string,
+  teacherId: string,
+  data: { type: 'surah_completed' | 'juz_completed' | 'revision_completed'; label: string; achievedDate: string; teacherNotes?: string },
+) {
+  await db.insert(schema.hifzMilestones).values({
+    organizationId: orgId,
+    studentId,
+    type: data.type,
+    label: data.label,
+    achievedDate: data.achievedDate,
+    teacherNotes: data.teacherNotes ?? null,
+    recordedBy: teacherId,
+  });
+
+  const student = await db.query.students.findFirst({
+    where: eq(schema.students.id, studentId),
+    columns: { fullName: true },
+  });
+
+  await notifyGuardians(studentId, orgId, {
+    type: 'hifz_milestone',
+    title: `Hifz milestone: ${data.label}`,
+    body: `${MILESTONE_LABEL[data.type]} for ${student?.fullName ?? 'your child'}`,
+    link: `/parent/${studentId}`,
+  });
+
+  revalidatePath('/teacher/milestones');
+  revalidatePath('/parent');
+  redirect('/teacher/milestones?notice=milestone_recorded');
+}
+
+// ---------------------------------------------------------------------------
 // Attendance
 // ---------------------------------------------------------------------------
 export type AttendanceInput = {

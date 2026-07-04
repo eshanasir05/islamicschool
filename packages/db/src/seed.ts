@@ -384,7 +384,48 @@ async function seedHomework() {
 }
 
 // ---------------------------------------------------------------------------
-// 12. Tuition plans + payment history
+// 12. Hifz milestones
+// ---------------------------------------------------------------------------
+async function seedHifzMilestones() {
+  console.log('→ Seeding hifz milestones...');
+  const rows = [
+    {
+      id: 'a1b2c3d4-0006-0000-0000-000000000001',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.bilal,
+      type: 'surah_completed' as const,
+      label: 'Completed Surah Al-Baqarah',
+      achievedDate: pastSunday(1),
+      teacherNotes: 'Recited the full surah from memory with excellent tajweed. MashaAllah.',
+      recordedBy: USER_IDS.idris,
+    },
+    {
+      id: 'a1b2c3d4-0006-0000-0000-000000000002',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.khadijah,
+      type: 'juz_completed' as const,
+      label: 'Completed Juz 1',
+      achievedDate: pastSunday(2),
+      teacherNotes: 'Strong revision (murajaah) — ready to move on to Juz 2.',
+      recordedBy: USER_IDS.idris,
+    },
+    {
+      id: 'a1b2c3d4-0006-0000-0000-000000000003',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.aisha,
+      type: 'revision_completed' as const,
+      label: 'Revision milestone — Surah Al-Fatihah',
+      achievedDate: pastSunday(1),
+      teacherNotes: null,
+      recordedBy: USER_IDS.amina,
+    },
+  ];
+  await db.insert(schema.hifzMilestones).values(rows).onConflictDoNothing();
+  console.log('  ✓ 3 hifz milestones');
+}
+
+// ---------------------------------------------------------------------------
+// 13. Tuition plans + payment history
 // ---------------------------------------------------------------------------
 async function seedTuition() {
   console.log('→ Seeding tuition plans + payments...');
@@ -434,6 +475,7 @@ async function main() {
     await seedConsents();
     await seedHistoricalRecords();
     await seedHomework();
+    await seedHifzMilestones();
     await seedTuition();
     console.log('\n✅ Seed complete.\n');
   } catch (err) {

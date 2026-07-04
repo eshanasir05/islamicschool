@@ -1,6 +1,6 @@
 'use server';
 
-import { and, count, desc, eq, gte, max, sum } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, max, sum } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
@@ -98,7 +98,7 @@ export async function getAdminStudents(orgId: string) {
 }
 
 export async function getAdminStudent(studentId: string, orgId: string) {
-  const [student, attendance, hifz, noteCount] = await Promise.all([
+  const [student, attendance, hifz, milestones, noteCount] = await Promise.all([
     db.query.students.findFirst({
       where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
       with: {
@@ -114,10 +114,14 @@ export async function getAdminStudent(studentId: string, orgId: string) {
       where: and(eq(schema.hifzRecords.studentId, studentId), eq(schema.hifzRecords.organizationId, orgId)),
       orderBy: (h, { desc }) => desc(h.sessionDate),
     }),
+    db.query.hifzMilestones.findMany({
+      where: and(eq(schema.hifzMilestones.studentId, studentId), eq(schema.hifzMilestones.organizationId, orgId)),
+      orderBy: (m, { desc }) => desc(m.achievedDate),
+    }),
     db.select({ cnt: count() }).from(schema.studentNotes)
       .where(and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.organizationId, orgId))),
   ]);
-  return { student, attendance, hifz, noteCount: Number(noteCount[0]?.cnt ?? 0) };
+  return { student, attendance, hifz, milestones, noteCount: Number(noteCount[0]?.cnt ?? 0) };
 }
 
 export async function getAdminClasses(orgId: string) {
@@ -373,14 +377,17 @@ export async function restoreClass(classId: string, orgId: string) {
 // Class detail + enrollment
 // ---------------------------------------------------------------------------
 export async function getAdminClassDetail(classId: string, orgId: string) {
-  const [cls, sessionRows, homework] = await Promise.all([
-    db.query.classes.findFirst({
-      where: and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)),
-      with: {
-        primaryTeacher: true,
-        enrollments: { with: { student: true } },
-      },
-    }),
+  const cls = await db.query.classes.findFirst({
+    where: and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)),
+    with: {
+      primaryTeacher: true,
+      enrollments: { with: { student: true } },
+    },
+  });
+
+  const enrolledStudentIds = cls?.enrollments.map(e => e.studentId) ?? [];
+
+  const [sessionRows, homework, milestones] = await Promise.all([
     db
       .select({
         sessionDate: schema.attendanceRecords.sessionDate,
@@ -405,6 +412,17 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
       orderBy: (h, { desc }) => desc(h.dueDate),
       limit: 10,
     }),
+    enrolledStudentIds.length === 0
+      ? Promise.resolve([])
+      : db.query.hifzMilestones.findMany({
+          where: and(
+            inArray(schema.hifzMilestones.studentId, enrolledStudentIds),
+            eq(schema.hifzMilestones.organizationId, orgId),
+          ),
+          with: { student: { columns: { fullName: true } } },
+          orderBy: (m, { desc }) => desc(m.achievedDate),
+          limit: 10,
+        }),
   ]);
 
   // Pivot attendance counts by session date
@@ -419,7 +437,7 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
     .map(([date, c]) => ({ date, ...c, total: c.present + c.absent + c.late + c.excused }))
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  return { cls, sessions, homework };
+  return { cls, sessions, homework, milestones };
 }
 
 export async function enrollStudent(classId: string, studentId: string) {

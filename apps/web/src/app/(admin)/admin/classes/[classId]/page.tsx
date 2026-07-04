@@ -22,7 +22,7 @@ export default async function ClassDetailPage({ params, searchParams }: Props) {
   const { notice } = await searchParams;
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
-  const [{ cls, sessions, homework }, allStudents] = await Promise.all([
+  const [{ cls, sessions, homework, milestones }, allStudents] = await Promise.all([
     getAdminClassDetail(classId, orgId),
     getAdminStudents(orgId),
   ]);
@@ -193,6 +193,35 @@ export default async function ClassDetailPage({ params, searchParams }: Props) {
                 {hw.description && (
                   <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6 }}>{hw.description}</div>
                 )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent hifz milestones */}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>
+          Recent hifz milestones ({milestones.length})
+        </h2>
+        {milestones.length === 0 ? (
+          <EmptyState
+            icon="star"
+            title="No milestones yet"
+            body="Once the teacher records a surah, juz, or revision milestone for a student in this class, it will appear here."
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {milestones.map(m => (
+              <div key={m.id} className="app-card" style={{ fontSize: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ fontWeight: 500, color: 'var(--fg)' }}>
+                    {m.student?.fullName ?? 'Student'} — {m.label}
+                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                    {new Date(`${m.achievedDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
