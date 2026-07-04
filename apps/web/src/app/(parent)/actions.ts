@@ -28,6 +28,25 @@ export async function getAnnouncements(orgId: string) {
   return rows;
 }
 
+// Defense-in-depth: every function below that takes a raw studentId is
+// currently only ever called from Server Components that already verify
+// the caller is a linked guardian — but 'use server' exports are callable
+// directly, so we re-verify here too in case a future change (e.g. a
+// client component importing one of these for a refresh button) skips
+// that page-level check.
+async function assertGuardianOf(studentId: string): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+  const link = await db.query.studentGuardians.findFirst({
+    where: and(
+      eq(schema.studentGuardians.studentId, studentId),
+      eq(schema.studentGuardians.guardianUserId, user.id),
+    ),
+  });
+  if (!link) redirect('/parent');
+}
+
 export async function getGuardianStudents(guardianUserId: string) {
   const links = await db.query.studentGuardians.findMany({
     where: eq(schema.studentGuardians.guardianUserId, guardianUserId),
@@ -42,6 +61,7 @@ export async function getGuardianStudents(guardianUserId: string) {
 }
 
 export async function getStudentFeed(studentId: string, date: string) {
+  await assertGuardianOf(studentId);
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
   const [attendance, hifz, notes] = await Promise.all([
@@ -96,6 +116,7 @@ export async function getStudentFeed(studentId: string, date: string) {
 }
 
 export async function getStudentHomework(studentId: string) {
+  await assertGuardianOf(studentId);
   const enrollments = await db.query.classEnrollments.findMany({
     where: eq(schema.classEnrollments.studentId, studentId),
     columns: { classId: true },
@@ -114,6 +135,7 @@ export async function getStudentHomework(studentId: string) {
 }
 
 export async function getStudentMilestones(studentId: string) {
+  await assertGuardianOf(studentId);
   return db.query.hifzMilestones.findMany({
     where: eq(schema.hifzMilestones.studentId, studentId),
     orderBy: (m, { desc }) => desc(m.achievedDate),
@@ -123,6 +145,7 @@ export async function getStudentMilestones(studentId: string) {
 
 // Full adab/praise timeline for a child — the "Adab Growth Journal".
 export async function getAdabJournal(studentId: string) {
+  await assertGuardianOf(studentId);
   const notes = await db.query.studentNotes.findMany({
     where: and(
       eq(schema.studentNotes.studentId, studentId),
@@ -226,6 +249,7 @@ export async function createParentPaymentSession(planId: string, studentId: stri
 }
 
 export async function getParentTuition(studentId: string) {
+  await assertGuardianOf(studentId);
   const plan = await db.query.tuitionPlans.findFirst({
     where: and(
       eq(schema.tuitionPlans.studentId, studentId),

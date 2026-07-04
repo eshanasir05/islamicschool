@@ -10,6 +10,48 @@ import { Resend } from 'resend';
 import { notifyGuardians, notifyClassGuardians } from '@/lib/notifications';
 
 // ---------------------------------------------------------------------------
+// Authorization helpers — every mutation below must verify the calling
+// teacher actually owns the class/student/trial in question, not just that
+// they're authenticated. These were previously missing, which meant any
+// teacher could act on any other teacher's class by knowing its id.
+// ---------------------------------------------------------------------------
+async function requireUser() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+  return user;
+}
+
+async function assertTeacherOwnsClass(classId: string, userId: string) {
+  const cls = await db.query.classes.findFirst({
+    where: and(
+      eq(schema.classes.id, classId),
+      eq(schema.classes.primaryTeacherId, userId),
+      eq(schema.classes.organizationId, env.NEXT_PUBLIC_ORG_ID),
+    ),
+    columns: { id: true },
+  });
+  if (!cls) redirect('/teacher');
+}
+
+async function assertTeacherOwnsStudent(studentId: string, userId: string) {
+  const enrollments = await db.query.classEnrollments.findMany({
+    where: eq(schema.classEnrollments.studentId, studentId),
+    with: { class: { columns: { primaryTeacherId: true, organizationId: true } } },
+  });
+  const owns = enrollments.some(e => e.class?.primaryTeacherId === userId && e.class.organizationId === env.NEXT_PUBLIC_ORG_ID);
+  if (!owns) redirect('/teacher');
+}
+
+async function assertTeacherOwnsTrial(trialId: string, userId: string) {
+  const trial = await db.query.trialPlacements.findFirst({
+    where: and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.assignedTeacherId, userId)),
+    columns: { id: true },
+  });
+  if (!trial) redirect('/teacher/trials');
+}
+
+// ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 export async function getTeacherClasses(teacherId: string) {
@@ -193,6 +235,9 @@ export async function getTeacherRecentActivity(teacherId: string, limit = 5): Pr
 }
 
 export async function getClassStudents(classId: string) {
+  const user = await requireUser();
+  await assertTeacherOwnsClass(classId, user.id);
+
   const enrollments = await db.query.classEnrollments.findMany({
     where: eq(schema.classEnrollments.classId, classId),
     with: { student: true },
@@ -234,13 +279,16 @@ export async function createHomework(
   teacherId: string,
   data: { title: string; description?: string; dueDate: string },
 ) {
+  const user = await requireUser();
+  await assertTeacherOwnsClass(classId, user.id);
+
   const [row] = await db.insert(schema.homeworkAssignments).values({
     organizationId: orgId,
     classId,
     title: data.title,
     description: data.description ?? null,
     dueDate: data.dueDate,
-    createdBy: teacherId,
+    createdBy: user.id,
   }).returning({ id: schema.homeworkAssignments.id });
   if (!row) throw new Error('Failed to create homework');
 
@@ -262,6 +310,14 @@ export async function createHomework(
 }
 
 export async function archiveHomework(id: string) {
+  const user = await requireUser();
+  const homework = await db.query.homeworkAssignments.findFirst({
+    where: eq(schema.homeworkAssignments.id, id),
+    columns: { classId: true },
+  });
+  if (!homework) redirect('/teacher/homework');
+  await assertTeacherOwnsClass(homework.classId, user.id);
+
   await db.update(schema.homeworkAssignments).set({ archived: true }).where(eq(schema.homeworkAssignments.id, id));
   revalidatePath('/teacher/homework');
   revalidatePath('/parent');
@@ -315,6 +371,9 @@ export async function createMilestone(
   teacherId: string,
   data: { type: 'surah_completed' | 'juz_completed' | 'revision_completed'; label: string; achievedDate: string; teacherNotes?: string },
 ) {
+  const user = await requireUser();
+  await assertTeacherOwnsStudent(studentId, user.id);
+
   await db.insert(schema.hifzMilestones).values({
     organizationId: orgId,
     studentId,
@@ -322,7 +381,7 @@ export async function createMilestone(
     label: data.label,
     achievedDate: data.achievedDate,
     teacherNotes: data.teacherNotes ?? null,
-    recordedBy: teacherId,
+    recordedBy: user.id,
   });
 
   const student = await db.query.students.findFirst({
@@ -354,9 +413,8 @@ export async function submitAttendance(
   classId: string,
   records: AttendanceInput[],
 ) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
+  const user = await requireUser();
+  await assertTeacherOwnsClass(classId, user.id);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -414,9 +472,8 @@ export type HifzInput = {
 };
 
 export async function submitHifz(classId: string, entries: HifzInput[]): Promise<{ uploadWarning: boolean }> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
+  const user = await requireUser();
+  await assertTeacherOwnsClass(classId, user.id);
 
   const today = new Date().toISOString().slice(0, 10);
   const serviceClient = await createSupabaseServiceClient();
@@ -496,9 +553,8 @@ export type NoteInput = {
 };
 
 export async function submitNotes(classId: string, notes: NoteInput[]) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
+  const user = await requireUser();
+  await assertTeacherOwnsClass(classId, user.id);
 
   if (notes.length === 0) return;
 
@@ -548,6 +604,9 @@ const SURAH_NAMES: Record<number, string> = {
 function surahName(n: number) { return SURAH_NAMES[n] ?? `Surah ${n}`; }
 
 export async function notifyParents(classId: string, sessionDate: string) {
+  const user = await requireUser();
+  await assertTeacherOwnsClass(classId, user.id);
+
   if (!process.env.RESEND_API_KEY) {
     redirect(`/teacher/${classId}/confirm?sent=1`);
   }
@@ -633,6 +692,9 @@ export async function submitPlacementAssessment(
     assessmentNotes?: string;
   },
 ) {
+  const user = await requireUser();
+  await assertTeacherOwnsTrial(trialId, user.id);
+
   await db.update(schema.trialPlacements)
     .set({
       quranReadingLevel: data.quranReadingLevel,
