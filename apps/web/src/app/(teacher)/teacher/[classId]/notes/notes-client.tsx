@@ -97,7 +97,7 @@ export default function NotesClient({ classId, students }: { classId: string; st
       <div className="wrap-actions">
         <button type="button" className="btn btn-ghost" onClick={() => router.back()}>← Back</button>
         <button type="button" className="btn btn-accent" onClick={handleNext} disabled={saving}>
-          {saving ? 'Saving…' : 'Next: Review →'}
+          {saving ? 'Saving…' : 'Next: Confirm →'}
         </button>
       </div>
     </main>

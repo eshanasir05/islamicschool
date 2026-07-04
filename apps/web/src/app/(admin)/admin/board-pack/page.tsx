@@ -12,38 +12,61 @@ function fmt(cents: number) {
 export default async function BoardPackPage() {
   const d = await getBoardPack(env.NEXT_PUBLIC_ORG_ID);
 
-  const kpis = [
+  const operationalKpis = [
     { label: 'Total Students', value: d.totalStudents },
     { label: 'Active Classes', value: d.activeClasses },
     { label: 'Active Teachers', value: d.activeTeachers },
     { label: 'Attendance Rate', value: `${d.attendanceRatePct}%` },
-    { label: 'Hifz Milestones', value: d.milestonesThisMonth, sub: d.monthLabel },
+  ];
+  const financialKpis = [
     { label: 'Tuition Collected', value: fmt(d.collectedThisMonthCents), sub: d.monthLabel },
     { label: 'Tuition Outstanding', value: fmt(d.outstandingCents) },
     { label: 'Failed / Past Due', value: d.failedPastDuePaymentsCount },
   ];
 
+  const preparedOn = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
   return (
     <main className="app-main">
       <MarkBoardPackViewed />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
-        <h1 className="text-h1">Board pack</h1>
+      <div className="page-header">
+        <div className="page-header-text">
+          <h1 className="page-title">Board pack</h1>
+          <p className="page-description">A snapshot for principals and board members — {d.monthLabel}.</p>
+        </div>
+        <div className="text-xs" style={{ whiteSpace: 'nowrap' }}>Prepared {preparedOn}</div>
       </div>
-      <p className="text-body" style={{ marginBottom: 24 }}>
-        A snapshot for principals and board members — {d.monthLabel}.
-      </p>
 
-      {/* KPI grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12, marginBottom: 32 }}>
-        {kpis.map(k => (
-          <div key={k.label} className="app-card">
-            <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>
-              {k.label}
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--fg)' }}>{k.value}</div>
-            {k.sub && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{k.sub}</div>}
+      {/* Operational KPIs */}
+      <div className="text-label" style={{ marginBottom: 8 }}>School at a glance</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 24 }}>
+        {operationalKpis.map(k => (
+          <div key={k.label} className="stat-card">
+            <div className="stat-card-label">{k.label}</div>
+            <div className="stat-card-value" style={{ fontSize: 22 }}>{k.value}</div>
           </div>
         ))}
+      </div>
+
+      {/* Financial summary — the headline section for a board, so it gets
+          its own visually distinct group instead of blending into the rest. */}
+      <div className="text-label" style={{ marginBottom: 8 }}>Financial summary — {d.monthLabel}</div>
+      <div className="card-highlight" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 16 }}>
+          {financialKpis.map(k => (
+            <div key={k.label}>
+              <div className="stat-card-label">{k.label}</div>
+              <div className="stat-card-value" style={{ fontSize: 24 }}>{k.value}</div>
+              {k.sub && <div className="text-xs" style={{ marginTop: 2 }}>{k.sub}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="text-label" style={{ marginBottom: 8 }}>Hifz progress — {d.monthLabel}</div>
+      <div className="stat-card" style={{ marginBottom: 32, display: 'inline-block' }}>
+        <div className="stat-card-label">Milestones reached</div>
+        <div className="stat-card-value">{d.milestonesThisMonth}</div>
       </div>
 
       {/* Repeated absences */}
@@ -121,8 +144,9 @@ export default async function BoardPackPage() {
       </div>
 
       {/* Exports */}
-      <div>
-        <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>Export for the board packet</h2>
+      <div className="app-card">
+        <div className="text-h3" style={{ marginBottom: 4 }}>Export for the board packet</div>
+        <p className="text-xs" style={{ marginBottom: 14 }}>Download the underlying data behind this snapshot to attach to board materials.</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <ExportButton href="/api/admin/exports/students" label="↓ Roster CSV" />
           <ExportButton href="/api/admin/exports/attendance" label="↓ Attendance CSV" />

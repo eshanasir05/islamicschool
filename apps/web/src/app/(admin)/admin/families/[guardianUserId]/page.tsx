@@ -9,12 +9,6 @@ function formatAmount(cents: number, currency: string) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
 }
 
-const statusBadge: Record<string, string> = {
-  active: 'badge badge-present',
-  pending_payment: 'badge badge-late',
-  past_due: 'badge badge-absent',
-};
-
 type Props = { params: Promise<{ guardianUserId: string }> };
 
 export default async function FamilyProfilePage({ params }: Props) {
@@ -26,11 +20,39 @@ export default async function FamilyProfilePage({ params }: Props) {
 
   const { guardian, coGuardians, students, tuitionPlans, recentNotes, recentHomework, recentHifz, attendanceConcerns } = family;
 
+  const activePlans = tuitionPlans.filter(p => p.status === 'active');
+  const monthlyTotalCents = activePlans
+    .filter(p => p.frequency === 'monthly')
+    .reduce((sum, p) => sum + p.amountCents, 0);
+
   return (
     <main className="app-main">
       <Breadcrumb items={[{ label: 'Parents', href: '/admin/parents' }, { label: guardian.fullName }]} />
       <h1 className="text-h1" style={{ marginBottom: 6 }}>{guardian.fullName}&apos;s family</h1>
-      <p className="text-body" style={{ marginBottom: 24 }}>{guardian.email}</p>
+      <p className="text-body" style={{ marginBottom: 16 }}>{guardian.email}</p>
+
+      {/* Profile summary — makes this read as an operational family profile
+          rather than jumping straight into flat lists. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <div className="stat-card">
+          <div className="stat-card-label">Students</div>
+          <div className="stat-card-value" style={{ fontSize: 22 }}>{students.length}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Active tuition plans</div>
+          <div className="stat-card-value" style={{ fontSize: 22 }}>{activePlans.length}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Monthly tuition</div>
+          <div className="stat-card-value" style={{ fontSize: 22 }}>{formatAmount(monthlyTotalCents, 'USD')}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Attendance concerns</div>
+          <div className="stat-card-value" style={{ fontSize: 22, color: attendanceConcerns.length > 0 ? 'var(--danger-fg)' : 'var(--fg)' }}>
+            {attendanceConcerns.length}
+          </div>
+        </div>
+      </div>
 
       {/* Guardians */}
       <div style={{ marginBottom: 24 }}>
@@ -74,7 +96,7 @@ export default async function FamilyProfilePage({ params }: Props) {
           <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>Attendance concerns</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {attendanceConcerns.map(c => (
-              <div key={c.studentId} className="app-card" style={{ fontSize: 14 }}>
+              <div key={c.studentId} className="card-danger" style={{ fontSize: 14, padding: '12px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 500, color: 'var(--fg)' }}>{c.studentName}</span>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -103,9 +125,9 @@ export default async function FamilyProfilePage({ params }: Props) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span>
                       {formatAmount(p.amountCents, p.currency)}
-                      {p.baseAmountCents && <span className="badge badge-present" style={{ marginLeft: 6, fontSize: 10 }}>discount</span>}
+                      {p.baseAmountCents && <span className="badge badge-discount" style={{ marginLeft: 6, fontSize: 10 }}>discount</span>}
                     </span>
-                    <span className={statusBadge[p.status] ?? 'badge'} style={{ textTransform: 'capitalize' }}>{p.status.replace('_', ' ')}</span>
+                    <span className={`badge badge-${p.status}`} style={{ textTransform: 'capitalize' }}>{p.status.replace('_', ' ')}</span>
                   </div>
                 </div>
               </div>

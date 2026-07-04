@@ -15,23 +15,6 @@ type Props = {
   searchParams: Promise<{ payment?: string; checkout_url?: string; notice?: string }>;
 };
 
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 11,
-  fontFamily: 'var(--font-mono)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-  color: 'var(--muted)',
-  marginBottom: 5,
-};
-
-const statusColor: Record<string, string> = {
-  active: 'var(--accent-700)',
-  pending_payment: '#b45309',
-  past_due: '#991b1b',
-  cancelled: 'var(--muted)',
-};
-
 function formatAmount(cents: number, currency: string) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
 }
@@ -115,19 +98,19 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
       )}
 
       {checkout_url && (
-        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: 16, marginBottom: 20 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#92400e', marginBottom: 8 }}>Checkout link ready — send to parent</div>
-          <div style={{ fontSize: 13, color: '#78350f', marginBottom: 12 }}>
+        <div className="card-attention" style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--warn-fg)', marginBottom: 8 }}>Checkout link ready — send to parent</div>
+          <div style={{ fontSize: 13, color: 'var(--warn-fg)', marginBottom: 12 }}>
             The parent opens this link, enters their card once, and Stripe handles all future charges automatically.
           </div>
           <input
             type="text"
             readOnly
             defaultValue={decodeURIComponent(checkout_url)}
-            className="sign-in-input"
+            className="form-input"
             style={{ marginBottom: 8, fontSize: 12, fontFamily: 'var(--font-mono)' }}
           />
-          <div style={{ fontSize: 12, color: '#92400e' }}>Link expires in 24 hours.</div>
+          <div style={{ fontSize: 12, color: 'var(--warn-fg)' }}>Link expires in 24 hours.</div>
         </div>
       )}
 
@@ -142,7 +125,7 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
                   {' '}/ {activePlan.frequency === 'one_time' ? 'one time' : activePlan.frequency}
                 </span>
                 {activePlan.baseAmountCents && (
-                  <span className="badge badge-present" style={{ marginLeft: 8, fontSize: 11 }}>
+                  <span className="badge badge-discount" style={{ marginLeft: 8, fontSize: 11 }}>
                     {activePlan.discountType === 'percent' ? `${activePlan.discountValue}% off` : `$${activePlan.discountValue} off`}
                   </span>
                 )}
@@ -152,8 +135,10 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
                   {formatAmount(activePlan.baseAmountCents, activePlan.currency)}
                 </div>
               )}
-              <div style={{ fontSize: 13, marginTop: 4, textTransform: 'capitalize', color: statusColor[activePlan.status] ?? 'var(--muted)' }}>
-                {activePlan.status.replace('_', ' ')}
+              <div style={{ marginTop: 6 }}>
+                <span className={`badge badge-${activePlan.status}`} style={{ textTransform: 'capitalize' }}>
+                  {activePlan.status.replace('_', ' ')}
+                </span>
               </div>
             </div>
             {activePlan.status !== 'cancelled' && (
@@ -194,44 +179,40 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
           <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>
             Payment history ({activePlan.payments.length})
           </h2>
-          <div className="table-scroll">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-              <thead>
-                <tr>
-                  {['Date', 'Amount', 'Method', 'Status', 'Receipt'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {activePlan.payments.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '8px 8px', color: 'var(--fg)' }}>
-                      {p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—'}
-                    </td>
-                    <td style={{ padding: '8px 8px', fontWeight: 500, color: 'var(--fg)' }}>
-                      {formatAmount(p.amountCents, p.currency)}
-                    </td>
-                    <td style={{ padding: '8px 8px', color: 'var(--muted)', textTransform: 'capitalize' }}>
-                      {p.paymentMethod ?? '—'}
-                    </td>
-                    <td style={{ padding: '8px 8px' }}>
-                      <span className={p.status === 'succeeded' ? 'badge badge-present' : 'badge badge-absent'}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '8px 8px' }}>
-                      {p.receiptUrl
-                        ? <a href={p.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: 13 }}>View</a>
-                        : '—'}
-                    </td>
-                  </tr>
+          <table className="rtable">
+            <thead>
+              <tr>
+                {['Date', 'Amount', 'Method', 'Status', 'Receipt'].map(h => (
+                  <th key={h}>{h}</th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody>
+              {activePlan.payments.map(p => (
+                <tr key={p.id}>
+                  <td data-label="Date">
+                    {p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—'}
+                  </td>
+                  <td data-label="Amount" style={{ fontWeight: 500, color: 'var(--fg)' }}>
+                    {formatAmount(p.amountCents, p.currency)}
+                  </td>
+                  <td data-label="Method" style={{ textTransform: 'capitalize' }}>
+                    {p.paymentMethod ?? '—'}
+                  </td>
+                  <td data-label="Status">
+                    <span className={p.status === 'succeeded' ? 'badge badge-present' : 'badge badge-absent'}>
+                      {p.status}
+                    </span>
+                  </td>
+                  <td data-label="Receipt">
+                    {p.receiptUrl
+                      ? <a href={p.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: 13 }}>View</a>
+                      : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -259,9 +240,9 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
           ) : (
             <form action={createAction}>
               <div className="app-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div>
-                  <label style={labelStyle}>Billing guardian</label>
-                  <select name="guardian" className="sign-in-input" style={{ marginBottom: 0 }}>
+                <div className="field">
+                  <label className="text-label">Billing guardian</label>
+                  <select name="guardian" className="form-select">
                     {guardians.map(g => (
                       <option key={g.guardianUserId} value={`${g.guardianUserId}|${g.guardian?.email ?? ''}`}>
                         {g.guardian?.fullName ?? g.guardian?.email ?? g.guardianUserId}
@@ -270,8 +251,8 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label style={labelStyle}>Amount (USD)</label>
+                <div className="field">
+                  <label className="text-label">Amount (USD)</label>
                   <input
                     type="number"
                     name="amount"
@@ -279,24 +260,23 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
                     min={1}
                     step="0.01"
                     placeholder="e.g. 75.00"
-                    className="sign-in-input"
-                    style={{ marginBottom: 0 }}
+                    className="form-input"
                   />
                 </div>
-                <div>
-                  <label style={labelStyle}>Frequency</label>
-                  <select name="frequency" className="sign-in-input" style={{ marginBottom: 0 }}>
+                <div className="field">
+                  <label className="text-label">Frequency</label>
+                  <select name="frequency" className="form-select">
                     <option value="monthly">Monthly</option>
                     <option value="annual">Annual</option>
                     <option value="one_time">One-time</option>
                   </select>
                 </div>
-                <div>
-                  <label style={labelStyle}>Start date (optional)</label>
-                  <input type="date" name="startDate" className="sign-in-input" style={{ marginBottom: 0 }} />
+                <div className="field">
+                  <label className="text-label">Start date (optional)</label>
+                  <input type="date" name="startDate" className="form-input" />
                 </div>
 
-                <div style={{ background: 'var(--accent-soft, #ecfdf5)', border: '1px solid var(--accent-200, #a7f3d0)', borderRadius: 8, padding: 12 }}>
+                <div className="card-highlight" style={{ padding: 14 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-700)', marginBottom: 8 }}>
                     Discount / tuition assistance
                   </div>
@@ -307,8 +287,8 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
                     Apply a sibling discount, scholarship, or other tuition assistance. This is only visible to
                     admins and the family — never shown to teachers.
                   </p>
-                  <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-                    <select name="discountType" className="sign-in-input" style={{ marginBottom: 0, flex: 1 }} defaultValue="">
+                  <div className="form-grid" style={{ marginBottom: 10 }}>
+                    <select name="discountType" className="form-select" defaultValue="">
                       <option value="">No discount</option>
                       <option value="percent">Percent off</option>
                       <option value="fixed">Fixed $ off</option>
@@ -319,24 +299,22 @@ export default async function StudentTuitionPage({ params, searchParams }: Props
                       min={0}
                       step="0.01"
                       placeholder="e.g. 10"
-                      className="sign-in-input"
-                      style={{ marginBottom: 0, flex: 1 }}
+                      className="form-input"
                     />
                   </div>
                   <input
                     type="text"
                     name="discountReason"
                     placeholder="Reason (e.g. Scholarship — community fund, Sibling discount)"
-                    className="sign-in-input"
-                    style={{ marginBottom: 0 }}
+                    className="form-input"
                   />
                 </div>
 
-                <div>
-                  <label style={labelStyle}>Notes (optional)</label>
+                <div className="field">
+                  <label className="text-label">Notes (optional)</label>
                   <textarea
                     name="slidingScaleNotes"
-                    className="note-textarea"
+                    className="form-textarea"
                     rows={2}
                     placeholder="e.g. agreed rate discussed with family"
                   />
