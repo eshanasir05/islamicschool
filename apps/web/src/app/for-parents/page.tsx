@@ -277,10 +277,10 @@ function ADayTimeline() {
     },
   ];
   const dot: Record<string, string> = {
-    attendance: '#10b981',
-    hifz: '#059669',
-    praise: '#f59e0b',
-    homework: '#6366f1',
+    attendance: 'var(--accent)',
+    hifz: 'var(--accent-700)',
+    praise: 'var(--warn)',
+    homework: 'var(--indigo)',
   };
   return (
     <section

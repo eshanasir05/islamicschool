@@ -147,6 +147,20 @@ button {
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
+/* "Coming soon" inline tag — used next to feature labels on marketing
+   pages for not-yet-built features. One class instead of ad-hoc hardcoded
+   hex colors repeated per page. */
+.badge-coming-soon {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  background: var(--warn-soft);
+  color: #92400e;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
 /* Secondary marketing page H1 — used by pages that aren't the homepage
    (contact, demo, pricing, quick-start, known-limitations), which had each
    hardcoded `fontSize: 38` inline with no shared source of truth. */

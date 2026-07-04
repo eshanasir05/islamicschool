@@ -201,7 +201,7 @@ function PrincipalsBento() {
             <div className="bento-eyebrow">
               <Icon name="parent" size={12} />
               Enrollment funnel
-              <span style={{ marginLeft: 6, fontFamily: 'var(--font-mono)', fontSize: 9, background: '#fde68a', color: '#92400e', padding: '1px 5px', borderRadius: 4 }}>COMING SOON</span>
+              <span className="badge-coming-soon">COMING SOON</span>
             </div>
             <h4>Inquiry. Tour. Registered. Paid.</h4>
             <p>
@@ -213,7 +213,7 @@ function PrincipalsBento() {
             <div className="bento-eyebrow">
               <Icon name="msg" size={12} />
               Messages
-              <span style={{ marginLeft: 6, fontFamily: 'var(--font-mono)', fontSize: 9, background: '#e0e7ff', color: '#3730a3', padding: '1px 5px', borderRadius: 4 }}>COMING SOON</span>
+              <span className="badge-coming-soon">COMING SOON</span>
             </div>
             <h4>One inbox for every conversation.</h4>
             <p>
