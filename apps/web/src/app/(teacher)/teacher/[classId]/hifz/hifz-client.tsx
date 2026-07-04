@@ -168,9 +168,9 @@ export default function HifzClient({ classId, students }: { classId: string; stu
       })}
 
       {audioWarning && (
-        <div style={{ background: 'var(--warning-bg, #fff8e1)', border: '1px solid var(--warning, #f59e0b)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: 'var(--fg)' }}>
+        <div className="banner banner-warn">
           Audio upload unavailable — progress saved without recording.{' '}
-          <button type="button" style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, fontSize: 14, textDecoration: 'underline' }}
+          <button type="button" className="btn-link" style={{ display: 'inline' }}
             onClick={() => router.push(`/teacher/${classId}/notes`)}>
             Continue anyway →
           </button>

@@ -34,24 +34,35 @@ export default async function AdabJournalPage({ params }: Props) {
           body="As teachers add praise notes during class, they'll show up here as a timeline."
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {notes.map(note => (
-            <div key={note.id} className="app-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {note.category && <span className="badge badge-praise">{note.category}</span>}
-                  {note.class?.name && (
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{note.class.name}</span>
-                  )}
+        <>
+          <p className="text-label" style={{ marginBottom: 16 }}>
+            {notes.length} moment{notes.length === 1 ? '' : 's'} recorded
+          </p>
+          <div className="adab-timeline">
+            {notes.map((note, i) => (
+              <div key={note.id} className="adab-entry">
+                <div className="adab-rail">
+                  <span className="adab-dot" aria-hidden="true">✨</span>
+                  {i < notes.length - 1 && <span className="adab-line" />}
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  {note.createdAt ? new Date(note.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                </span>
+                <div className="adab-card app-card">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {note.category && <span className="badge badge-praise">{note.category}</span>}
+                      {note.class?.name && (
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{note.class.name}</span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                      {note.createdAt ? new Date(note.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    </span>
+                  </div>
+                  <p className="adab-quote">&ldquo;{note.content}&rdquo;</p>
+                </div>
               </div>
-              <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>&ldquo;{note.content}&rdquo;</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
     </main>
   );

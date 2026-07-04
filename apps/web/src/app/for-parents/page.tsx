@@ -316,12 +316,8 @@ function ADayTimeline() {
           {moments.map((m, i) => (
             <div
               key={m.t}
+              className="day-timeline-row"
               style={{
-                display: 'grid',
-                gridTemplateColumns: '90px 24px 1fr',
-                alignItems: 'center',
-                gap: 16,
-                padding: '18px 24px',
                 borderBottom: i < moments.length - 1 ? '1px solid var(--border)' : 'none',
               }}
             >

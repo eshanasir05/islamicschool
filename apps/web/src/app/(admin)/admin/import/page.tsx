@@ -98,13 +98,16 @@ export default function RosterImportPage() {
         exists — no invite emails are sent as part of this import.
       </p>
 
-      <div className="app-card" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-        <div>
+      <div className="app-card" style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--fg)', marginBottom: 4 }}>Required columns</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-            student_first_name, student_last_name, date_of_birth (YYYY-MM-DD), class_name,
-            guardian_name, guardian_email, guardian_phone (optional)
-          </div>
+          <ul style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.7, margin: 0, paddingLeft: 18 }}>
+            <li><code>student_first_name</code>, <code>student_last_name</code></li>
+            <li><code>date_of_birth</code> (YYYY-MM-DD)</li>
+            <li><code>class_name</code></li>
+            <li><code>guardian_name</code>, <code>guardian_email</code></li>
+            <li><code>guardian_phone</code> (optional)</li>
+          </ul>
         </div>
         <ExportButton href="/api/admin/import/roster/sample" label="↓ Sample CSV" />
       </div>
@@ -156,44 +159,40 @@ export default function RosterImportPage() {
             </button>
           </div>
 
-          <div className="table-scroll">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr>
-                  {['Row', 'Student', 'DOB', 'Class', 'Guardian', 'Email', 'Notes'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(r => (
-                  <tr key={r.rowIndex} style={{ borderBottom: '1px solid var(--border)', background: r.errors.length > 0 ? '#fef2f2' : undefined }}>
-                    <td style={{ padding: '8px 8px', color: 'var(--muted)' }}>{r.rowIndex}</td>
-                    <td style={{ padding: '8px 8px', color: 'var(--fg)' }}>{r.studentFirstName} {r.studentLastName}</td>
-                    <td style={{ padding: '8px 8px', color: 'var(--muted)' }}>{r.dateOfBirth || '—'}</td>
-                    <td style={{ padding: '8px 8px', color: 'var(--fg)' }}>
-                      {r.className || '—'}
-                      {r.willCreateClass && r.className && (
-                        <span className="badge badge-late" style={{ marginLeft: 6, fontSize: 10 }}>new class</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '8px 8px', color: 'var(--fg)' }}>{r.guardianName || '—'}</td>
-                    <td style={{ padding: '8px 8px', color: 'var(--muted)' }}>
-                      {r.guardianEmail || '—'}
-                      {r.existingGuardian && r.guardianEmail && (
-                        <span className="badge badge-present" style={{ marginLeft: 6, fontSize: 10 }}>existing</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '8px 8px', color: '#991b1b' }}>
-                      {r.errors.join('; ')}
-                    </td>
-                  </tr>
+          <table className="rtable">
+            <thead>
+              <tr>
+                {['Row', 'Student', 'DOB', 'Class', 'Guardian', 'Email', 'Notes'].map(h => (
+                  <th key={h}>{h}</th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.rowIndex} style={{ background: r.errors.length > 0 ? 'var(--danger-soft)' : undefined }}>
+                  <td data-label="Row" style={{ color: 'var(--muted)' }}>{r.rowIndex}</td>
+                  <td data-label="Student">{r.studentFirstName} {r.studentLastName}</td>
+                  <td data-label="DOB" style={{ color: 'var(--muted)' }}>{r.dateOfBirth || '—'}</td>
+                  <td data-label="Class">
+                    {r.className || '—'}
+                    {r.willCreateClass && r.className && (
+                      <span className="badge badge-late" style={{ marginLeft: 6, fontSize: 10 }}>new class</span>
+                    )}
+                  </td>
+                  <td data-label="Guardian">{r.guardianName || '—'}</td>
+                  <td data-label="Email" style={{ color: 'var(--muted)' }}>
+                    {r.guardianEmail || '—'}
+                    {r.existingGuardian && r.guardianEmail && (
+                      <span className="badge badge-present" style={{ marginLeft: 6, fontSize: 10 }}>existing</span>
+                    )}
+                  </td>
+                  <td data-label="Notes" style={{ color: 'var(--danger-fg)' }}>
+                    {r.errors.join('; ')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </main>

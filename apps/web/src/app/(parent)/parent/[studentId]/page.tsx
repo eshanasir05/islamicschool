@@ -107,13 +107,16 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
           body="Check back after the next session. Your teacher will send a summary — attendance, hifz, and praise — as soon as class wraps."
         />
       ) : (
-        <div className="app-card" style={{ marginBottom: 12, border: '1px solid var(--accent-200, #a7f3d0)' }}>
-          <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent-700)', marginBottom: 10 }}>
-            Tonight with {student.fullName.split(' ')[0]}
+        <div className="card-highlight" style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <span style={{ fontSize: 18 }} aria-hidden="true">🌙</span>
+            <div className="text-label" style={{ color: 'var(--accent-700)' }}>
+              Tonight with {student.fullName.split(' ')[0]}
+            </div>
           </div>
 
           {attendance && (
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span className={`badge badge-${attendance.status}`} style={{ textTransform: 'capitalize' }}>{attendance.status}</span>
                 {attendance.arrivalTime && (
@@ -124,13 +127,13 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
               </div>
 
               {attendance.status === 'absent' && !attendance.guardianReason && (
-                <form action={submitReasonAction} style={{ marginTop: 10, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 12 }}>
+                <form action={submitReasonAction} className="card-danger" style={{ marginTop: 10 }}>
                   <input type="hidden" name="attendanceId" value={attendance.id} />
-                  <p style={{ fontSize: 13, color: '#991b1b', margin: '0 0 8px' }}>
+                  <p style={{ fontSize: 13, color: 'var(--danger-fg)', margin: '0 0 8px' }}>
                     Let the school know why {student.fullName.split(' ')[0]} was absent today.
                   </p>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                    <select name="reason" required className="sign-in-input" style={{ marginBottom: 0, flex: 1 }} defaultValue="">
+                    <select name="reason" required className="form-select" style={{ flex: 1 }} defaultValue="">
                       <option value="" disabled>— Select a reason —</option>
                       {ABSENCE_REASONS.map(r => (
                         <option key={r.value} value={r.value}>{r.label}</option>
@@ -141,7 +144,7 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
                     type="text"
                     name="note"
                     placeholder="Any additional detail (optional)"
-                    className="sign-in-input"
+                    className="form-input"
                     style={{ marginBottom: 8 }}
                   />
                   <SubmitButton className="btn btn-accent" style={{ fontSize: 13, padding: '7px 16px' }} pendingLabel="Sending…">
@@ -160,7 +163,7 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
           )}
 
           {hifz && (
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: audioSignedUrl ? 10 : 0, flexWrap: 'wrap' }}>
                 <span className={`badge badge-${hifz.stream}`} style={{ textTransform: 'capitalize' }}>{hifz.stream}</span>
                 <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)' }}>
@@ -176,8 +179,8 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
           )}
 
           {suggestion && (
-            <div style={{ background: 'var(--accent-soft, #ecfdf5)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-700)', marginBottom: 4 }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--accent-soft-2)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+              <div className="text-label" style={{ color: 'var(--accent-700)', marginBottom: 4 }}>
                 Practice tonight
               </div>
               <p style={{ fontSize: 14, color: 'var(--fg)', margin: 0 }}>{suggestion}</p>
@@ -185,17 +188,27 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
           )}
 
           {todayPraise && (
-            <div style={{ marginBottom: nextHomework ? 14 : 0 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)' }}>Teacher note</div>
+            <div
+              style={{
+                marginBottom: nextHomework ? 16 : 0,
+                background: 'var(--surface)',
+                border: '1px solid var(--sand-border)',
+                borderRadius: 10,
+                padding: '14px 16px',
+              }}
+            >
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                <div className="text-label">Teacher note</div>
                 {todayPraise.category && <span className="badge badge-praise">{todayPraise.category}</span>}
               </div>
-              <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>&ldquo;{todayPraise.content}&rdquo;</p>
+              <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 17, color: 'var(--fg)', lineHeight: 1.5, margin: 0 }}>
+                &ldquo;{todayPraise.content}&rdquo;
+              </p>
             </div>
           )}
 
           {nextHomework && (
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+            <div style={{ borderTop: '1px solid var(--sand-border)', paddingTop: 12, marginTop: todayPraise ? 16 : 0 }}>
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>Due next class: </span>
               <span style={{ fontSize: 13, color: 'var(--fg)', fontWeight: 500 }}>{nextHomework.title}</span>
             </div>
@@ -289,18 +302,14 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
                   </div>
                 )}
               </div>
-              <span className={
-                tuition.status === 'active' ? 'badge badge-present' :
-                tuition.status === 'past_due' ? 'badge badge-absent' :
-                'badge badge-late'
-              } style={{ textTransform: 'capitalize' }}>
+              <span className={`badge badge-${tuition.status}`} style={{ textTransform: 'capitalize' }}>
                 {tuition.status.replace('_', ' ')}
               </span>
             </div>
 
             {tuition.status === 'pending_payment' && (
-              <div style={{ marginTop: 12, padding: '12px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
-                <p style={{ fontSize: 13, color: '#92400e', margin: '0 0 10px' }}>
+              <div className="card-attention" style={{ marginTop: 12, padding: '12px 14px' }}>
+                <p style={{ fontSize: 13, color: 'var(--warn-fg)', margin: '0 0 10px' }}>
                   Your tuition plan is ready. Complete your payment to activate it.
                 </p>
                 <form action={payNowAction}>
@@ -312,8 +321,8 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
             )}
 
             {tuition.status === 'past_due' && (
-              <div style={{ marginTop: 12, padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
-                <p style={{ fontSize: 13, color: '#991b1b', margin: '0 0 10px' }}>
+              <div className="card-danger" style={{ marginTop: 12, padding: '12px 14px' }}>
+                <p style={{ fontSize: 13, color: 'var(--danger-fg)', margin: '0 0 10px' }}>
                   A recent payment failed. Please update your payment method to continue.
                 </p>
                 <form action={payNowAction}>

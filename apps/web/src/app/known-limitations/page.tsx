@@ -25,7 +25,7 @@ export default function KnownLimitationsPage() {
           <span className="eyebrow" style={{ marginBottom: 12, display: 'inline-flex' }}>
             <span className="dot" />Known limitations
           </span>
-          <h1 style={{ fontSize: 38, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
+          <h1 className="marketing-h1" style={{ marginBottom: 8 }}>
             What Talibly doesn&apos;t do yet.
           </h1>
           <p style={{ fontSize: 16, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 40 }}>

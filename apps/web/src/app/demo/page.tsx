@@ -10,11 +10,17 @@ export const metadata: Metadata = {
 function Cred({ label, emails }: { label: string; emails: string[] }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 6 }}>
+      <div className="text-label" style={{ marginBottom: 6 }}>
         {label}
       </div>
-      {emails.map(e => (
-        <div key={e} style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--fg)', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+      {emails.map((e, i) => (
+        <div
+          key={e}
+          style={{
+            fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--fg)', padding: '6px 0',
+            borderBottom: i < emails.length - 1 ? '1px solid var(--border)' : 'none',
+          }}
+        >
           {e}
         </div>
       ))}
@@ -32,7 +38,7 @@ export default function DemoPage() {
             <span className="dot" />
             Demo environment
           </span>
-          <h1 style={{ fontSize: 38, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 12 }}>
+          <h1 className="marketing-h1" style={{ marginBottom: 12 }}>
             Try Talibly with sample data.
           </h1>
           <p style={{ fontSize: 16, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 48 }}>
@@ -52,17 +58,15 @@ export default function DemoPage() {
             <Cred label="Principal / Admin" emails={['khalid@talibly.dev']} />
           </div>
 
-          <div style={{ marginTop: 32, padding: '16px 20px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
-            <p style={{ fontSize: 13, color: '#92400e', margin: 0, lineHeight: 1.6 }}>
-              <strong>Note:</strong> This demo environment is provided for evaluators, portfolio reviewers, and prospective customers. Magic link sign-in requires Supabase SMTP configuration — use password sign-in. Demo data may be reset without notice, so don&apos;t rely on anything you enter here being permanent.
-            </p>
+          <div className="banner banner-warn" style={{ marginTop: 32 }}>
+            <strong>Note:</strong> This demo environment is provided for evaluators, portfolio reviewers, and prospective customers. Magic link sign-in requires Supabase SMTP configuration — use password sign-in. Demo data may be reset without notice, so don&apos;t rely on anything you enter here being permanent.
           </div>
 
           <div style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid var(--border)' }}>
             <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 16 }}>
               Ready to set up Talibly for your real school?
             </p>
-            <a href="/contact" className="btn btn-accent" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', fontSize: 14 }}>
+            <a href="/contact" className="btn btn-accent">
               Book a demo →
             </a>
           </div>

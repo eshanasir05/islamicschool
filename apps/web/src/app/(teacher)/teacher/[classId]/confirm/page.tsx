@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { env } from '@/env';
 import Link from 'next/link';
 import { Stepper } from '@skooly/ui';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { notifyParents } from '../../../actions';
 
 type Props = { params: Promise<{ classId: string }>; searchParams: Promise<{ sent?: string }> };
@@ -86,7 +87,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
         {cls?.name} · {today}
       </p>
 
-      <div className="confirm-section">
+      <div className="app-card confirm-section">
         <div className="confirm-section-title">Attendance ({attendance.length} students)</div>
         {attendance.map(r => (
           <div key={r.id} className="confirm-row">
@@ -96,7 +97,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
         ))}
       </div>
 
-      <div className="confirm-section">
+      <div className="app-card confirm-section">
         <div className="confirm-section-title">Hifz ({hifz.length} entries)</div>
         {hifz.map(h => (
           <div key={h.id} className="confirm-row">
@@ -110,7 +111,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
       </div>
 
       {todayNotes.length > 0 && (
-        <div className="confirm-section">
+        <div className="app-card confirm-section">
           <div className="confirm-section-title">Notes ({todayNotes.length})</div>
           {todayNotes.map(n => (
             <div key={n.id} className="confirm-row">
@@ -124,12 +125,16 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
       )}
 
       <form action={notifyAction} style={{ marginTop: 32 }}>
-        <button type="submit" className="btn btn-accent" style={{ width: '100%' }}>
-          Send to parents
-        </button>
+        <ConfirmSubmit
+          label="Send to parents"
+          title="Send today's updates to parents?"
+          body="Every guardian with notifications enabled will be emailed immediately. This can't be undone."
+          confirmLabel="Yes, send now"
+          className="btn btn-accent btn-block"
+        />
       </form>
       <div style={{ textAlign: 'center', marginTop: 12 }}>
-        <Link href="/teacher" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
+        <Link href="/teacher" className="btn btn-ghost btn-sm">
           Skip &amp; finish
         </Link>
       </div>

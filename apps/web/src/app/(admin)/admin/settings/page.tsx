@@ -74,7 +74,7 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
 
         <form action={updateOrgAction} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
           <div>
-            <label htmlFor="orgName" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <label htmlFor="orgName" className="text-label" style={{ display: 'block', marginBottom: 4 }}>
               School name
             </label>
             <input
@@ -83,17 +83,13 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
               type="text"
               defaultValue={org.name}
               required
-              style={{
-                width: '100%', padding: '9px 12px', borderRadius: 8,
-                border: '1px solid var(--border)', fontSize: 14,
-                background: 'var(--surface)', color: 'var(--fg)',
-                boxSizing: 'border-box', maxWidth: 400,
-              }}
+              className="form-input"
+              style={{ maxWidth: 400 }}
             />
           </div>
 
           <div>
-            <label htmlFor="street" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <label htmlFor="street" className="text-label" style={{ display: 'block', marginBottom: 4 }}>
               Street address
             </label>
             <input
@@ -102,42 +98,29 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
               type="text"
               defaultValue={address.street ?? ''}
               placeholder="123 Main St"
-              style={{
-                width: '100%', padding: '9px 12px', borderRadius: 8,
-                border: '1px solid var(--border)', fontSize: 14,
-                background: 'var(--surface)', color: 'var(--fg)',
-                boxSizing: 'border-box', maxWidth: 400,
-              }}
+              className="form-input"
+              style={{ maxWidth: 400 }}
             />
           </div>
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ flex: '2 1 160px' }}>
-              <label htmlFor="city" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <div className="form-grid-3">
+            <div>
+              <label htmlFor="city" className="text-label" style={{ display: 'block', marginBottom: 4 }}>
                 City
               </label>
-              <input
-                id="city" name="city" type="text" defaultValue={address.city ?? ''}
-                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, background: 'var(--surface)', color: 'var(--fg)', boxSizing: 'border-box' }}
-              />
+              <input id="city" name="city" type="text" defaultValue={address.city ?? ''} className="form-input" />
             </div>
-            <div style={{ flex: '1 1 80px' }}>
-              <label htmlFor="state" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <div>
+              <label htmlFor="state" className="text-label" style={{ display: 'block', marginBottom: 4 }}>
                 State
               </label>
-              <input
-                id="state" name="state" type="text" defaultValue={address.state ?? ''}
-                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, background: 'var(--surface)', color: 'var(--fg)', boxSizing: 'border-box' }}
-              />
+              <input id="state" name="state" type="text" defaultValue={address.state ?? ''} className="form-input" />
             </div>
-            <div style={{ flex: '1 1 90px' }}>
-              <label htmlFor="zip" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <div>
+              <label htmlFor="zip" className="text-label" style={{ display: 'block', marginBottom: 4 }}>
                 ZIP
               </label>
-              <input
-                id="zip" name="zip" type="text" defaultValue={address.zip ?? ''}
-                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, background: 'var(--surface)', color: 'var(--fg)', boxSizing: 'border-box' }}
-              />
+              <input id="zip" name="zip" type="text" defaultValue={address.zip ?? ''} className="form-input" />
             </div>
           </div>
 

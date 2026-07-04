@@ -28,6 +28,31 @@
   --radius: 14px;
   --radius-lg: 20px;
   --radius-xl: 28px;
+
+  /* Semantic status colors (extend success/error/info/warn defined below) */
+  --danger: var(--rose);
+  --danger-soft: #fee2e2;
+  --danger-fg: #991b1b;
+  --neutral-soft: #eef2f6;
+  --neutral-fg: var(--muted);
+  --purple-soft: #ede9fe;
+  --purple-fg: #5b21b6;
+
+  /* Warm "sand" accent — used sparingly for premium/highlight moments
+     (Tonight's Practice Card, Board Pack) to avoid an all-blue/green feel. */
+  --sand: #faf3e6;
+  --sand-border: #e9d9b8;
+  --sand-fg: #8a6d3b;
+
+  /* Spacing scale — replaces ad-hoc inline gap/margin values page-by-page */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
 }
 
 @theme inline {
@@ -56,6 +81,12 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* A handful of marketing sections position fixed-width mockups (phone,
+     floating cards) absolutely for a hand-crafted layout feel. Below their
+     intended breakpoints those can exceed the viewport width — this keeps
+     that contained to the section instead of creating a page-wide
+     horizontal scrollbar, without having to rework every mockup's sizing. */
+  overflow-x: hidden;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans);
@@ -114,6 +145,20 @@ button {
   border-radius: 999px;
   background: var(--accent);
   box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+/* Secondary marketing page H1 — used by pages that aren't the homepage
+   (contact, demo, pricing, quick-start, known-limitations), which had each
+   hardcoded `fontSize: 38` inline with no shared source of truth. */
+.marketing-h1 {
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  margin: 0 0 8px;
+}
+@media (max-width: 480px) {
+  .marketing-h1 { font-size: 30px; }
 }
 
 .btn {
@@ -2194,6 +2239,22 @@ button {
   line-height: 1.55;
 }
 
+/* "Day in the feed" timeline row (for-parents page) */
+.day-timeline-row {
+  display: grid;
+  grid-template-columns: 90px 24px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 24px;
+}
+@media (max-width: 480px) {
+  .day-timeline-row {
+    grid-template-columns: 56px 16px 1fr;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+}
+
 .quote {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -2499,6 +2560,54 @@ button {
 }
 .app-card + .app-card { margin-top: 12px; }
 
+/* Reusable stat card — same visual as .admin-stat, named generically so
+   teacher/parent dashboards can use it without borrowing "admin-" naming. */
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-1);
+}
+.stat-card-value { font-size: 32px; font-weight: 700; color: var(--fg); line-height: 1; margin-bottom: 6px; }
+.stat-card-label { font-size: 12px; font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* Highlight card — the "this matters most" treatment. Used for Tonight's
+   Practice Card, Board Pack summary, and other emotionally-central moments.
+   Warm sand-tinted border keeps it distinct without looking like a warning. */
+.card-highlight {
+  background: linear-gradient(160deg, var(--surface) 0%, var(--sand) 140%);
+  border: 1px solid var(--sand-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-2);
+}
+
+/* Attention card — for things that need the admin/teacher/parent to act
+   (retention flags, past-due tuition, repeated absences). Amber, not red —
+   reserve red/.card-danger for things that are actually broken/failed. */
+.card-attention {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+.card-danger {
+  background: var(--danger-soft);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+
+/* Card-level row for a title + meta line, used inside .app-card headers */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 /* ─── Badge ───────────────────────────────────────────────────────────────── */
 .badge {
   display: inline-flex;
@@ -2524,6 +2633,32 @@ button {
 .badge-passed        { background: var(--sky-soft);    color: var(--sky-700); }
 .badge-needs_review  { background: var(--warn-soft);   color: #92400e; }
 .badge-weak          { background: #fee2e2;            color: #991b1b; }
+
+/* Tuition status */
+.badge-active        { background: var(--accent-soft); color: var(--accent-700); }
+.badge-paid          { background: var(--accent-soft); color: var(--accent-700); }
+.badge-pending_payment,
+.badge-pending       { background: var(--warn-soft);   color: #92400e; }
+.badge-past_due      { background: #fee2e2;            color: #991b1b; }
+.badge-failed        { background: #fee2e2;            color: #991b1b; }
+.badge-cancelled     { background: var(--neutral-soft);color: var(--neutral-fg); }
+.badge-assistance,
+.badge-discount      { background: var(--purple-soft); color: var(--purple-fg); }
+
+/* Homework status */
+.badge-due_soon      { background: var(--warn-soft);   color: #92400e; }
+.badge-overdue       { background: #fee2e2;            color: #991b1b; }
+.badge-completed     { background: var(--accent-soft); color: var(--accent-700); }
+.badge-assigned      { background: var(--sky-soft);    color: var(--sky-700); }
+
+/* Trial / placement status */
+.badge-inquiry       { background: var(--neutral-soft);color: var(--neutral-fg); }
+.badge-scheduled     { background: var(--sky-soft);    color: var(--sky-700); }
+.badge-assessed      { background: var(--warn-soft);   color: #92400e; }
+.badge-converted     { background: var(--accent-soft); color: var(--accent-700); }
+
+/* Generic neutral fallback */
+.badge-neutral       { background: var(--neutral-soft);color: var(--neutral-fg); }
 
 /* ─── Attendance tap cards ────────────────────────────────────────────────── */
 .attendance-grid {
@@ -2555,6 +2690,17 @@ button {
   margin-top: 24px;
 }
 .wrap-actions .btn { flex: 1; }
+/* Keep the primary action reachable on phones without a long scroll to
+   the bottom of a long student list — sticks above the safe-area inset. */
+@media (max-width: 640px) {
+  .wrap-actions {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+    margin-top: 20px;
+    background: linear-gradient(to top, var(--bg) 70%, transparent);
+  }
+}
 
 /* ─── Parent feed ─────────────────────────────────────────────────────────── */
 .child-tabs {
@@ -2596,6 +2742,26 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 16px;
+}
+
+/* ─── Adab Growth Journal — a warm timeline, not a flat list ─────────────── */
+.adab-timeline { display: flex; flex-direction: column; }
+.adab-entry { display: flex; gap: 14px; }
+.adab-rail { display: flex; flex-direction: column; align-items: center; width: 30px; flex-shrink: 0; }
+.adab-dot {
+  width: 30px; height: 30px; border-radius: 999px; flex-shrink: 0;
+  background: var(--sand); border: 1px solid var(--sand-border);
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.adab-line { flex: 1; width: 1px; background: var(--border); margin: 4px 0; min-height: 12px; }
+.adab-card { flex: 1; min-width: 0; padding-bottom: 18px; }
+.adab-quote {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--fg);
+  line-height: 1.55;
+  margin: 0;
 }
 
 /* ─── Admin dashboard ─────────────────────────────────────────────────────── */
@@ -2900,12 +3066,56 @@ button {
   letter-spacing: 0.08em;
   color: var(--muted);
 }
+/* Card/section title — smaller than .text-h1, used inside .app-card headers */
+.text-h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0;
+}
+.text-sm { font-size: 13px; color: var(--fg-2); }
+.text-xs { font-size: 12px; color: var(--muted); }
+.text-muted { color: var(--muted); }
 .page-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin: 24px 0 4px;
+}
+
+/* ─── Page header (title + description + actions) ─────────────────────────
+   Formalizes the h1/p/marginBottom pattern nearly every logged-in page
+   repeats inline. Use: <div class="page-header"><div class="page-header-text">
+   <h1 class="page-title">…</h1><p class="page-description">…</p></div>
+   <div class="page-actions">…</div></div> */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 24px 0 20px;
+}
+.page-header-text { min-width: 0; }
+.page-title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  margin: 0 0 4px;
+}
+.page-description {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0;
+}
+.page-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 /* ─── Interactive card (clickable list rows) ──────────────────────────────── */
@@ -3219,6 +3429,15 @@ button {
   border-color: #be123c;
   transform: translateY(-1px);
 }
+.btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
+.btn-icon { width: 36px; height: 36px; padding: 0; justify-content: center; }
+.btn-block { width: 100%; justify-content: center; }
+/* Stack a button row to full-width on narrow phones instead of cramming
+   buttons side by side — apply to a wrapping div, e.g. .wrap-actions. */
+@media (max-width: 480px) {
+  .btn-row { flex-direction: column; }
+  .btn-row .btn { width: 100%; justify-content: center; }
+}
 .btn:disabled {
   opacity: 0.6;
   pointer-events: none;
@@ -3241,6 +3460,120 @@ button {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* ─── Responsive table (rtable) ───────────────────────────────────────────
+   Standard table styling that degrades to stacked cards on phones instead
+   of forcing horizontal scroll. Give each <td> a data-label="…" attribute
+   matching its column header — that label becomes the visible row label
+   once the table collapses to cards below 640px. */
+.rtable { width: 100%; border-collapse: collapse; font-size: 14px; }
+.rtable th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.rtable td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-2);
+}
+.rtable tr:last-child td { border-bottom: none; }
+@media (max-width: 640px) {
+  .rtable thead { display: none; }
+  .rtable, .rtable tbody, .rtable tr, .rtable td { display: block; width: 100%; }
+  .rtable tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px 12px;
+    margin-bottom: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
+  }
+  .rtable td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+  .rtable td:last-child { border-bottom: none; }
+  .rtable td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    text-align: left;
+    flex-shrink: 0;
+  }
+}
+
+/* ─── Form fields ──────────────────────────────────────────────────────────
+   Generic form primitives for pages that aren't the sign-in form (which
+   keeps its own .sign-in-input for now — same look, different name because
+   it predates this pass). New forms should use these instead of ad-hoc
+   inline style objects. */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+}
+.field-help { font-size: 12px; color: var(--muted); }
+.field-error { font-size: 12px; color: var(--rose); }
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--surface);
+  outline: none;
+  font-family: var(--font-sans);
+  transition: border-color 0.15s ease;
+}
+.form-select { cursor: pointer; }
+.form-textarea {
+  height: auto;
+  min-height: 80px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+/* Responsive 2-column form layout — collapses to 1 column on phones,
+   replacing the many hand-rolled `gridTemplateColumns: '1fr 1fr'` inline
+   styles that had no mobile breakpoint. */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+@media (max-width: 560px) {
+  .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
 }
 
 /* ─── Reduced motion ──────────────────────────────────────────────────────── */
