@@ -1,13 +1,24 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession, getStudentHomework, getStudentMilestones } from '../../actions';
+import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession, getStudentHomework, getStudentMilestones, submitAbsenceReason } from '../../actions';
 import AudioPlayer from './audio-player';
 import { toHijriString } from '@/lib/hijri';
 import { env } from '@/env';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ToastOnParam } from '@/components/ui/toast-on-param';
+import { SubmitButton } from '@/components/ui/submit-button';
 
-type Props = { params: Promise<{ studentId: string }>; searchParams: Promise<{ payment?: string }> };
+type Props = { params: Promise<{ studentId: string }>; searchParams: Promise<{ payment?: string; notice?: string }> };
+
+const ABSENCE_REASONS: { value: 'sick' | 'travel' | 'family_emergency' | 'forgot' | 'other'; label: string }[] = [
+  { value: 'sick', label: 'Sick' },
+  { value: 'travel', label: 'Travel' },
+  { value: 'family_emergency', label: 'Family emergency' },
+  { value: 'forgot', label: 'Forgot' },
+  { value: 'other', label: 'Other' },
+];
+const ABSENCE_REASON_LABEL: Record<string, string> = Object.fromEntries(ABSENCE_REASONS.map(r => [r.value, r.label]));
 
 const SURAH_NAMES: Record<number, string> = {
   1: 'Al-Fatihah', 2: 'Al-Baqarah', 3: 'Al-Imran', 4: 'An-Nisa',
@@ -25,7 +36,7 @@ function practiceSuggestion(hifz: { stream: string; surahNumber: number; ayahSta
 
 export default async function ParentFeedPage({ params, searchParams }: Props) {
   const { studentId } = await params;
-  const { payment } = await searchParams;
+  const { payment, notice } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
@@ -66,8 +77,18 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
     if (tuition) await createParentPaymentSession(tuition.id, studentId);
   }
 
+  async function submitReasonAction(formData: FormData) {
+    'use server';
+    const attendanceId = formData.get('attendanceId') as string;
+    const reason = formData.get('reason') as 'sick' | 'travel' | 'family_emergency' | 'forgot' | 'other';
+    const note = formData.get('note') as string;
+    if (!attendanceId || !reason) return;
+    await submitAbsenceReason(attendanceId, studentId, reason, note);
+  }
+
   return (
     <main className="app-main">
+      <ToastOnParam notice={notice} />
       {payment === 'success' && (
         <div className="banner banner-success" style={{ marginTop: 16 }}>
           Payment received — JazakAllah khayran! Your billing is now active.
@@ -92,12 +113,48 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
           </div>
 
           {attendance && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <span className={`badge badge-${attendance.status}`} style={{ textTransform: 'capitalize' }}>{attendance.status}</span>
-              {attendance.arrivalTime && (
-                <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  Arrived {new Date(attendance.arrivalTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                </span>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span className={`badge badge-${attendance.status}`} style={{ textTransform: 'capitalize' }}>{attendance.status}</span>
+                {attendance.arrivalTime && (
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                    Arrived {new Date(attendance.arrivalTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  </span>
+                )}
+              </div>
+
+              {attendance.status === 'absent' && !attendance.guardianReason && (
+                <form action={submitReasonAction} style={{ marginTop: 10, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 12 }}>
+                  <input type="hidden" name="attendanceId" value={attendance.id} />
+                  <p style={{ fontSize: 13, color: '#991b1b', margin: '0 0 8px' }}>
+                    Let the school know why {student.fullName.split(' ')[0]} was absent today.
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <select name="reason" required className="sign-in-input" style={{ marginBottom: 0, flex: 1 }} defaultValue="">
+                      <option value="" disabled>— Select a reason —</option>
+                      {ABSENCE_REASONS.map(r => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <input
+                    type="text"
+                    name="note"
+                    placeholder="Any additional detail (optional)"
+                    className="sign-in-input"
+                    style={{ marginBottom: 8 }}
+                  />
+                  <SubmitButton className="btn btn-accent" style={{ fontSize: 13, padding: '7px 16px' }} pendingLabel="Sending…">
+                    Send to school
+                  </SubmitButton>
+                </form>
+              )}
+
+              {attendance.status === 'absent' && attendance.guardianReason && (
+                <div style={{ marginTop: 10, fontSize: 13, color: 'var(--muted)' }}>
+                  Reason shared: <strong style={{ color: 'var(--fg)' }}>{ABSENCE_REASON_LABEL[attendance.guardianReason] ?? attendance.guardianReason}</strong>
+                  {attendance.guardianReasonNote && <> — &ldquo;{attendance.guardianReasonNote}&rdquo;</>}
+                </div>
               )}
             </div>
           )}

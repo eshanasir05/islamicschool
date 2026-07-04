@@ -10,7 +10,8 @@ export type NotificationType =
   | 'payment_failed'
   | 'lead_submitted'
   | 'homework_assigned'
-  | 'hifz_milestone';
+  | 'hifz_milestone'
+  | 'attendance_absent';
 
 type NotificationInput = {
   organizationId: string;

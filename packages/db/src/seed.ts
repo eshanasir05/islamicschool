@@ -605,6 +605,59 @@ async function seedAdabJournalDemo() {
 }
 
 // ---------------------------------------------------------------------------
+// 13d. Attendance follow-up demo data (Khadijah: repeated absences)
+// ---------------------------------------------------------------------------
+async function seedAttendanceFollowUpDemo() {
+  console.log('→ Seeding attendance follow-up demo data...');
+  const daysAgo = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const rows = [
+    {
+      id: 'a1b2c3d4-000b-0000-0000-000000000001',
+      organizationId: ORG_ID,
+      classId: CLASS_IDS.advanced,
+      studentId: STUDENT_IDS.khadijah,
+      sessionDate: daysAgo(18),
+      status: 'absent' as const,
+      recordedBy: USER_IDS.idris,
+      guardianReason: 'sick' as const,
+      guardianReasonNote: 'Fever over the weekend.',
+      guardianReasonSubmittedAt: new Date(),
+    },
+    {
+      id: 'a1b2c3d4-000b-0000-0000-000000000002',
+      organizationId: ORG_ID,
+      classId: CLASS_IDS.advanced,
+      studentId: STUDENT_IDS.khadijah,
+      sessionDate: daysAgo(4),
+      status: 'absent' as const,
+      recordedBy: USER_IDS.idris,
+      guardianReason: null,
+      guardianReasonNote: null,
+      guardianReasonSubmittedAt: null,
+    },
+    {
+      id: 'a1b2c3d4-000b-0000-0000-000000000003',
+      organizationId: ORG_ID,
+      classId: CLASS_IDS.advanced,
+      studentId: STUDENT_IDS.khadijah,
+      sessionDate: daysAgo(1),
+      status: 'absent' as const,
+      recordedBy: USER_IDS.idris,
+      guardianReason: null,
+      guardianReasonNote: null,
+      guardianReasonSubmittedAt: null,
+    },
+  ];
+  await db.insert(schema.attendanceRecords).values(rows).onConflictDoNothing();
+  console.log('  ✓ 3 attendance follow-up demo records');
+}
+
+// ---------------------------------------------------------------------------
 // 14. Tuition plans + payment history
 // ---------------------------------------------------------------------------
 async function seedTuition() {
@@ -665,6 +718,7 @@ async function main() {
     await seedTonightPractice();
     await seedHifzRetentionDemo();
     await seedAdabJournalDemo();
+    await seedAttendanceFollowUpDemo();
     await seedTuition();
     console.log('\n✅ Seed complete.\n');
   } catch (err) {

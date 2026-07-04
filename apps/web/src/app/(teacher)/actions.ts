@@ -378,6 +378,24 @@ export async function submitAttendance(
       recordedBy: sql`excluded.recorded_by`,
     },
   });
+
+  const absentStudents = records.filter(r => r.status === 'absent');
+  if (absentStudents.length > 0) {
+    const studentRows = await db.query.students.findMany({
+      where: inArray(schema.students.id, absentStudents.map(r => r.studentId)),
+      columns: { id: true, fullName: true },
+    });
+    const nameById = new Map(studentRows.map(s => [s.id, s.fullName]));
+    await Promise.all(absentStudents.map(r =>
+      notifyGuardians(r.studentId, env.NEXT_PUBLIC_ORG_ID, {
+        type: 'attendance_absent',
+        title: `${nameById.get(r.studentId) ?? 'Your child'} was marked absent today`,
+        body: 'Let the school know why — tap to respond.',
+        link: `/parent/${r.studentId}`,
+      }),
+    ));
+  }
+
   revalidatePath('/admin');
 }
 

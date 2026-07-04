@@ -1,6 +1,7 @@
 'use server';
 
 import { and, desc, eq, inArray, ne } from 'drizzle-orm';
+import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
 import { env } from '@/env';
@@ -137,6 +138,39 @@ export async function getAdabJournal(studentId: string) {
     seen.add(n.id);
     return true;
   });
+}
+
+export async function submitAbsenceReason(
+  attendanceId: string,
+  studentId: string,
+  reason: 'sick' | 'travel' | 'family_emergency' | 'forgot' | 'other',
+  note?: string,
+) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+
+  const guardianLink = await db.query.studentGuardians.findFirst({
+    where: and(
+      eq(schema.studentGuardians.studentId, studentId),
+      eq(schema.studentGuardians.guardianUserId, user.id),
+    ),
+  });
+  if (!guardianLink) redirect(`/parent/${studentId}`);
+
+  await db.update(schema.attendanceRecords)
+    .set({
+      guardianReason: reason,
+      guardianReasonNote: note?.trim() || null,
+      guardianReasonSubmittedAt: new Date(),
+    })
+    .where(and(
+      eq(schema.attendanceRecords.id, attendanceId),
+      eq(schema.attendanceRecords.studentId, studentId),
+    ));
+
+  revalidatePath(`/parent/${studentId}`);
+  redirect(`/parent/${studentId}?notice=absence_reason_submitted`);
 }
 
 export async function createParentPaymentSession(planId: string, studentId: string) {

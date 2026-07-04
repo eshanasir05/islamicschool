@@ -48,4 +48,7 @@ export const NOTICES: Record<string, { type: NoticeType; message: string }> = {
 
   // Hifz milestones
   milestone_recorded: { type: 'success', message: 'Milestone recorded. Parents have been notified.' },
+
+  // Attendance follow-up
+  absence_reason_submitted: { type: 'success', message: 'Thanks — the school has been notified.' },
 };

@@ -20,6 +20,9 @@ export const attendanceRecords = pgTable('attendance_records', {
   status: text('status', { enum: ['present', 'absent', 'late', 'excused'] }).notNull(),
   arrivalTime: timestamp('arrival_time', { withTimezone: true }),
   notes: text('notes'),
+  guardianReason: text('guardian_reason', { enum: ['sick', 'travel', 'family_emergency', 'forgot', 'other'] }),
+  guardianReasonNote: text('guardian_reason_note'),
+  guardianReasonSubmittedAt: timestamp('guardian_reason_submitted_at', { withTimezone: true }),
   recordedBy: uuid('recorded_by')
     .notNull()
     .references(() => users.id),

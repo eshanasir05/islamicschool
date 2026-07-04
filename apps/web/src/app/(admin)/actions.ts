@@ -624,6 +624,72 @@ export async function getAdminAdabHighlights(orgId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Attendance Follow-Up — absence risk flags
+// ---------------------------------------------------------------------------
+export async function getAttendanceFollowUp(orgId: string) {
+  const since = new Date();
+  since.setDate(since.getDate() - 60);
+  const sinceStr = since.toISOString().slice(0, 10);
+  const thirtyDaysAgoStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  })();
+  const yesterdayStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const records = await db.query.attendanceRecords.findMany({
+    where: and(
+      eq(schema.attendanceRecords.organizationId, orgId),
+      gte(schema.attendanceRecords.sessionDate, sinceStr),
+    ),
+    with: { student: { columns: { fullName: true, status: true } } },
+    orderBy: (a, { desc }) => desc(a.sessionDate),
+  });
+
+  const byStudent = new Map<string, typeof records>();
+  for (const r of records) {
+    if (!r.student || r.student.status !== 'active') continue;
+    const list = byStudent.get(r.studentId) ?? [];
+    list.push(r);
+    byStudent.set(r.studentId, list);
+  }
+
+  const followUps = [];
+  for (const [studentId, studentRecords] of byStudent) {
+    const absences = studentRecords.filter(r => r.status === 'absent');
+    if (absences.length === 0) continue;
+
+    const twoInARow = studentRecords.length >= 2
+      && studentRecords[0]!.status === 'absent'
+      && studentRecords[1]!.status === 'absent';
+    const threeIn30Days = absences.filter(a => a.sessionDate >= thirtyDaysAgoStr).length >= 3;
+    const noResponse = absences.some(a => !a.guardianReason && a.sessionDate <= yesterdayStr);
+
+    if (!twoInARow && !threeIn30Days && !noResponse) continue;
+
+    followUps.push({
+      studentId,
+      studentName: studentRecords[0]!.student!.fullName,
+      twoInARow,
+      threeIn30Days,
+      noResponse,
+      recentAbsences: absences.slice(0, 5).map(a => ({
+        id: a.id,
+        sessionDate: a.sessionDate,
+        guardianReason: a.guardianReason,
+        guardianReasonNote: a.guardianReasonNote,
+      })),
+    });
+  }
+
+  return followUps.sort((a, b) => a.studentName.localeCompare(b.studentName));
+}
+
+// ---------------------------------------------------------------------------
 // Tuition management
 // ---------------------------------------------------------------------------
 
