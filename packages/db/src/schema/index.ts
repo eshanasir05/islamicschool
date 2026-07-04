@@ -17,3 +17,4 @@ export * from './leads';
 export * from './notifications';
 export * from './homework';
 export * from './hifz-milestones';
+export * from './trial-placements';

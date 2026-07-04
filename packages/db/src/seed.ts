@@ -658,6 +658,50 @@ async function seedAttendanceFollowUpDemo() {
 }
 
 // ---------------------------------------------------------------------------
+// 13e. Trial class / placement assessment demo data
+// ---------------------------------------------------------------------------
+async function seedTrialPlacements() {
+  console.log('→ Seeding trial placement demo data...');
+  const rows = [
+    {
+      id: 'a1b2c3d4-000c-0000-0000-000000000001',
+      organizationId: ORG_ID,
+      studentFirstName: 'Zainab',
+      studentLastName: 'Karim',
+      guardianName: 'Layla Karim',
+      guardianEmail: 'layla.karim.demo@example.com',
+      guardianPhone: '555-0142',
+      scheduledDate: (() => { const d = new Date(); d.setDate(d.getDate() + 5); return d.toISOString().slice(0, 10); })(),
+      assignedTeacherId: USER_IDS.amina,
+      status: 'scheduled' as const,
+      createdBy: USER_IDS.khalid,
+    },
+    {
+      id: 'a1b2c3d4-000c-0000-0000-000000000002',
+      organizationId: ORG_ID,
+      studentFirstName: 'Hamza',
+      studentLastName: 'Rahman',
+      guardianName: 'Yusuf Rahman',
+      guardianEmail: 'yusuf.rahman.demo@example.com',
+      guardianPhone: null,
+      scheduledDate: (() => { const d = new Date(); d.setDate(d.getDate() - 3); return d.toISOString().slice(0, 10); })(),
+      assignedTeacherId: USER_IDS.idris,
+      status: 'assessed' as const,
+      quranReadingLevel: 'Reads with occasional support, working on tajweed rules',
+      hifzLevel: 'Has memorized Juz Amma independently',
+      arabicLevel: 'Conversational, good vocabulary for his age',
+      behaviorReadiness: 'Attentive and eager — ready for a group class',
+      recommendedClassId: CLASS_IDS.advanced,
+      assessmentNotes: 'Strong candidate for the advanced circle. Recommend starting sabaq at Al-Baqarah.',
+      assessedAt: new Date(),
+      createdBy: USER_IDS.khalid,
+    },
+  ];
+  await db.insert(schema.trialPlacements).values(rows).onConflictDoNothing();
+  console.log('  ✓ 2 trial placement demo records');
+}
+
+// ---------------------------------------------------------------------------
 // 14. Tuition plans + payment history
 // ---------------------------------------------------------------------------
 async function seedTuition() {
@@ -719,6 +763,7 @@ async function main() {
     await seedHifzRetentionDemo();
     await seedAdabJournalDemo();
     await seedAttendanceFollowUpDemo();
+    await seedTrialPlacements();
     await seedTuition();
     console.log('\n✅ Seed complete.\n');
   } catch (err) {

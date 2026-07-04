@@ -611,3 +611,41 @@ export async function notifyParents(classId: string, sessionDate: string) {
 
   redirect(`/teacher/${classId}/confirm?sent=1`);
 }
+
+// ---------------------------------------------------------------------------
+// Trial Class / Placement Assessment
+// ---------------------------------------------------------------------------
+export async function getTeacherTrials(teacherId: string) {
+  return db.query.trialPlacements.findMany({
+    where: and(eq(schema.trialPlacements.assignedTeacherId, teacherId), eq(schema.trialPlacements.status, 'scheduled')),
+    orderBy: (t, { asc }) => asc(t.scheduledDate),
+  });
+}
+
+export async function submitPlacementAssessment(
+  trialId: string,
+  data: {
+    quranReadingLevel: string;
+    hifzLevel: string;
+    arabicLevel: string;
+    behaviorReadiness: string;
+    recommendedClassId?: string;
+    assessmentNotes?: string;
+  },
+) {
+  await db.update(schema.trialPlacements)
+    .set({
+      quranReadingLevel: data.quranReadingLevel,
+      hifzLevel: data.hifzLevel,
+      arabicLevel: data.arabicLevel,
+      behaviorReadiness: data.behaviorReadiness,
+      recommendedClassId: data.recommendedClassId || null,
+      assessmentNotes: data.assessmentNotes?.trim() || null,
+      status: 'assessed',
+      assessedAt: new Date(),
+    })
+    .where(eq(schema.trialPlacements.id, trialId));
+
+  revalidatePath('/teacher/trials');
+  redirect('/teacher/trials?notice=assessment_submitted');
+}

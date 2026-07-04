@@ -1143,3 +1143,134 @@ export async function cancelTuitionPlan(planId: string, orgId: string, studentId
   revalidatePath('/admin/tuition');
   redirect(`/admin/tuition/${studentId}?notice=plan_cancelled`);
 }
+
+// ---------------------------------------------------------------------------
+// Trial Class / Placement Assessment
+// ---------------------------------------------------------------------------
+export async function getAdminTrials(orgId: string) {
+  return db.query.trialPlacements.findMany({
+    where: eq(schema.trialPlacements.organizationId, orgId),
+    with: {
+      assignedTeacher: { columns: { fullName: true } },
+      recommendedClass: { columns: { name: true } },
+    },
+    orderBy: (t, { desc }) => desc(t.createdAt),
+  });
+}
+
+export async function getTrialDetail(trialId: string, orgId: string) {
+  return db.query.trialPlacements.findFirst({
+    where: and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)),
+    with: {
+      assignedTeacher: { columns: { fullName: true } },
+      recommendedClass: { columns: { name: true } },
+      convertedStudent: { columns: { fullName: true } },
+    },
+  });
+}
+
+export async function getRecentLeadsForTrial() {
+  return db.select().from(schema.contactSubmissions)
+    .orderBy(desc(schema.contactSubmissions.createdAt))
+    .limit(20);
+}
+
+export async function createTrialPlacement(
+  orgId: string,
+  createdBy: string,
+  data: {
+    studentFirstName: string;
+    studentLastName: string;
+    guardianName: string;
+    guardianEmail: string;
+    guardianPhone?: string;
+    scheduledDate?: string;
+    assignedTeacherId?: string;
+    contactSubmissionId?: string;
+  },
+) {
+  const [row] = await db
+    .insert(schema.trialPlacements)
+    .values({
+      organizationId: orgId,
+      studentFirstName: data.studentFirstName,
+      studentLastName: data.studentLastName,
+      guardianName: data.guardianName,
+      guardianEmail: data.guardianEmail,
+      guardianPhone: data.guardianPhone || null,
+      scheduledDate: data.scheduledDate || null,
+      assignedTeacherId: data.assignedTeacherId || null,
+      contactSubmissionId: data.contactSubmissionId || null,
+      createdBy,
+    })
+    .returning({ id: schema.trialPlacements.id });
+  if (!row) throw new Error('Insert failed');
+  revalidatePath('/admin/trials');
+  redirect(`/admin/trials/${row.id}?notice=trial_created`);
+}
+
+export async function cancelTrialPlacement(trialId: string, orgId: string) {
+  await db.update(schema.trialPlacements)
+    .set({ status: 'cancelled' })
+    .where(and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)));
+  revalidatePath(`/admin/trials/${trialId}`);
+  revalidatePath('/admin/trials');
+  redirect(`/admin/trials/${trialId}?notice=trial_cancelled`);
+}
+
+export async function convertTrialToStudent(
+  trialId: string,
+  orgId: string,
+  data: { dateOfBirth: string; classId: string },
+) {
+  const trial = await db.query.trialPlacements.findFirst({
+    where: and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)),
+  });
+  if (!trial) redirect('/admin/trials');
+
+  // Resolve guardian: link existing by email or create silently (no invite email)
+  let guardianUserId: string;
+  const existingUser = await db.query.users.findFirst({ where: eq(schema.users.email, trial.guardianEmail) });
+  if (existingUser) {
+    guardianUserId = existingUser.id;
+  } else {
+    const serviceClient = await createSupabaseServiceClient();
+    const result = await serviceClient.auth.admin.createUser({ email: trial.guardianEmail, email_confirm: true });
+    if (result.error || !result.data.user) redirect(`/admin/trials/${trialId}?notice=trial_convert_error`);
+    guardianUserId = result.data.user.id;
+    await db.insert(schema.users)
+      .values({ id: guardianUserId, email: trial.guardianEmail, fullName: trial.guardianName })
+      .onConflictDoNothing();
+  }
+  await db.insert(schema.memberships)
+    .values({ userId: guardianUserId, organizationId: orgId, role: 'parent', status: 'active' })
+    .onConflictDoNothing();
+
+  const [student] = await db.insert(schema.students)
+    .values({
+      organizationId: orgId,
+      fullName: `${trial.studentFirstName} ${trial.studentLastName}`,
+      dateOfBirth: data.dateOfBirth,
+      enrolledAt: new Date().toISOString().slice(0, 10),
+      status: 'active',
+    })
+    .returning({ id: schema.students.id });
+  if (!student) throw new Error('Failed to create student');
+
+  await db.insert(schema.classEnrollments).values({ classId: data.classId, studentId: student.id }).onConflictDoNothing();
+  await db.insert(schema.studentGuardians).values({
+    studentId: student.id,
+    guardianUserId,
+    relationship: null,
+    isPrimary: true,
+    receivesNotifications: true,
+  }).onConflictDoNothing();
+
+  await db.update(schema.trialPlacements)
+    .set({ status: 'converted', convertedStudentId: student.id, convertedAt: new Date() })
+    .where(eq(schema.trialPlacements.id, trialId));
+
+  revalidatePath('/admin/trials');
+  revalidatePath('/admin/students');
+  redirect(`/admin/students/${student.id}?notice=trial_converted`);
+}

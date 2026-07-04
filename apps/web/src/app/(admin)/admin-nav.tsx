@@ -10,6 +10,7 @@ const NAV = [
   { href: '/admin/classes', label: 'Classes' },
   { href: '/admin/teachers', label: 'Teachers' },
   { href: '/admin/parents', label: 'Parents' },
+  { href: '/admin/trials', label: 'Trials' },
   { href: '/admin/tuition', label: 'Tuition' },
   { href: '/admin/adab', label: 'Adab' },
   { href: '/admin/attendance-follow-up', label: 'Attendance' },

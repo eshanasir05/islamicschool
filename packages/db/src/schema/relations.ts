@@ -11,6 +11,7 @@ import { payments } from './payments';
 import { studentGuardians } from './student-guardians';
 import { students } from './students';
 import { tuitionPlans } from './tuition';
+import { trialPlacements } from './trial-placements';
 import { users } from './users';
 
 export const studentsRelations = relations(students, ({ many }) => ({
@@ -87,4 +88,10 @@ export const tuitionPlansRelations = relations(tuitionPlans, ({ one, many }) => 
 export const paymentsRelations = relations(payments, ({ one }) => ({
   tuitionPlan: one(tuitionPlans, { fields: [payments.tuitionPlanId], references: [tuitionPlans.id] }),
   payer: one(users, { fields: [payments.payerUserId], references: [users.id] }),
+}));
+
+export const trialPlacementsRelations = relations(trialPlacements, ({ one }) => ({
+  assignedTeacher: one(users, { fields: [trialPlacements.assignedTeacherId], references: [users.id] }),
+  recommendedClass: one(classes, { fields: [trialPlacements.recommendedClassId], references: [classes.id] }),
+  convertedStudent: one(students, { fields: [trialPlacements.convertedStudentId], references: [students.id] }),
 }));

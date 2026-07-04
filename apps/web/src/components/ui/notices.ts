@@ -51,4 +51,11 @@ export const NOTICES: Record<string, { type: NoticeType; message: string }> = {
 
   // Attendance follow-up
   absence_reason_submitted: { type: 'success', message: 'Thanks — the school has been notified.' },
+
+  // Trial placements
+  trial_created: { type: 'success', message: 'Trial scheduled.' },
+  trial_cancelled: { type: 'success', message: 'Trial cancelled.' },
+  trial_converted: { type: 'success', message: 'Trial converted to an enrolled student.' },
+  trial_convert_error: { type: 'error', message: 'Could not convert this trial. Please try again.' },
+  assessment_submitted: { type: 'success', message: 'Assessment submitted. The admin can now convert this trial.' },
 };

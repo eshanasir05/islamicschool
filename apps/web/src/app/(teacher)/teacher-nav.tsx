@@ -8,6 +8,7 @@ const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: '/teacher', label: 'Dashboard', icon: 'home' },
   { href: '/teacher/homework', label: 'Homework', icon: 'book' },
   { href: '/teacher/milestones', label: 'Hifz milestones', icon: 'star' },
+  { href: '/teacher/trials', label: 'Trial placements', icon: 'cal' },
   { href: '/teacher/activity', label: 'Recent activity', icon: 'activity' },
   { href: '/account', label: 'Account', icon: 'settings' },
 ];
