@@ -746,6 +746,7 @@ export async function getAdminInsights(orgId: string) {
     planStatusBreakdown,
     recentPayments,
     attendanceByClass,
+    milestonesThisMonth,
   ] = await Promise.all([
     db.select({ cnt: count() }).from(schema.students)
       .where(and(eq(schema.students.organizationId, orgId), eq(schema.students.status, 'active'))),
@@ -829,6 +830,13 @@ export async function getAdminInsights(orgId: string) {
         gte(schema.attendanceRecords.sessionDate, monthStart),
       ))
       .groupBy(schema.attendanceRecords.classId, schema.classes.name, schema.attendanceRecords.status),
+
+    db.select({ cnt: count() })
+      .from(schema.hifzMilestones)
+      .where(and(
+        eq(schema.hifzMilestones.organizationId, orgId),
+        gte(schema.hifzMilestones.achievedDate, monthStart),
+      )),
   ]);
 
   const presentCnt = Number(monthAttendance.find(r => r.status === 'present')?.cnt ?? 0);
@@ -869,6 +877,7 @@ export async function getAdminInsights(orgId: string) {
     })),
     recentPayments,
     classSummary: [...classSummaryMap.values()],
+    milestonesThisMonth: Number(milestonesThisMonth[0]?.cnt ?? 0),
     monthLabel: now.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
   };
 }

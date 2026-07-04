@@ -47,7 +47,7 @@ const TIERS: Tier[] = [
       'Unlimited teachers & classes',
       'Principal dashboard',
       'Tuition pipeline & autopay',
-      'Sibling discounts (coming soon)',
+      'Sibling discounts',
       'Board-ready CSV exports',
       'Roster import & onboarding',
       'Priority chat support',

@@ -228,7 +228,7 @@ function PrincipalsBento() {
             </div>
             <h4>Your masjid trustees won&apos;t ask twice.</h4>
             <p style={{ maxWidth: 620 }}>
-              Export a clean CSV for any month, term, or year. Attendance by class, tuition collected, student roster, hifz milestones. Ready for your board packet or bookkeeper, not for more spreadsheeting on your end.
+              Export a clean CSV of your full attendance history, tuition ledger, student roster, or hifz milestones with one click. Ready for your board packet or bookkeeper, not for more spreadsheeting on your end.
             </p>
             <div className="bento-art" style={{ marginTop: 16 }}>
               <div style={{ display: 'inline-flex', gap: 8 }}>

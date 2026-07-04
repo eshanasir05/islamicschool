@@ -141,7 +141,7 @@ function ParentSection() {
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Attendance updates.</strong> Know the moment they&apos;re marked present, late, or absent.
+                  <strong>Attendance updates.</strong> Know shortly after they&apos;re marked present, late, or absent.
                 </span>
               </li>
               <li>
@@ -369,14 +369,15 @@ function Tuition() {
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Autopay</strong> with Visa, Mastercard, or ACH. Set it on registration and
-                  forget about it.
+                  <strong>Autopay</strong> with any major credit or debit card. Set it on
+                  registration and forget about it.
                 </span>
               </li>
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Sibling discounts</strong> — coming soon.
+                  <strong>Sibling discounts.</strong> Apply a percent or fixed-dollar discount for
+                  families with multiple kids enrolled.
                 </span>
               </li>
               <li>

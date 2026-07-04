@@ -37,6 +37,7 @@ export default async function InsightsPage() {
     { label: 'Collected This Month',value: fmt(d.collectedThisMonthCents), sub: `All time: ${fmt(d.collectedAllTimeCents)}`, accent: true },
     { label: 'Outstanding',         value: fmt(d.outstandingCents), sub: 'pending + past due', accent: d.outstandingCents > 0 },
     { label: 'Pending Plans',       value: d.pendingCount,          sub: 'awaiting payment',   accent: d.pendingCount > 0 },
+    { label: 'Hifz Milestones',     value: d.milestonesThisMonth,   sub: d.monthLabel,          accent: d.milestonesThisMonth > 0 },
   ];
 
   const totalPlans = d.planStatusBreakdown.reduce((s, p) => s + p.count, 0);
