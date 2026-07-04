@@ -315,9 +315,13 @@ async function seedHistoricalRecords() {
   ];
   const homework = { content: 'Review Al-Baqarah 1–10 at home before next Sunday.' };
 
-  for (const { id: studentId, classId, teacherId } of allStudents) {
-    for (const praise of praises) {
+  for (let studentIndex = 0; studentIndex < allStudents.length; studentIndex++) {
+    const { id: studentId, classId, teacherId } = allStudents[studentIndex]!;
+    for (let praiseIndex = 0; praiseIndex < praises.length; praiseIndex++) {
+      const praise = praises[praiseIndex]!;
+      const seq = studentIndex * 10 + praiseIndex;
       noteRows.push({
+        id: `a1b2c3d4-0006-0000-0000-${String(seq).padStart(12, '0')}`,
         organizationId: ORG_ID,
         studentId,
         classId,
@@ -328,7 +332,9 @@ async function seedHistoricalRecords() {
         createdBy: teacherId,
       });
     }
+    const homeworkSeq = studentIndex * 10 + 5;
     noteRows.push({
+      id: `a1b2c3d4-0006-0000-0000-${String(homeworkSeq).padStart(12, '0')}`,
       organizationId: ORG_ID,
       studentId,
       classId,
@@ -534,6 +540,71 @@ async function seedHifzRetentionDemo() {
 }
 
 // ---------------------------------------------------------------------------
+// 13c. Adab Growth Journal demo data
+// ---------------------------------------------------------------------------
+async function seedAdabJournalDemo() {
+  console.log('→ Seeding adab journal demo data...');
+  const daysAgo = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d;
+  };
+
+  const rows = [
+    {
+      id: 'a1b2c3d4-000a-0000-0000-000000000001',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.aisha,
+      classId: CLASS_IDS.beginners,
+      noteType: 'praise' as const,
+      category: 'Kindness',
+      content: 'Shared her seat cushion with a classmate without being asked. MashaAllah.',
+      visibleToParent: true,
+      createdBy: USER_IDS.amina,
+      createdAt: daysAgo(6),
+    },
+    {
+      id: 'a1b2c3d4-000a-0000-0000-000000000002',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.yusuf,
+      classId: CLASS_IDS.beginners,
+      noteType: 'praise' as const,
+      category: 'Preparedness',
+      content: 'Brought his mushaf and notebook without a reminder — three weeks in a row now.',
+      visibleToParent: true,
+      createdBy: USER_IDS.amina,
+      createdAt: daysAgo(4),
+    },
+    {
+      id: 'a1b2c3d4-000a-0000-0000-000000000003',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.bilal,
+      classId: CLASS_IDS.advanced,
+      noteType: 'praise' as const,
+      category: 'Helping Others',
+      content: 'Helped a younger student in the hallway find his classroom.',
+      visibleToParent: true,
+      createdBy: USER_IDS.idris,
+      createdAt: daysAgo(3),
+    },
+    {
+      id: 'a1b2c3d4-000a-0000-0000-000000000004',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.khadijah,
+      classId: CLASS_IDS.advanced,
+      noteType: 'praise' as const,
+      category: 'Quran Etiquette',
+      content: 'Handled the mushaf with real care today — cleaned her hands before class started.',
+      visibleToParent: true,
+      createdBy: USER_IDS.idris,
+      createdAt: daysAgo(1),
+    },
+  ];
+  await db.insert(schema.studentNotes).values(rows).onConflictDoNothing();
+  console.log('  ✓ 4 adab journal demo notes');
+}
+
+// ---------------------------------------------------------------------------
 // 14. Tuition plans + payment history
 // ---------------------------------------------------------------------------
 async function seedTuition() {
@@ -593,6 +664,7 @@ async function main() {
     await seedHifzMilestones();
     await seedTonightPractice();
     await seedHifzRetentionDemo();
+    await seedAdabJournalDemo();
     await seedTuition();
     console.log('\n✅ Seed complete.\n');
   } catch (err) {

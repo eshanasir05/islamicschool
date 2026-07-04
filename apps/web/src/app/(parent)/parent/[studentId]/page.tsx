@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession, getStudentHomework, getStudentMilestones } from '../../actions';
 import AudioPlayer from './audio-player';
@@ -154,6 +155,10 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
           <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>&ldquo;{note.content}&rdquo;</p>
         </div>
       ))}
+
+      <Link href={`/parent/${studentId}/journal`} className="btn-link" style={{ marginBottom: 20, display: 'inline-block' }}>
+        View {student.fullName.split(' ')[0]}&apos;s full adab journal →
+      </Link>
 
       {homeworkNotes.slice(0, 2).map(note => (
         <div key={note.id} className="app-card" style={{ marginBottom: 12 }}>

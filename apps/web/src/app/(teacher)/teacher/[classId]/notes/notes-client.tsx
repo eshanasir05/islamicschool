@@ -10,7 +10,7 @@ type NoteType = 'praise' | 'homework';
 
 type NoteState = { type: NoteType; category: string; content: string };
 
-const PRAISE_CATEGORIES = ['Respect', 'Attentiveness', 'Quran Etiquette', 'Kindness', 'Punctuality'];
+const PRAISE_CATEGORIES = ['Respect', 'Attentiveness', 'Quran Etiquette', 'Kindness', 'Punctuality', 'Effort', 'Helping Others', 'Preparedness'];
 const STEPS = [{ label: 'Attendance' }, { label: 'Hifz' }, { label: 'Notes' }, { label: 'Confirm' }];
 
 export default function NotesClient({ classId, students }: { classId: string; students: Student[] }) {

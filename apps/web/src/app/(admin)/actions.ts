@@ -606,6 +606,24 @@ export async function getAdminParents(orgId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Adab Growth Journal — school-wide highlights
+// ---------------------------------------------------------------------------
+export async function getAdminAdabHighlights(orgId: string) {
+  return db.query.studentNotes.findMany({
+    where: and(
+      eq(schema.studentNotes.organizationId, orgId),
+      eq(schema.studentNotes.noteType, 'praise'),
+    ),
+    with: {
+      student: { columns: { fullName: true } },
+      class: { columns: { name: true } },
+    },
+    orderBy: (n, { desc }) => desc(n.createdAt),
+    limit: 30,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Tuition management
 // ---------------------------------------------------------------------------
 

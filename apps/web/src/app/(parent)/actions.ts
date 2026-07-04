@@ -120,6 +120,25 @@ export async function getStudentMilestones(studentId: string) {
   });
 }
 
+// Full adab/praise timeline for a child — the "Adab Growth Journal".
+export async function getAdabJournal(studentId: string) {
+  const notes = await db.query.studentNotes.findMany({
+    where: and(
+      eq(schema.studentNotes.studentId, studentId),
+      eq(schema.studentNotes.noteType, 'praise'),
+      eq(schema.studentNotes.visibleToParent, true),
+    ),
+    with: { class: { columns: { name: true } } },
+    orderBy: (n, { desc }) => desc(n.createdAt),
+  });
+  const seen = new Set<string>();
+  return notes.filter(n => {
+    if (seen.has(n.id)) return false;
+    seen.add(n.id);
+    return true;
+  });
+}
+
 export async function createParentPaymentSession(planId: string, studentId: string) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
