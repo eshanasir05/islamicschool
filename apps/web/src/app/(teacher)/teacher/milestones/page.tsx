@@ -73,53 +73,42 @@ export default async function TeacherMilestonesPage({ searchParams }: Props) {
                   <>
                     <form action={createAction} style={{ marginBottom: 16 }}>
                       <div className="app-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 5 }}>
-                            Student
-                          </label>
-                          <select name="studentId" required className="sign-in-input" style={{ marginBottom: 0 }}>
+                        <div className="field">
+                          <label className="text-label">Student</label>
+                          <select name="studentId" required className="form-select">
                             <option value="">— Select student —</option>
                             {students.map(s => (
                               <option key={s.id} value={s.id}>{s.fullName}</option>
                             ))}
                           </select>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 5 }}>
-                              Milestone type
-                            </label>
-                            <select name="type" required className="sign-in-input" style={{ marginBottom: 0 }}>
+                        <div className="form-grid">
+                          <div className="field">
+                            <label className="text-label">Milestone type</label>
+                            <select name="type" required className="form-select">
                               <option value="surah_completed">Surah completed</option>
                               <option value="juz_completed">Juz completed</option>
                               <option value="revision_completed">Revision completed</option>
                             </select>
                           </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 5 }}>
-                              Achieved date
-                            </label>
-                            <input type="date" name="achievedDate" required className="sign-in-input" style={{ marginBottom: 0 }} />
+                          <div className="field">
+                            <label className="text-label">Achieved date</label>
+                            <input type="date" name="achievedDate" required className="form-input" />
                           </div>
                         </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 5 }}>
-                            Label
-                          </label>
+                        <div className="field">
+                          <label className="text-label">Label</label>
                           <input
                             type="text"
                             name="label"
                             required
                             placeholder="e.g. Surah Al-Baqarah, or Juz 1"
-                            className="sign-in-input"
-                            style={{ marginBottom: 0 }}
+                            className="form-input"
                           />
                         </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 5 }}>
-                            Notes (optional)
-                          </label>
-                          <textarea name="teacherNotes" className="note-textarea" rows={2} placeholder="Any detail for the family" />
+                        <div className="field">
+                          <label className="text-label">Notes (optional)</label>
+                          <textarea name="teacherNotes" className="form-textarea" rows={2} placeholder="Any detail for the family" />
                         </div>
                         <SubmitButton className="btn btn-accent" style={{ alignSelf: 'flex-start' }} pendingLabel="Recording…">
                           Record milestone

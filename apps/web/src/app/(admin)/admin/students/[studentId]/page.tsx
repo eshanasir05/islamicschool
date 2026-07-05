@@ -21,16 +21,6 @@ const SURAH_NAMES: Record<number, string> = {
 };
 function surahName(n: number) { return SURAH_NAMES[n] ?? `Surah ${n}`; }
 
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 11,
-  fontFamily: 'var(--font-mono)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-  color: 'var(--muted)',
-  marginBottom: 5,
-};
-
 type Props = {
   params: Promise<{ studentId: string }>;
   searchParams: Promise<{ notice?: string }>;
@@ -120,7 +110,7 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
         <div style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 12 }}>
           {className} · DOB: {dob}
           {student.status !== 'active' && (
-            <span className="badge badge-absent" style={{ marginLeft: 8 }}>Inactive</span>
+            <span className="badge badge-inactive" style={{ marginLeft: 8 }}>Inactive</span>
           )}
         </div>
         <div style={{ display: 'flex', gap: 20 }}>
@@ -173,24 +163,23 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
         {/* Link guardian form */}
         <form action={linkAction}>
           <div className="app-card">
-            <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 10 }}>
+            <div className="text-label" style={{ marginBottom: 10 }}>
               Link guardian
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div>
-                <label style={labelStyle}>Email address</label>
+              <div className="field">
+                <label className="text-label">Email address</label>
                 <input
                   type="email"
                   name="email"
                   required
                   placeholder="parent@example.com"
-                  className="sign-in-input"
-                  style={{ marginBottom: 0 }}
+                  className="form-input"
                 />
               </div>
-              <div>
-                <label style={labelStyle}>Relationship (optional)</label>
-                <select name="relationship" className="sign-in-input" style={{ marginBottom: 0 }}>
+              <div className="field">
+                <label className="text-label">Relationship (optional)</label>
+                <select name="relationship" className="form-select">
                   <option value="">— Select —</option>
                   <option value="father">Father</option>
                   <option value="mother">Mother</option>
@@ -261,17 +250,17 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
       {(retentionFlags.noReviewInWeeks || retentionFlags.repeatedWeak || retentionFlags.noUpdateInWeeks) && (
         <div style={{ marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {retentionFlags.noUpdateInWeeks && (
-            <div style={{ fontSize: 13, color: '#991b1b', background: '#fee2e2', borderRadius: 8, padding: '8px 12px' }}>
+            <div className="card-danger" style={{ fontSize: 13, padding: '8px 12px' }}>
               No hifz update in over 3 weeks.
             </div>
           )}
           {retentionFlags.noReviewInWeeks && !retentionFlags.noUpdateInWeeks && (
-            <div style={{ fontSize: 13, color: '#92400e', background: 'var(--warn-soft)', borderRadius: 8, padding: '8px 12px' }}>
+            <div className="card-attention" style={{ fontSize: 13, padding: '8px 12px' }}>
               No sabqi/manzil review recorded in over 3 weeks.
             </div>
           )}
           {retentionFlags.repeatedWeak && (
-            <div style={{ fontSize: 13, color: '#92400e', background: 'var(--warn-soft)', borderRadius: 8, padding: '8px 12px' }}>
+            <div className="card-attention" style={{ fontSize: 13, padding: '8px 12px' }}>
               Repeated weak or needs-review status in recent sessions.
             </div>
           )}

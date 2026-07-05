@@ -161,6 +161,46 @@ button {
   text-transform: uppercase;
 }
 
+/* Pricing monthly/annual toggle — pill switch, active side gets a solid
+   dark background so it's unambiguous which billing period is selected. */
+.pricing-toggle {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+}
+.pricing-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.pricing-toggle-btn.is-active {
+  background: var(--fg);
+  color: #fafaf9;
+}
+.pricing-toggle-save {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent-700);
+}
+.pricing-toggle-btn.is-active .pricing-toggle-save {
+  background: rgba(52, 211, 153, 0.25);
+  color: #34d399;
+}
+
 /* Secondary marketing page H1 — used by pages that aren't the homepage
    (contact, demo, pricing, quick-start, known-limitations), which had each
    hardcoded `fontSize: 38` inline with no shared source of truth. */
@@ -2709,6 +2749,9 @@ button {
 
 /* Generic neutral fallback */
 .badge-neutral       { background: var(--neutral-soft);color: var(--neutral-fg); }
+
+/* Student/teacher enrollment status (distinct from attendance present/absent) */
+.badge-inactive      { background: var(--neutral-soft);color: var(--neutral-fg); }
 
 /* ─── Attendance tap cards ────────────────────────────────────────────────── */
 .attendance-grid {

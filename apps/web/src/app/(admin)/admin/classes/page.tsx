@@ -15,15 +15,17 @@ export default async function ClassesPage({ searchParams }: Props) {
   return (
     <main className="app-main">
       <ToastOnParam notice={notice} />
-      <div className="page-heading">
-        <h1 className="text-h1">Classes</h1>
-        <Link href="/admin/classes/new" className="btn btn-accent" style={{ fontSize: 13, padding: '6px 14px', textDecoration: 'none' }}>
-          Add class
-        </Link>
+      <div className="page-header">
+        <div className="page-header-text">
+          <h1 className="page-title">Classes</h1>
+          <p className="page-description">{active.length} class{active.length !== 1 ? 'es' : ''}</p>
+        </div>
+        <div className="page-actions">
+          <Link href="/admin/classes/new" className="btn btn-accent">
+            Add class
+          </Link>
+        </div>
       </div>
-      <p className="text-body" style={{ marginBottom: 24 }}>
-        {active.length} class{active.length !== 1 ? 'es' : ''}
-      </p>
 
       {active.length === 0 ? (
         <EmptyState
@@ -60,7 +62,7 @@ export default async function ClassesPage({ searchParams }: Props) {
 
       {archived.length > 0 && (
         <div style={{ marginTop: 32 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', marginBottom: 8 }}>Archived</h2>
+          <div className="text-label" style={{ marginBottom: 8 }}>Archived</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {archived.map(cls => (
               <Link key={cls.id} href={`/admin/classes/${cls.id}`} style={{ textDecoration: 'none' }}>
@@ -69,7 +71,7 @@ export default async function ClassesPage({ searchParams }: Props) {
                     <div style={{ fontWeight: 500, color: 'var(--fg)', marginBottom: 2 }}>{cls.name}</div>
                     <div style={{ fontSize: 13, color: 'var(--muted)' }}>{cls.teacherName}</div>
                   </div>
-                  <span className="badge badge-absent">Archived</span>
+                  <span className="badge badge-neutral">Archived</span>
                 </div>
               </Link>
             ))}

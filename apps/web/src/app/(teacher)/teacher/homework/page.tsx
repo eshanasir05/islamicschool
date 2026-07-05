@@ -59,40 +59,33 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
 
                 <form action={createAction} style={{ marginBottom: 16 }}>
                   <div className="app-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 5 }}>
-                        Task
-                      </label>
+                    <div className="field">
+                      <label className="text-label">Task</label>
                       <input
                         type="text"
                         name="title"
                         required
                         placeholder="e.g. Review Al-Baqarah 1–10"
-                        className="sign-in-input"
-                        style={{ marginBottom: 0 }}
+                        className="form-input"
                       />
                     </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 5 }}>
-                        Instructions (optional)
-                      </label>
+                    <div className="field">
+                      <label className="text-label">Instructions (optional)</label>
                       <textarea
                         name="description"
-                        className="note-textarea"
+                        className="form-textarea"
                         rows={2}
                         placeholder="Any detail parents or students need"
                       />
                     </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 5 }}>
-                        Due date
-                      </label>
+                    <div className="field">
+                      <label className="text-label">Due date</label>
                       <input
                         type="date"
                         name="dueDate"
                         required
-                        className="sign-in-input"
-                        style={{ marginBottom: 0, maxWidth: 200 }}
+                        className="form-input"
+                        style={{ maxWidth: 200 }}
                       />
                     </div>
                     <SubmitButton className="btn btn-accent" style={{ alignSelf: 'flex-start' }} pendingLabel="Assigning…">

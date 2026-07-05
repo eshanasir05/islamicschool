@@ -4,13 +4,6 @@ import { getAdminTrials } from '../../actions';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ToastOnParam } from '@/components/ui/toast-on-param';
 
-const statusBadge: Record<string, string> = {
-  scheduled: 'badge badge-late',
-  assessed: 'badge badge-sabqi',
-  converted: 'badge badge-present',
-  cancelled: 'badge badge-absent',
-};
-
 type Props = { searchParams: Promise<{ notice?: string }> };
 
 export default async function AdminTrialsPage({ searchParams }: Props) {
@@ -20,15 +13,17 @@ export default async function AdminTrialsPage({ searchParams }: Props) {
   return (
     <main className="app-main">
       <ToastOnParam notice={notice} />
-      <div className="page-heading">
-        <h1 className="text-h1">Trial classes</h1>
-        <Link href="/admin/trials/new" className="btn btn-accent" style={{ fontSize: 13, padding: '7px 14px' }}>
-          + New trial
-        </Link>
+      <div className="page-header">
+        <div className="page-header-text">
+          <h1 className="page-title">Trial classes</h1>
+          <p className="page-description">{trials.length} trial{trials.length !== 1 ? 's' : ''} on record</p>
+        </div>
+        <div className="page-actions">
+          <Link href="/admin/trials/new" className="btn btn-accent">
+            + New trial
+          </Link>
+        </div>
       </div>
-      <p className="text-body" style={{ marginBottom: 24 }}>
-        {trials.length} trial{trials.length !== 1 ? 's' : ''} on record
-      </p>
 
       {trials.length === 0 ? (
         <EmptyState
@@ -49,7 +44,7 @@ export default async function AdminTrialsPage({ searchParams }: Props) {
                     {t.scheduledDate ? ` · ${t.scheduledDate}` : ''}
                   </div>
                 </div>
-                <span className={statusBadge[t.status] ?? 'badge'} style={{ textTransform: 'capitalize' }}>{t.status}</span>
+                <span className={`badge badge-${t.status}`} style={{ textTransform: 'capitalize' }}>{t.status}</span>
               </div>
             </Link>
           ))}

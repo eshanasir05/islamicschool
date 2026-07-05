@@ -146,7 +146,7 @@ export default async function ClassDetailPage({ params, searchParams }: Props) {
 
           {unenrolledStudents.length > 0 && (
             <form action={enrollAction} style={{ display: 'flex', gap: 8 }}>
-              <select name="studentId" className="sign-in-input" style={{ flex: 1, marginBottom: 0 }}>
+              <select name="studentId" className="form-select" style={{ flex: 1 }}>
                 <option value="">— Select student to add —</option>
                 {unenrolledStudents.map(s => (
                   <option key={s.id} value={s.id}>{s.fullName}</option>
@@ -219,7 +219,7 @@ export default async function ClassDetailPage({ params, searchParams }: Props) {
                   )}
                 </div>
                 {(p.retentionFlags.noReviewInWeeks || p.retentionFlags.repeatedWeak || p.retentionFlags.noUpdateInWeeks) && (
-                  <div style={{ marginTop: 6, fontSize: 12, color: '#991b1b' }}>
+                  <div style={{ marginTop: 6, fontSize: 12, color: 'var(--danger-fg)' }}>
                     {p.retentionFlags.noUpdateInWeeks && 'No update in 3+ weeks. '}
                     {p.retentionFlags.noReviewInWeeks && !p.retentionFlags.noUpdateInWeeks && 'No review in 3+ weeks. '}
                     {p.retentionFlags.repeatedWeak && 'Repeated weak status.'}
@@ -272,36 +272,32 @@ export default async function ClassDetailPage({ params, searchParams }: Props) {
             body="Once a teacher wraps a class, attendance sessions will appear here."
           />
         ) : (
-          <div className="table-scroll">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-              <thead>
-                <tr>
-                  {['Date', 'Present', 'Late', 'Absent', 'Total'].map(h => (
-                    <th key={h} style={{ textAlign: h === 'Date' ? 'left' : 'center', padding: '6px 8px', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map(s => (
-                  <tr key={s.date} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '8px 8px', color: 'var(--fg)' }}>{s.date}</td>
-                    <td style={{ padding: '8px 8px', textAlign: 'center' }}>
-                      <span className="badge badge-present">{s.present}</span>
-                    </td>
-                    <td style={{ padding: '8px 8px', textAlign: 'center' }}>
-                      {s.late > 0 ? <span className="badge badge-late">{s.late}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
-                    </td>
-                    <td style={{ padding: '8px 8px', textAlign: 'center' }}>
-                      {s.absent > 0 ? <span className="badge badge-absent">{s.absent}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
-                    </td>
-                    <td style={{ padding: '8px 8px', textAlign: 'center', color: 'var(--muted)' }}>{s.total}</td>
-                  </tr>
+          <table className="rtable">
+            <thead>
+              <tr>
+                {['Date', 'Present', 'Late', 'Absent', 'Total'].map(h => (
+                  <th key={h}>{h}</th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.map(s => (
+                <tr key={s.date}>
+                  <td data-label="Date">{s.date}</td>
+                  <td data-label="Present">
+                    <span className="badge badge-present">{s.present}</span>
+                  </td>
+                  <td data-label="Late">
+                    {s.late > 0 ? <span className="badge badge-late">{s.late}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+                  </td>
+                  <td data-label="Absent">
+                    {s.absent > 0 ? <span className="badge badge-absent">{s.absent}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+                  </td>
+                  <td data-label="Total" style={{ color: 'var(--muted)' }}>{s.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </main>

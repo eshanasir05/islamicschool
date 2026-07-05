@@ -13,20 +13,20 @@ export default async function StudentsPage({ searchParams }: Props) {
   return (
     <main className="app-main">
       <ToastOnParam notice={notice} />
-      <div className="page-heading">
-        <h1 className="text-h1">Students</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link href="/admin/import" className="btn btn-ghost" style={{ fontSize: 13, padding: '6px 14px', textDecoration: 'none' }}>
+      <div className="page-header">
+        <div className="page-header-text">
+          <h1 className="page-title">Students</h1>
+          <p className="page-description">{students.length} enrolled</p>
+        </div>
+        <div className="page-actions">
+          <Link href="/admin/import" className="btn btn-ghost">
             Import roster
           </Link>
-          <Link href="/admin/students/new" className="btn btn-accent" style={{ fontSize: 13, padding: '6px 14px', textDecoration: 'none' }}>
+          <Link href="/admin/students/new" className="btn btn-accent">
             Add student
           </Link>
         </div>
       </div>
-      <p className="text-body" style={{ marginBottom: 24 }}>
-        {students.length} enrolled
-      </p>
 
       {students.length === 0 ? (
         <EmptyState
@@ -50,7 +50,7 @@ export default async function StudentsPage({ searchParams }: Props) {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span className={`badge badge-${s.status === 'active' ? 'present' : 'absent'}`} style={{ textTransform: 'capitalize' }}>
+                    <span className={`badge badge-${s.status === 'active' ? 'active' : 'inactive'}`} style={{ textTransform: 'capitalize' }}>
                       {s.status}
                     </span>
                     <span style={{ color: 'var(--muted)', fontSize: 18 }}>›</span>

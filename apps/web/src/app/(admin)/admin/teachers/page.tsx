@@ -8,15 +8,17 @@ export default async function TeachersPage() {
 
   return (
     <main className="app-main">
-      <div className="page-heading">
-        <h1 className="text-h1">Teachers</h1>
-        <Link href="/admin/teachers/invite" className="btn btn-accent" style={{ fontSize: 13, padding: '7px 14px' }}>
-          + Invite teacher
-        </Link>
+      <div className="page-header">
+        <div className="page-header-text">
+          <h1 className="page-title">Teachers</h1>
+          <p className="page-description">{teachers.length} teacher{teachers.length !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="page-actions">
+          <Link href="/admin/teachers/invite" className="btn btn-accent">
+            + Invite teacher
+          </Link>
+        </div>
       </div>
-      <p className="text-body" style={{ marginBottom: 24 }}>
-        {teachers.length} teacher{teachers.length !== 1 ? 's' : ''}
-      </p>
 
       {teachers.length === 0 ? (
         <EmptyState

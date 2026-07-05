@@ -65,9 +65,8 @@ const TIERS: Tier[] = [
       'Volume tuition pricing',
       'Custom enrollment setup',
       'Dedicated onboarding manager',
-      'Single sign-on (SSO)',
+      'Single sign-on (SSO) — coming soon',
       'Quarterly business reviews',
-      'SLA-backed uptime',
     ],
   },
 ];
@@ -92,59 +91,22 @@ export function PricingHeroAndTiers() {
               per-feature gotchas. Every tier includes every feature.
             </p>
 
-            <div
-              style={{
-                display: 'inline-flex',
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 999,
-                padding: 4,
-              }}
-            >
+            <div className="pricing-toggle" role="group" aria-label="Billing period">
               <button
                 type="button"
                 onClick={() => setAnnual(false)}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: 999,
-                  border: 'none',
-                  background: !annual ? 'var(--fg)' : 'transparent',
-                  color: !annual ? '#fafaf9' : 'var(--muted)',
-                  fontSize: 13,
-                  fontWeight: 500,
-                }}
+                aria-pressed={!annual}
+                className={`pricing-toggle-btn${!annual ? ' is-active' : ''}`}
               >
                 Monthly
               </button>
               <button
                 type="button"
                 onClick={() => setAnnual(true)}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: 999,
-                  border: 'none',
-                  background: annual ? 'var(--fg)' : 'transparent',
-                  color: annual ? '#fafaf9' : 'var(--muted)',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
+                aria-pressed={annual}
+                className={`pricing-toggle-btn${annual ? ' is-active' : ''}`}
               >
-                Annual{' '}
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 10,
-                    background: annual ? 'rgba(52, 211, 153, 0.25)' : 'var(--accent-soft)',
-                    color: annual ? '#34d399' : 'var(--accent-700)',
-                    padding: '2px 6px',
-                    borderRadius: 4,
-                  }}
-                >
-                  −2 MO
-                </span>
+                Annual <span className="pricing-toggle-save">−2 MO</span>
               </button>
             </div>
           </div>

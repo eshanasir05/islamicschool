@@ -5,16 +5,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { ToastOnParam } from '@/components/ui/toast-on-param';
 
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 11,
-  fontFamily: 'var(--font-mono)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-  color: 'var(--muted)',
-  marginBottom: 5,
-};
-
 type Props = { searchParams: Promise<{ notice?: string }> };
 
 export default async function TeacherTrialsPage({ searchParams }: Props) {
@@ -76,34 +66,34 @@ export default async function TeacherTrialsPage({ searchParams }: Props) {
                     {trial.scheduledDate ? ` · Scheduled ${trial.scheduledDate}` : ''}
                   </div>
 
-                  <div>
-                    <label style={labelStyle}>Quran reading level</label>
-                    <input type="text" name="quranReadingLevel" required placeholder="e.g. Reads with support, working on tajweed" className="sign-in-input" style={{ marginBottom: 0 }} />
+                  <div className="field">
+                    <label className="text-label">Quran reading level</label>
+                    <input type="text" name="quranReadingLevel" required placeholder="e.g. Reads with support, working on tajweed" className="form-input" />
                   </div>
-                  <div>
-                    <label style={labelStyle}>Hifz level</label>
-                    <input type="text" name="hifzLevel" required placeholder="e.g. Has memorized Juz Amma" className="sign-in-input" style={{ marginBottom: 0 }} />
+                  <div className="field">
+                    <label className="text-label">Hifz level</label>
+                    <input type="text" name="hifzLevel" required placeholder="e.g. Has memorized Juz Amma" className="form-input" />
                   </div>
-                  <div>
-                    <label style={labelStyle}>Arabic level</label>
-                    <input type="text" name="arabicLevel" required placeholder="e.g. Beginner, some letter recognition" className="sign-in-input" style={{ marginBottom: 0 }} />
+                  <div className="field">
+                    <label className="text-label">Arabic level</label>
+                    <input type="text" name="arabicLevel" required placeholder="e.g. Beginner, some letter recognition" className="form-input" />
                   </div>
-                  <div>
-                    <label style={labelStyle}>Behavior / readiness</label>
-                    <input type="text" name="behaviorReadiness" required placeholder="e.g. Attentive, ready for a group class" className="sign-in-input" style={{ marginBottom: 0 }} />
+                  <div className="field">
+                    <label className="text-label">Behavior / readiness</label>
+                    <input type="text" name="behaviorReadiness" required placeholder="e.g. Attentive, ready for a group class" className="form-input" />
                   </div>
-                  <div>
-                    <label style={labelStyle}>Recommended class</label>
-                    <select name="recommendedClassId" className="sign-in-input" style={{ marginBottom: 0 }} defaultValue="">
+                  <div className="field">
+                    <label className="text-label">Recommended class</label>
+                    <select name="recommendedClassId" className="form-select" defaultValue="">
                       <option value="">— No recommendation yet —</option>
                       {classes.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label style={labelStyle}>Notes for parent/admin (optional)</label>
-                    <textarea name="assessmentNotes" className="note-textarea" rows={2} placeholder="Any additional detail" />
+                  <div className="field">
+                    <label className="text-label">Notes for parent/admin (optional)</label>
+                    <textarea name="assessmentNotes" className="form-textarea" rows={2} placeholder="Any additional detail" />
                   </div>
                   <SubmitButton className="btn btn-accent" style={{ alignSelf: 'flex-start' }} pendingLabel="Submitting…">
                     Submit assessment
