@@ -8,9 +8,13 @@ import { toHijriString } from '@/lib/hijri';
 import { ayahOfTheDay } from '@/lib/ayah';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/marketing/icon';
-import { shortDate, relativeTime, ACTIVITY_ICON } from '../activity-format';
+import { ToastOnParam } from '@/components/ui/toast-on-param';
+import { shortDate, relativeTime, ACTIVITY_ICON, activityHref } from '../activity-format';
 
-export default async function TeacherHome() {
+type Props = { searchParams: Promise<{ notice?: string }> };
+
+export default async function TeacherHome({ searchParams }: Props) {
+  const { notice } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
@@ -30,6 +34,7 @@ export default async function TeacherHome() {
 
   return (
     <>
+      <ToastOnParam notice={notice} />
       {/* Greeting + date */}
       <div className="teacher-greeting">
         <div>
@@ -80,7 +85,9 @@ export default async function TeacherHome() {
                     {meta.length > 0 && (
                       <span><Icon name="cal" size={13} />{meta.join(' · ')}</span>
                     )}
-                    <span><Icon name="users" size={13} />{cls.studentCount} student{cls.studentCount !== 1 ? 's' : ''}</span>
+                    <Link href={`/teacher/${cls.id}`} style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--muted)', textDecoration: 'none' }}>
+                      <Icon name="users" size={13} />{cls.studentCount} student{cls.studentCount !== 1 ? 's' : ''}
+                    </Link>
                   </div>
 
                   {cls.lastSession && (
@@ -121,7 +128,7 @@ export default async function TeacherHome() {
           <div className="app-card">
             <div className="activity-list">
               {recentActivity.map(a => (
-                <Link key={a.id} href="/teacher/activity" className="activity-row">
+                <Link key={a.id} href={activityHref(a)} className="activity-row">
                   <span className={`activity-icon ${a.kind}`}>
                     <Icon name={ACTIVITY_ICON[a.kind]} size={16} />
                   </span>

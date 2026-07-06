@@ -29,6 +29,7 @@ export const tuitionPlans = pgTable('tuition_plans', {
   discountType: text('discount_type', { enum: ['percent', 'fixed'] }),
   discountValue: integer('discount_value'),
   discountReason: text('discount_reason'),
+  lastReminderSentAt: timestamp('last_reminder_sent_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

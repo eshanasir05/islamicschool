@@ -21,3 +21,14 @@ export const ACTIVITY_ICON: Record<'attendance' | 'hifz' | 'note', IconName> = {
   hifz: 'mic',
   note: 'msg',
 };
+
+type ActivityLike = { kind: 'attendance' | 'hifz' | 'note'; classId: string; studentId: string | null };
+
+// Where clicking an activity row should take a teacher: attendance goes to
+// that class's attendance page; hifz/notes go to the student's detail page,
+// which shows the recording / note content itself.
+export function activityHref(a: ActivityLike): string {
+  if (a.kind === 'attendance') return `/teacher/${a.classId}/attendance`;
+  if (a.studentId) return `/teacher/${a.classId}/students/${a.studentId}`;
+  return '/teacher/activity';
+}

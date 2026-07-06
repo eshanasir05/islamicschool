@@ -162,6 +162,17 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
         </a>
       </div>
 
+      <div className="app-card" style={{ marginTop: 16 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          Ramadan &amp; holiday schedule
+          <span className="badge-coming-soon">COMING SOON</span>
+        </h2>
+        <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0 }}>
+          Set Ramadan hours, holiday closures, and automatic attendance adjustments for irregular
+          calendars — so a closure day never shows up as an absence. On the roadmap for a future release.
+        </p>
+      </div>
+
       {checklistDismissed && (
         <div className="app-card" style={{ marginTop: 16 }}>
           <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', margin: '0 0 12px' }}>Getting started checklist</h2>

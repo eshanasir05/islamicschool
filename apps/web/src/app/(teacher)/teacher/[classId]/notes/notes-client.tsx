@@ -11,17 +11,22 @@ type NoteType = 'praise' | 'homework';
 type NoteState = { type: NoteType; category: string; content: string };
 
 const PRAISE_CATEGORIES = ['Respect', 'Attentiveness', 'Quran Etiquette', 'Kindness', 'Punctuality', 'Effort', 'Helping Others', 'Preparedness'];
-const STEPS = [{ label: 'Attendance' }, { label: 'Hifz' }, { label: 'Notes' }, { label: 'Confirm' }];
 
-export default function NotesClient({ classId, students }: { classId: string; students: Student[] }) {
+export default function NotesClient({ classId, students, defaultNoteType = 'praise' }: { classId: string; students: Student[]; defaultNoteType?: NoteType }) {
   const router = useRouter();
+  const STEPS = [
+    { label: 'Attendance', href: `/teacher/${classId}/attendance` },
+    { label: 'Hifz', href: `/teacher/${classId}/hifz` },
+    { label: 'Notes', href: `/teacher/${classId}/notes` },
+    { label: 'Confirm', href: `/teacher/${classId}/confirm` },
+  ];
   const [notes, setNotes] = useState<Record<string, NoteState>>(
-    Object.fromEntries(students.map(s => [s.id, { type: 'praise', category: 'Effort', content: '' }])),
+    Object.fromEntries(students.map(s => [s.id, { type: defaultNoteType, category: 'Effort', content: '' }])),
   );
   const [saving, setSaving] = useState(false);
 
   function update(studentId: string, patch: Partial<NoteState>) {
-    setNotes(prev => ({ ...prev, [studentId]: { ...(prev[studentId] ?? { type: 'praise' as NoteType, category: 'Effort', content: '' }), ...patch } as NoteState }));
+    setNotes(prev => ({ ...prev, [studentId]: { ...(prev[studentId] ?? { type: defaultNoteType, category: 'Effort', content: '' }), ...patch } as NoteState }));
   }
 
   async function handleNext() {

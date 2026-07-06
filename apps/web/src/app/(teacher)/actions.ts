@@ -9,6 +9,8 @@ import { env } from '@/env';
 import { Resend } from 'resend';
 import { notifyGuardians, notifyClassGuardians } from '@/lib/notifications';
 import { logActivity } from '@/lib/activity-log';
+import { getHifzRetentionFlags } from '@/lib/hifz-retention';
+import { parseClassPrefs } from '@/lib/teacher-prefs';
 
 async function actorName(userId: string): Promise<string> {
   const row = await db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { fullName: true } });
@@ -157,6 +159,8 @@ export type TeacherActivity = {
   title: string;
   detail: string;
   at: Date | null;
+  classId: string;
+  studentId: string | null;
 };
 
 // Recent attendance sessions + hifz + notes across the teacher's classes,
@@ -214,6 +218,8 @@ export async function getTeacherRecentActivity(teacherId: string, limit = 5): Pr
       title: `Attendance completed for ${classNameById.get(classId) ?? 'class'}`,
       detail: 'Attendance',
       at,
+      classId,
+      studentId: null,
     });
   }
 
@@ -224,6 +230,8 @@ export async function getTeacherRecentActivity(teacherId: string, limit = 5): Pr
       title: `Hifz recorded for ${h.student?.fullName ?? 'a student'}`,
       detail: `${surahName(h.surahNumber)} ${h.ayahStart}–${h.ayahEnd}`,
       at: h.createdAt,
+      classId: h.classId!,
+      studentId: h.studentId,
     });
   }
   for (const n of notes) {
@@ -233,6 +241,8 @@ export async function getTeacherRecentActivity(teacherId: string, limit = 5): Pr
       title: `Note sent to parents for ${n.student?.fullName ?? 'a student'}`,
       detail: n.noteType === 'homework' ? 'Homework' : n.category ? n.category : 'Note',
       at: n.createdAt,
+      classId: n.classId!,
+      studentId: n.studentId,
     });
   }
 
@@ -248,7 +258,149 @@ export async function getClassStudents(classId: string) {
     where: eq(schema.classEnrollments.classId, classId),
     with: { student: true },
   });
-  return enrollments.map(e => e.student);
+  const students = enrollments.map(e => e.student);
+
+  const teacherRow = await db.query.users.findFirst({
+    where: eq(schema.users.id, user.id),
+    columns: { classPrefs: true },
+  });
+  const prefs = parseClassPrefs(teacherRow?.classPrefs);
+
+  if (prefs.sortStudents === 'attention') {
+    const studentIds = students.map(s => s.id);
+    const hifzRecords = studentIds.length
+      ? await db.query.hifzRecords.findMany({
+          where: inArray(schema.hifzRecords.studentId, studentIds),
+          orderBy: (h, { desc }) => desc(h.sessionDate),
+        })
+      : [];
+    const hifzByStudent = new Map<string, typeof hifzRecords>();
+    for (const rec of hifzRecords) {
+      const list = hifzByStudent.get(rec.studentId) ?? [];
+      list.push(rec);
+      hifzByStudent.set(rec.studentId, list);
+    }
+    const flagCount = (studentId: string) => {
+      const flags = getHifzRetentionFlags(hifzByStudent.get(studentId) ?? []);
+      return Number(flags.noReviewInWeeks) + Number(flags.repeatedWeak) + Number(flags.noUpdateInWeeks);
+    };
+    return [...students].sort((a, b) => flagCount(b.id) - flagCount(a.id) || a.fullName.localeCompare(b.fullName));
+  }
+
+  return [...students].sort((a, b) => a.fullName.localeCompare(b.fullName));
+}
+
+function ageFromDob(dateOfBirth: string): number {
+  const dob = new Date(`${dateOfBirth}T00:00:00`);
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const beforeBirthday =
+    now.getMonth() < dob.getMonth() ||
+    (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate());
+  if (beforeBirthday) age -= 1;
+  return age;
+}
+
+// Class roster for a teacher: enrolled students (with a quick brief) plus the
+// pool of active org students not yet in this class, for the "add student"
+// picker.
+export async function getTeacherClassRoster(classId: string, teacherId: string) {
+  await assertTeacherOwnsClass(classId, teacherId);
+
+  const [cls, enrollments, allStudents] = await Promise.all([
+    db.query.classes.findFirst({ where: eq(schema.classes.id, classId) }),
+    db.query.classEnrollments.findMany({
+      where: eq(schema.classEnrollments.classId, classId),
+      with: { student: true },
+      orderBy: (e, { asc }) => asc(e.enrolledAt),
+    }),
+    db.query.students.findMany({
+      where: and(
+        eq(schema.students.organizationId, env.NEXT_PUBLIC_ORG_ID),
+        eq(schema.students.status, 'active'),
+      ),
+      orderBy: (s, { asc }) => asc(s.fullName),
+    }),
+  ]);
+
+  const enrolledIds = new Set(enrollments.map(e => e.studentId));
+  const students = enrollments
+    .filter(e => e.student)
+    .map(e => ({
+      id: e.student!.id,
+      fullName: e.student!.fullName,
+      gender: e.student!.gender,
+      age: ageFromDob(e.student!.dateOfBirth),
+      enrolledAt: e.enrolledAt,
+    }));
+  const availableStudents = allStudents.filter(s => !enrolledIds.has(s.id));
+
+  return { cls, students, availableStudents };
+}
+
+export async function getTeacherStudentDetail(classId: string, studentId: string, teacherId: string) {
+  await assertTeacherOwnsClass(classId, teacherId);
+  await assertTeacherOwnsStudent(studentId, teacherId);
+
+  const [student, cls, hifz, notes] = await Promise.all([
+    db.query.students.findFirst({ where: eq(schema.students.id, studentId) }),
+    db.query.classes.findFirst({ where: eq(schema.classes.id, classId), columns: { name: true } }),
+    db.query.hifzRecords.findMany({
+      where: and(eq(schema.hifzRecords.studentId, studentId), eq(schema.hifzRecords.classId, classId)),
+      orderBy: (h, { desc }) => desc(h.sessionDate),
+      limit: 5,
+    }),
+    db.query.studentNotes.findMany({
+      where: and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.classId, classId)),
+      orderBy: (n, { desc }) => desc(n.createdAt),
+      limit: 5,
+    }),
+  ]);
+
+  const hifzWithAudio = await Promise.all(hifz.map(async h => {
+    if (!h.audioUrl) return { ...h, audioSignedUrl: null };
+    try {
+      const serviceClient = await createSupabaseServiceClient();
+      const path = new URL(h.audioUrl).pathname.split('/hifz-audio/')[1];
+      if (!path) return { ...h, audioSignedUrl: null };
+      const { data } = await serviceClient.storage.from('hifz-audio').createSignedUrl(path, 3600);
+      return { ...h, audioSignedUrl: data?.signedUrl ?? null };
+    } catch {
+      return { ...h, audioSignedUrl: null };
+    }
+  }));
+
+  const teacherRow = await db.query.users.findFirst({
+    where: eq(schema.users.id, teacherId),
+    columns: { classPrefs: true },
+  });
+  const classPrefs = parseClassPrefs(teacherRow?.classPrefs);
+
+  return {
+    student,
+    className: cls?.name ?? null,
+    age: student ? ageFromDob(student.dateOfBirth) : null,
+    hifz: hifzWithAudio,
+    notes,
+    retentionFlags: getHifzRetentionFlags(hifz),
+    classPrefs,
+  };
+}
+
+export async function teacherEnrollStudent(classId: string, studentId: string, teacherId: string) {
+  await assertTeacherOwnsClass(classId, teacherId);
+  await db.insert(schema.classEnrollments).values({ classId, studentId }).onConflictDoNothing();
+  revalidatePath(`/teacher/${classId}`);
+  redirect(`/teacher/${classId}?notice=student_enrolled`);
+}
+
+export async function teacherUnenrollStudent(classId: string, studentId: string, teacherId: string) {
+  await assertTeacherOwnsClass(classId, teacherId);
+  await db
+    .delete(schema.classEnrollments)
+    .where(and(eq(schema.classEnrollments.classId, classId), eq(schema.classEnrollments.studentId, studentId)));
+  revalidatePath(`/teacher/${classId}`);
+  redirect(`/teacher/${classId}?notice=student_unenrolled`);
 }
 
 // ---------------------------------------------------------------------------
@@ -425,6 +577,7 @@ export async function createMilestone(
 export type AttendanceInput = {
   studentId: string;
   status: 'present' | 'late' | 'absent' | 'excused';
+  notes?: string;
 };
 
 export async function submitAttendance(
@@ -447,7 +600,8 @@ export async function submitAttendance(
     studentId: r.studentId,
     sessionDate: today,
     status: r.status,
-    arrivalTime: r.status !== 'absent' ? new Date() : null,
+    arrivalTime: (r.status === 'present' || r.status === 'late') ? new Date() : null,
+    notes: r.notes?.trim() || null,
     recordedBy: user.id,
   }));
 
@@ -456,6 +610,7 @@ export async function submitAttendance(
     set: {
       status: sql`excluded.status`,
       arrivalTime: sql`excluded.arrival_time`,
+      notes: sql`excluded.notes`,
       recordedBy: sql`excluded.recorded_by`,
     },
   });
@@ -716,6 +871,44 @@ export async function notifyParents(classId: string, sessionDate: string) {
   }
 
   redirect(`/teacher/${classId}/confirm?sent=1`);
+}
+
+// Permanently deletes today's attendance, hifz, and notes for a class —
+// the "Erase class session" escape hatch on the confirm screen, for a
+// teacher who wants to redo the whole session rather than send it.
+// Deliberately destructive (unlike the old inert "Skip & finish" link),
+// so the UI gates it behind a confirm dialog and keeps the button tiny.
+export async function eraseClassSession(classId: string, sessionDate: string) {
+  const user = await requireUser();
+  await assertTeacherOwnsClass(classId, user.id);
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
+
+  await db.delete(schema.attendanceRecords).where(and(
+    eq(schema.attendanceRecords.classId, classId),
+    eq(schema.attendanceRecords.sessionDate, sessionDate),
+    eq(schema.attendanceRecords.organizationId, orgId),
+  ));
+  await db.delete(schema.hifzRecords).where(and(
+    eq(schema.hifzRecords.classId, classId),
+    eq(schema.hifzRecords.sessionDate, sessionDate),
+    eq(schema.hifzRecords.organizationId, orgId),
+  ));
+
+  // studentNotes has no sessionDate column — match the same day's notes by
+  // createdAt, the same filter the confirm screen itself uses to show them.
+  const classNotes = await db.query.studentNotes.findMany({
+    where: and(eq(schema.studentNotes.classId, classId), eq(schema.studentNotes.organizationId, orgId)),
+    columns: { id: true, createdAt: true },
+  });
+  const todayNoteIds = classNotes
+    .filter(n => n.createdAt && new Date(n.createdAt).toISOString().slice(0, 10) === sessionDate)
+    .map(n => n.id);
+  if (todayNoteIds.length > 0) {
+    await db.delete(schema.studentNotes).where(inArray(schema.studentNotes.id, todayNoteIds));
+  }
+
+  revalidatePath(`/teacher/${classId}/confirm`);
+  redirect('/teacher?notice=session_erased');
 }
 
 // ---------------------------------------------------------------------------

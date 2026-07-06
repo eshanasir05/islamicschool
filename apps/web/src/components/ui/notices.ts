@@ -32,6 +32,8 @@ export const NOTICES: Record<string, { type: NoticeType; message: string }> = {
   // Tuition
   plan_created: { type: 'success', message: 'Tuition plan created.' },
   plan_cancelled: { type: 'success', message: 'Tuition plan cancelled.' },
+  reminders_sent: { type: 'success', message: 'Reminder(s) sent to past-due families.' },
+  no_reminders_due: { type: 'info', message: 'No past-due reminders were due to send.' },
 
   // Announcements
   announcement_posted: { type: 'success', message: 'Announcement posted.' },
@@ -51,6 +53,9 @@ export const NOTICES: Record<string, { type: NoticeType; message: string }> = {
 
   // Attendance follow-up
   absence_reason_submitted: { type: 'success', message: 'Thanks — the school has been notified.' },
+
+  // Teacher session flow
+  session_erased: { type: 'success', message: 'Class session erased. You can start it over from scratch.' },
 
   // Trial placements
   trial_created: { type: 'success', message: 'Trial scheduled.' },

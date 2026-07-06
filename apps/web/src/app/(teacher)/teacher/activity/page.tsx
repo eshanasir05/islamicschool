@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getTeacherRecentActivity } from '../../actions';
 import { Icon } from '@/components/marketing/icon';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { EmptyState } from '@/components/ui/empty-state';
-import { relativeTime, ACTIVITY_ICON } from '../../activity-format';
+import { relativeTime, ACTIVITY_ICON, activityHref } from '../../activity-format';
 
 export default async function TeacherActivityPage() {
   const supabase = await createSupabaseServerClient();
@@ -36,7 +37,7 @@ export default async function TeacherActivityPage() {
         <div className="app-card">
           <div className="activity-list">
             {activity.map(a => (
-              <div key={a.id} className="activity-row">
+              <Link key={a.id} href={activityHref(a)} className="activity-row">
                 <span className={`activity-icon ${a.kind}`}>
                   <Icon name={ACTIVITY_ICON[a.kind]} size={16} />
                 </span>
@@ -44,7 +45,7 @@ export default async function TeacherActivityPage() {
                   <span className="activity-title" style={{ whiteSpace: 'normal' }}>{a.title}</span>
                   <span className="activity-time">{a.detail} · {relativeTime(a.at)}</span>
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

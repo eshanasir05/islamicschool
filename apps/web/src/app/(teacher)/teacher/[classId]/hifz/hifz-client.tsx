@@ -18,15 +18,22 @@ type HifzEntry = {
   mistakeType: '' | 'hesitation' | 'tajweed' | 'forgot_ayah' | 'repeated_correction';
 };
 
-const STEPS = [{ label: 'Attendance' }, { label: 'Hifz' }, { label: 'Notes' }, { label: 'Confirm' }];
+function makeDefaultEntry(stream: HifzEntry['stream']): HifzEntry {
+  return {
+    stream, surahNumber: 2, ayahStart: 1, ayahEnd: 5, audioDataUrl: null,
+    status: 'passed', mistakeType: '',
+  };
+}
 
-const DEFAULT_ENTRY: HifzEntry = {
-  stream: 'sabak', surahNumber: 2, ayahStart: 1, ayahEnd: 5, audioDataUrl: null,
-  status: 'passed', mistakeType: '',
-};
-
-export default function HifzClient({ classId, students }: { classId: string; students: Student[] }) {
+export default function HifzClient({ classId, students, defaultStream = 'sabak' }: { classId: string; students: Student[]; defaultStream?: HifzEntry['stream'] }) {
+  const DEFAULT_ENTRY = makeDefaultEntry(defaultStream);
   const router = useRouter();
+  const STEPS = [
+    { label: 'Attendance', href: `/teacher/${classId}/attendance` },
+    { label: 'Hifz', href: `/teacher/${classId}/hifz` },
+    { label: 'Notes', href: `/teacher/${classId}/notes` },
+    { label: 'Confirm', href: `/teacher/${classId}/confirm` },
+  ];
   const [entries, setEntries] = useState<Record<string, HifzEntry>>(
     Object.fromEntries(students.map(s => [s.id, { ...DEFAULT_ENTRY }])),
   );

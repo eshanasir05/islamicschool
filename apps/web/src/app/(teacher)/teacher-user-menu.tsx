@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/marketing/icon';
 
-export default function TeacherUserMenu({ name, initials }: { name: string; initials: string }) {
+export default function TeacherUserMenu({ name, initials, avatarUrl }: { name: string; initials: string; avatarUrl?: string | null }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -16,7 +16,14 @@ export default function TeacherUserMenu({ name, initials }: { name: string; init
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <span className="avatar">{initials}</span>
+        <span className="avatar" style={{ overflow: 'hidden' }}>
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            initials
+          )}
+        </span>
         <span className="user-menu-name">
           <span className="n">{name}</span>
           <span className="r">Teacher</span>

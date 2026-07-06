@@ -1,13 +1,14 @@
 'use server';
 
 import { and, count, desc, eq, gte, inArray, max, ne, sql, sum } from 'drizzle-orm';
+import { Resend } from 'resend';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe';
 import { env } from '@/env';
-import { notifyAllGuardiansInOrg, createNotification } from '@/lib/notifications';
+import { notifyAllGuardiansInOrg, createNotification, notifyTeacherIfEnabled, notifyAllTeachersIfEnabled } from '@/lib/notifications';
 import { getHifzRetentionFlags } from '@/lib/hifz-retention';
 import { logActivity } from '@/lib/activity-log';
 
@@ -256,6 +257,13 @@ export async function createAnnouncement(orgId: string, userId: string, content:
     title: 'New school announcement',
     body: content.length > 100 ? `${content.slice(0, 100)}…` : content,
     link: '/parent',
+  });
+
+  await notifyAllTeachersIfEnabled(orgId, 'adminAnnouncement', {
+    type: 'announcement',
+    title: 'New school announcement',
+    body: content.length > 100 ? `${content.slice(0, 100)}…` : content,
+    link: '/teacher',
   });
 
   const actorRow = await db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { fullName: true } });
@@ -887,6 +895,93 @@ export async function getAdminTuition(orgId: string) {
   }));
 }
 
+// Core reminder logic shared by the admin "Send reminders" button and the
+// daily cron job. `throttleDays` (cron only) skips plans reminded recently so
+// the same family isn't emailed every day; the admin-triggered path passes no
+// throttle since a human is deciding to send right now.
+async function runTuitionReminders(orgId: string, opts: { planId?: string; throttleDays?: number } = {}) {
+  const cutoff = opts.throttleDays ? new Date(Date.now() - opts.throttleDays * 24 * 60 * 60 * 1000) : null;
+
+  const plans = await db.query.tuitionPlans.findMany({
+    where: opts.planId
+      ? and(eq(schema.tuitionPlans.id, opts.planId), eq(schema.tuitionPlans.organizationId, orgId), eq(schema.tuitionPlans.status, 'past_due'))
+      : and(eq(schema.tuitionPlans.organizationId, orgId), eq(schema.tuitionPlans.status, 'past_due')),
+    with: {
+      student: { columns: { fullName: true } },
+      guardian: { columns: { fullName: true, email: true } },
+    },
+  });
+
+  const eligible = cutoff
+    ? plans.filter(p => !p.lastReminderSentAt || new Date(p.lastReminderSentAt) < cutoff)
+    : plans;
+  if (eligible.length === 0) return { sent: 0 };
+
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev';
+  const resend = apiKey ? new Resend(apiKey) : null;
+  const appUrl = env.NEXT_PUBLIC_APP_URL;
+
+  let sent = 0;
+  for (const plan of eligible) {
+    if (!plan.guardianUserId) continue;
+    const studentName = plan.student?.fullName ?? 'your child';
+    const amount = new Intl.NumberFormat('en-US', { style: 'currency', currency: plan.currency }).format(plan.amountCents / 100);
+
+    await createNotification({
+      organizationId: orgId,
+      userId: plan.guardianUserId,
+      type: 'payment_failed',
+      title: 'Tuition payment reminder',
+      body: `${studentName}'s tuition payment of ${amount} is past due. Please update your payment method to avoid interruption.`,
+      link: `/parent/${plan.studentId}`,
+    });
+
+    if (resend && plan.guardian?.email) {
+      await resend.emails.send({
+        from: fromEmail,
+        to: plan.guardian.email,
+        subject: `Tuition payment reminder — ${studentName}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
+            <p style="font-size:16px">Assalamu alaykum, ${plan.guardian.fullName ?? 'dear parent'},</p>
+            <p>This is a friendly reminder that <strong>${studentName}</strong>'s tuition payment of <strong>${amount}</strong> is past due.</p>
+            <p>Please update your payment method to keep billing active:</p>
+            <p><a href="${appUrl}/parent/${plan.studentId}" style="color:#7c5cbf">Update billing →</a></p>
+            <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
+            <p style="font-size:13px;color:#888">JazakAllah khair — Talibly</p>
+          </div>
+        `,
+      });
+    }
+
+    await db.update(schema.tuitionPlans).set({ lastReminderSentAt: new Date() }).where(eq(schema.tuitionPlans.id, plan.id));
+    sent++;
+  }
+
+  return { sent };
+}
+
+// Admin-triggered: remind every family currently past due, right now.
+export async function sendTuitionReminders(orgId: string) {
+  const { sent } = await runTuitionReminders(orgId);
+  revalidatePath('/admin/tuition');
+  redirect(`/admin/tuition?notice=${sent > 0 ? 'reminders_sent' : 'no_reminders_due'}`);
+}
+
+// Admin-triggered: remind a single family.
+export async function sendSingleTuitionReminder(planId: string, orgId: string) {
+  const { sent } = await runTuitionReminders(orgId, { planId });
+  revalidatePath('/admin/tuition');
+  redirect(`/admin/tuition?notice=${sent > 0 ? 'reminders_sent' : 'no_reminders_due'}`);
+}
+
+// Cron-triggered (see /api/cron/tuition-reminders): throttled so the same
+// family is reminded at most once per week.
+export async function sendTuitionRemindersThrottled(orgId: string, throttleDays = 7) {
+  return runTuitionReminders(orgId, { throttleDays });
+}
+
 export async function getAdminStudentTuition(studentId: string, orgId: string) {
   const [student, plans] = await Promise.all([
     db.query.students.findFirst({
@@ -1294,6 +1389,16 @@ export async function createTrialPlacement(
     })
     .returning({ id: schema.trialPlacements.id });
   if (!row) throw new Error('Insert failed');
+
+  if (data.assignedTeacherId) {
+    await notifyTeacherIfEnabled(data.assignedTeacherId, orgId, 'trialAssigned', {
+      type: 'trial_assigned',
+      title: `New trial assigned: ${data.studentFirstName} ${data.studentLastName}`,
+      body: 'Assess this trial student and recommend a class.',
+      link: '/teacher/trials',
+    });
+  }
+
   revalidatePath('/admin/trials');
   redirect(`/admin/trials/${row.id}?notice=trial_created`);
 }

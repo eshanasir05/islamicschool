@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 100">
+  <defs>
+    <linearGradient id="logo-full-stem-gradient" x1="32" y1="9" x2="32" y2="51" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0c1e2d" />
+      <stop offset="0.35" stop-color="#0f6f63" />
+      <stop offset="1" stop-color="#14b8a6" />
+    </linearGradient>
+    <linearGradient id="logo-full-word-gradient" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0c1e2d" />
+      <stop offset="0.55" stop-color="#0f6f63" />
+      <stop offset="1" stop-color="#14b8a6" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(4,17)">
+    <rect x="8" y="9" width="48" height="13" rx="6.5" fill="#0c1e2d" />
+    <rect x="24.5" y="9" width="15" height="42" rx="7" fill="url(#logo-full-stem-gradient)" />
+    <g transform="translate(32,46) rotate(-40)">
+      <path d="M0 -13 C7 -6.5 7 6.5 0 13 C-7 6.5 -7 -6.5 0 -13 Z" fill="#5eead4" />
+    </g>
+  </g>
+  <text x="58" y="60" font-family="Geist, -apple-system, Segoe UI, system-ui, sans-serif" font-size="46" font-weight="600" letter-spacing="-1" fill="url(#logo-full-word-gradient)">alibly</text>
+  <text x="60" y="82" font-family="Geist, -apple-system, Segoe UI, system-ui, sans-serif" font-size="11" font-weight="600" letter-spacing="3" fill="#0f766e">FOR THE UMMAH</text>
+</svg>

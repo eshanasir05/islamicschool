@@ -1,5 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
+import { parseNotificationPrefs, type NotificationPrefs } from '@/lib/teacher-prefs';
 
 export type NotificationType =
   | 'hifz_recorded'
@@ -11,7 +12,9 @@ export type NotificationType =
   | 'lead_submitted'
   | 'homework_assigned'
   | 'hifz_milestone'
-  | 'attendance_absent';
+  | 'attendance_absent'
+  | 'trial_assigned'
+  | 'absence_reason';
 
 type NotificationInput = {
   organizationId: string;
@@ -125,5 +128,45 @@ export async function notifyOrgAdmins(
   });
   await Promise.all(
     admins.map(m => createNotification({ ...input, organizationId, userId: m.userId })),
+  );
+}
+
+async function getTeacherNotificationPrefs(teacherId: string): Promise<NotificationPrefs> {
+  const row = await db.query.users.findFirst({
+    where: eq(schema.users.id, teacherId),
+    columns: { notificationPrefs: true },
+  });
+  return parseNotificationPrefs(row?.notificationPrefs);
+}
+
+/** Notify one teacher, but only if they haven't turned this category off in
+ * their Notification preferences (see /account). Unset defaults to on. */
+export async function notifyTeacherIfEnabled(
+  teacherId: string,
+  organizationId: string,
+  prefKey: keyof NotificationPrefs,
+  input: Omit<NotificationInput, 'organizationId' | 'userId'>,
+) {
+  const prefs = await getTeacherNotificationPrefs(teacherId);
+  if (!prefs[prefKey]) return;
+  await createNotification({ ...input, organizationId, userId: teacherId });
+}
+
+/** Notify every active teacher in an organization, respecting each teacher's
+ * own preference for this category (used for school-wide announcements). */
+export async function notifyAllTeachersIfEnabled(
+  organizationId: string,
+  prefKey: keyof NotificationPrefs,
+  input: Omit<NotificationInput, 'organizationId' | 'userId'>,
+) {
+  const teachers = await db.query.memberships.findMany({
+    where: and(
+      eq(schema.memberships.organizationId, organizationId),
+      eq(schema.memberships.status, 'active'),
+      eq(schema.memberships.role, 'teacher'),
+    ),
+  });
+  await Promise.all(
+    teachers.map(t => notifyTeacherIfEnabled(t.userId, organizationId, prefKey, input)),
   );
 }

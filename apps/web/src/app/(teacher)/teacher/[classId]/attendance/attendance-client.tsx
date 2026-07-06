@@ -6,30 +6,35 @@ import { Stepper } from '@skooly/ui';
 import { type AttendanceInput, submitAttendance } from '@/app/(teacher)/actions';
 
 type Student = { id: string; fullName: string };
-type Status = 'present' | 'late' | 'absent';
+type Status = 'present' | 'late' | 'absent' | 'excused';
 
-const STEPS = [
-  { label: 'Attendance' },
-  { label: 'Hifz' },
-  { label: 'Notes' },
-  { label: 'Confirm' },
+const STATUS_OPTIONS: { value: Status; label: string }[] = [
+  { value: 'present', label: 'Present' },
+  { value: 'late', label: 'Late' },
+  { value: 'absent', label: 'Absent' },
+  { value: 'excused', label: 'Excused' },
 ];
-
-const STATUS_CYCLE: Status[] = ['present', 'late', 'absent'];
 
 export default function AttendanceClient({ classId, students }: { classId: string; students: Student[] }) {
   const router = useRouter();
+  const STEPS = [
+    { label: 'Attendance', href: `/teacher/${classId}/attendance` },
+    { label: 'Hifz', href: `/teacher/${classId}/hifz` },
+    { label: 'Notes', href: `/teacher/${classId}/notes` },
+    { label: 'Confirm', href: `/teacher/${classId}/confirm` },
+  ];
   const [statuses, setStatuses] = useState<Record<string, Status>>(
     Object.fromEntries(students.map(s => [s.id, 'present'])),
   );
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
-  function toggle(studentId: string) {
-    setStatuses(prev => {
-      const current = prev[studentId] ?? 'present';
-      const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(current) + 1) % STATUS_CYCLE.length]!;
-      return { ...prev, [studentId]: next };
-    });
+  function setStatus(studentId: string, status: Status) {
+    setStatuses(prev => ({ ...prev, [studentId]: status }));
+  }
+
+  function setNote(studentId: string, note: string) {
+    setNotes(prev => ({ ...prev, [studentId]: note }));
   }
 
   function markAll(status: Status) {
@@ -41,6 +46,7 @@ export default function AttendanceClient({ classId, students }: { classId: strin
     const records: AttendanceInput[] = students.map(s => ({
       studentId: s.id,
       status: statuses[s.id] ?? 'present',
+      notes: statuses[s.id] === 'excused' ? notes[s.id] : undefined,
     }));
     await submitAttendance(classId, records);
     router.push(`/teacher/${classId}/hifz`);
@@ -56,7 +62,8 @@ export default function AttendanceClient({ classId, students }: { classId: strin
         Mark attendance
       </h2>
       <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 20 }}>
-        Tap a student to cycle: Present → Late → Absent
+        Tap Present, Late, Absent, or Excused for each student. Excused is for absences the
+        family already told you about — it won&apos;t prompt them for a reason.
       </p>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
@@ -68,19 +75,34 @@ export default function AttendanceClient({ classId, students }: { classId: strin
         {students.map(s => {
           const status = statuses[s.id] ?? 'present';
           return (
-            <button
-              key={s.id}
-              type="button"
-              className={`attendance-student-card ${status}`}
-              onClick={() => toggle(s.id)}
-              aria-label={`${s.fullName}: ${status}. Tap to change.`}
-              aria-pressed={status === 'present'}
-            >
-              <span className="attendance-student-name">{s.fullName}</span>
-              <span className={`badge badge-${status}`} style={{ textTransform: 'capitalize' }}>
-                {status}
-              </span>
-            </button>
+            <div key={s.id} className="attendance-row-wrap">
+              <div className="attendance-row">
+                <span className="attendance-student-name">{s.fullName}</span>
+                <div className="attendance-status-buttons" role="group" aria-label={`${s.fullName}'s attendance status`}>
+                  {STATUS_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={`attendance-status-btn ${opt.value}${status === opt.value ? ' is-selected' : ''}`}
+                      onClick={() => setStatus(s.id, opt.value)}
+                      aria-pressed={status === opt.value}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {status === 'excused' && (
+                <input
+                  type="text"
+                  className="form-input attendance-note-input"
+                  placeholder="Reason (optional) — e.g. sick, told you in advance"
+                  value={notes[s.id] ?? ''}
+                  onChange={e => setNote(s.id, e.target.value)}
+                  aria-label={`Reason ${s.fullName} is excused`}
+                />
+              )}
+            </div>
           );
         })}
       </div>

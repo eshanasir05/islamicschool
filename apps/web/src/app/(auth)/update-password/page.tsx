@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { TaliblyLogo } from '@/components/ui/logo';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('');
@@ -34,8 +36,9 @@ export default function UpdatePasswordPage() {
 
   return (
     <div className="sign-in-page">
+      <ThemeToggle compact className="auth-theme-toggle" />
       <div className="sign-in-card">
-        <div className="sign-in-logo"><span className="mark">T</span><span>talibly</span></div>
+        <div className="sign-in-logo"><TaliblyLogo iconSize={24} /></div>
 
         {done ? (
           <div className="sign-in-sent">

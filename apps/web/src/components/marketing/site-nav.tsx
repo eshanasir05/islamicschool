@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Icon } from './icon';
+import { TaliblyLogo } from '@/components/ui/logo';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const NAV_PAGES = [
   { href: '/', label: 'Home', key: 'home' as const },
@@ -49,9 +51,8 @@ export function SiteNav() {
   return (
     <nav className={`nav ${scrolled ? 'scrolled' : ''}`}>
       <div className="container nav-inner">
-        <Link className="nav-logo" href="/">
-          <span className="mark">S</span>
-          talibly
+        <Link className="nav-logo site-logo" href="/">
+          <TaliblyLogo iconSize={40} />
         </Link>
         <div className="nav-links">
           {NAV_PAGES.map((p) => {
@@ -64,6 +65,7 @@ export function SiteNav() {
           })}
         </div>
         <div className="nav-cta">
+          <ThemeToggle compact className="hide-sm" />
           <Link className="btn btn-ghost btn-login" href="/sign-in">
             Login
           </Link>
@@ -95,6 +97,9 @@ export function SiteNav() {
                   {p.label}
                 </Link>
               ))}
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <ThemeToggle />
             </div>
           </div>
         </div>

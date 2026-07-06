@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { TaliblyLogo, LogoTagline } from '@/components/ui/logo';
 
 export function SiteFooter() {
   return (
@@ -7,9 +8,9 @@ export function SiteFooter() {
         <div className="footer-grid">
           <div>
             <Link className="nav-logo" href="/">
-              <span className="mark">T</span>
-              talibly
+              <TaliblyLogo iconSize={28} />
             </Link>
+            <LogoTagline className="footer-tagline" />
             <p className="footer-blurb">
               Parent-first school management for North American Islamic schools, full-time
               academies, and Quran tutors.

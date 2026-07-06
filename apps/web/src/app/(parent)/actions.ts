@@ -1,6 +1,6 @@
 'use server';
 
-import { and, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
@@ -8,6 +8,7 @@ import { env } from '@/env';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe';
 import { logActivity } from '@/lib/activity-log';
+import { notifyTeacherIfEnabled } from '@/lib/notifications';
 
 export async function getAnnouncements(orgId: string) {
   const rows = await db
@@ -164,6 +165,85 @@ export async function getAdabJournal(studentId: string) {
   });
 }
 
+// Monthly report card: attendance summary, hifz progress, milestones, and
+// praise/general notes for a student over a given calendar month. Powers the
+// printable "here's what your child learned this month" export.
+export async function getStudentReportCard(studentId: string, month: string) {
+  await assertGuardianOf(studentId);
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
+
+  const [year, mon] = month.split('-').map(Number);
+  const monthStart = `${month}-01`;
+  const lastDay = new Date(year!, mon!, 0).getDate();
+  const monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
+  const rangeStart = new Date(`${monthStart}T00:00:00Z`);
+  const rangeEnd = new Date(`${monthEnd}T23:59:59Z`);
+
+  const [student, enrollments, attendance, hifz, milestones, notes] = await Promise.all([
+    db.query.students.findFirst({ where: eq(schema.students.id, studentId) }),
+    db.query.classEnrollments.findMany({
+      where: eq(schema.classEnrollments.studentId, studentId),
+      with: { class: { columns: { name: true } } },
+    }),
+    db.query.attendanceRecords.findMany({
+      where: and(
+        eq(schema.attendanceRecords.studentId, studentId),
+        eq(schema.attendanceRecords.organizationId, orgId),
+        gte(schema.attendanceRecords.sessionDate, monthStart),
+        lte(schema.attendanceRecords.sessionDate, monthEnd),
+      ),
+      orderBy: (a, { asc }) => asc(a.sessionDate),
+    }),
+    db.query.hifzRecords.findMany({
+      where: and(
+        eq(schema.hifzRecords.studentId, studentId),
+        eq(schema.hifzRecords.organizationId, orgId),
+        gte(schema.hifzRecords.sessionDate, monthStart),
+        lte(schema.hifzRecords.sessionDate, monthEnd),
+      ),
+      orderBy: (h, { asc }) => asc(h.sessionDate),
+    }),
+    db.query.hifzMilestones.findMany({
+      where: and(
+        eq(schema.hifzMilestones.studentId, studentId),
+        eq(schema.hifzMilestones.organizationId, orgId),
+        gte(schema.hifzMilestones.achievedDate, monthStart),
+        lte(schema.hifzMilestones.achievedDate, monthEnd),
+      ),
+      orderBy: (m, { asc }) => asc(m.achievedDate),
+    }),
+    db.query.studentNotes.findMany({
+      where: and(
+        eq(schema.studentNotes.studentId, studentId),
+        eq(schema.studentNotes.organizationId, orgId),
+        eq(schema.studentNotes.visibleToParent, true),
+        gte(schema.studentNotes.createdAt, rangeStart),
+        lte(schema.studentNotes.createdAt, rangeEnd),
+      ),
+      orderBy: (n, { asc }) => asc(n.createdAt),
+    }),
+  ]);
+
+  const attendanceSummary = {
+    present: attendance.filter(a => a.status === 'present').length,
+    late: attendance.filter(a => a.status === 'late').length,
+    absent: attendance.filter(a => a.status === 'absent').length,
+    excused: attendance.filter(a => a.status === 'excused').length,
+    total: attendance.length,
+  };
+
+  return {
+    student,
+    className: enrollments.map(e => e.class?.name).filter(Boolean).join(', ') || null,
+    monthStart,
+    monthEnd,
+    attendanceSummary,
+    hifz,
+    milestones,
+    notes,
+  };
+}
+
 export async function submitAbsenceReason(
   attendanceId: string,
   studentId: string,
@@ -182,7 +262,7 @@ export async function submitAbsenceReason(
   });
   if (!guardianLink) redirect(`/parent/${studentId}`);
 
-  await db.update(schema.attendanceRecords)
+  const [record] = await db.update(schema.attendanceRecords)
     .set({
       guardianReason: reason,
       guardianReasonNote: note?.trim() || null,
@@ -191,7 +271,8 @@ export async function submitAbsenceReason(
     .where(and(
       eq(schema.attendanceRecords.id, attendanceId),
       eq(schema.attendanceRecords.studentId, studentId),
-    ));
+    ))
+    .returning({ classId: schema.attendanceRecords.classId });
 
   const [student, actorRow] = await Promise.all([
     db.query.students.findFirst({ where: eq(schema.students.id, studentId), columns: { fullName: true } }),
@@ -202,6 +283,21 @@ export async function submitAbsenceReason(
     action: 'absence_reason.submitted', targetType: 'student', targetId: studentId,
     metadata: { targetLabel: student?.fullName ?? 'a student' },
   });
+
+  if (record) {
+    const cls = await db.query.classes.findFirst({
+      where: eq(schema.classes.id, record.classId),
+      columns: { primaryTeacherId: true },
+    });
+    if (cls?.primaryTeacherId) {
+      await notifyTeacherIfEnabled(cls.primaryTeacherId, env.NEXT_PUBLIC_ORG_ID, 'absenceResponses', {
+        type: 'absence_reason',
+        title: `${student?.fullName ?? 'A parent'} responded about an absence`,
+        body: `Reason: ${reason.replace('_', ' ')}${note ? ` — ${note}` : ''}`,
+        link: `/teacher`,
+      });
+    }
+  }
 
   revalidatePath(`/parent/${studentId}`);
   redirect(`/parent/${studentId}?notice=absence_reason_submitted`);
@@ -229,7 +325,7 @@ export async function createParentPaymentSession(planId: string, studentId: stri
 
   const appUrl = env.NEXT_PUBLIC_APP_URL;
 
-  if (plan.status === 'past_due' && plan.stripeCustomerId) {
+  if ((plan.status === 'past_due' || plan.status === 'active') && plan.stripeCustomerId) {
     const portal = await stripe.billingPortal.sessions.create({
       customer: plan.stripeCustomerId,
       return_url: `${appUrl}/parent/${plan.studentId}`,

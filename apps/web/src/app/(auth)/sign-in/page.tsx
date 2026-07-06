@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { signInWithPassword, signInWithMagicLink } from './actions';
+import { TaliblyLogo } from '@/components/ui/logo';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 type Mode = 'password' | 'magic';
 
@@ -45,7 +47,7 @@ export default function SignInPage() {
     return (
       <div className="sign-in-page">
         <div className="sign-in-card">
-          <div className="sign-in-logo"><span className="mark">T</span><span>talibly</span></div>
+          <div className="sign-in-logo"><TaliblyLogo iconSize={24} /></div>
           <div className="sign-in-sent">
             <h2>Check your email</h2>
             <p>We sent a sign-in link to <strong>{email}</strong>. Click it to continue.</p>
@@ -68,11 +70,12 @@ export default function SignInPage() {
 
   return (
     <div className="sign-in-page">
+      <ThemeToggle compact className="auth-theme-toggle" />
       <div className="sign-in-card">
         <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--color-muted)', marginBottom: 16, textDecoration: 'none' }}>
           ← Back to home
         </a>
-        <div className="sign-in-logo"><span className="mark">T</span><span>talibly</span></div>
+        <div className="sign-in-logo"><TaliblyLogo iconSize={24} /></div>
         <h1 className="sign-in-title">Sign in to Talibly</h1>
 
         {noAccess && (

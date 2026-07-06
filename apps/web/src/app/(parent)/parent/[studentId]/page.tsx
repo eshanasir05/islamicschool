@@ -8,6 +8,7 @@ import { env } from '@/env';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ToastOnParam } from '@/components/ui/toast-on-param';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { LogoMark } from '@/components/ui/logo';
 
 type Props = { params: Promise<{ studentId: string }>; searchParams: Promise<{ payment?: string; notice?: string }> };
 
@@ -90,8 +91,9 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
     <main className="app-main">
       <ToastOnParam notice={notice} />
       {payment === 'success' && (
-        <div className="banner banner-success" style={{ marginTop: 16 }}>
-          Payment received — JazakAllah khayran! Your billing is now active.
+        <div className="banner banner-success" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <LogoMark size={22} />
+          <span>Payment received — JazakAllah khayran! Your billing is now active.</span>
         </div>
       )}
       <p className="feed-date" style={{ marginTop: 24 }}>{todayLabel}</p>
@@ -226,9 +228,14 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
         </div>
       ))}
 
-      <Link href={`/parent/${studentId}/journal`} className="btn-link" style={{ marginBottom: 20, display: 'inline-block' }}>
-        View {student.fullName.split(' ')[0]}&apos;s full adab journal →
-      </Link>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+        <Link href={`/parent/${studentId}/journal`} className="btn-link">
+          View {student.fullName.split(' ')[0]}&apos;s full adab journal →
+        </Link>
+        <Link href={`/parent/${studentId}/report`} className="btn-link">
+          This month&apos;s progress report →
+        </Link>
+      </div>
 
       {homeworkNotes.slice(0, 2).map(note => (
         <div key={note.id} className="app-card" style={{ marginBottom: 12 }}>
@@ -331,6 +338,14 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
                   </button>
                 </form>
               </div>
+            )}
+
+            {tuition.status === 'active' && (
+              <form action={payNowAction} style={{ marginTop: 12 }}>
+                <button type="submit" className="btn btn-ghost" style={{ fontSize: 13, padding: '7px 16px' }}>
+                  Manage billing →
+                </button>
+              </form>
             )}
 
             {tuition.payments.length > 0 && (

@@ -10,13 +10,8 @@ import TeacherNav from './teacher-nav';
 import TeacherUserMenu from './teacher-user-menu';
 import { NotificationBell } from '@/components/ui/notification-bell';
 import { HelpLink } from '@/components/ui/help-link';
-
-function initialsOf(s: string) {
-  const parts = s.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return 'T';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
-}
+import { TaliblyLogo } from '@/components/ui/logo';
+import { initialsOf } from '@/lib/initials';
 
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -34,13 +29,12 @@ export default async function TeacherLayout({ children }: { children: React.Reac
     <div className="app-shell">
       <header className="app-header">
         <Link className="app-header-logo" href="/teacher">
-          <span className="mark">T</span>
-          <span>talibly</span>
+          <TaliblyLogo iconSize={24} />
         </Link>
         <div className="app-header-right">
           <HelpLink />
           <NotificationBell />
-          <TeacherUserMenu name={name} initials={initials} />
+          <TeacherUserMenu name={name} initials={initials} avatarUrl={publicUser?.avatarUrl} />
         </div>
       </header>
       <div className="teacher-shell">

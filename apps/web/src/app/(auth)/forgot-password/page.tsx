@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { sendPasswordReset } from './actions';
+import { TaliblyLogo } from '@/components/ui/logo';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -25,11 +27,12 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="sign-in-page">
+      <ThemeToggle compact className="auth-theme-toggle" />
       <div className="sign-in-card">
         <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--color-muted)', marginBottom: 16, textDecoration: 'none' }}>
           ← Back to home
         </a>
-        <div className="sign-in-logo"><span className="mark">T</span><span>talibly</span></div>
+        <div className="sign-in-logo"><TaliblyLogo iconSize={24} /></div>
 
         {sent ? (
           <div className="sign-in-sent">
@@ -61,8 +64,8 @@ export default function ForgotPasswordPage() {
               </button>
             </form>
             {error === 'rate_limit' && (
-              <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: '#fef3c7', border: '1px solid #fde68a', fontSize: 13, color: '#92400e' }}>
-                <strong>Too many requests.</strong> Supabase limits password reset emails on the free tier. Please wait a minute and try again, or use the <a href="/sign-in" style={{ color: '#92400e', fontWeight: 600 }}>demo credentials</a> on the sign-in page.
+              <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: 'var(--warn-bg)', border: '1px solid var(--warn-border)', fontSize: 13, color: 'var(--warn-fg)' }}>
+                <strong>Too many requests.</strong> Supabase limits password reset emails on the free tier. Please wait a minute and try again, or use the <a href="/sign-in" style={{ color: 'var(--warn-fg)', fontWeight: 600 }}>demo credentials</a> on the sign-in page.
               </div>
             )}
             {error === 'send_failed' && (

@@ -1,6 +1,24 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
+  /* Fixed brand navy — deliberately NOT overridden in dark mode. A handful of
+     decorative panels (CTA band, featured pricing tier, phone mockup bezel,
+     "dark" bento cells, primary buttons) use this as a literal background
+     color meaning "always our navy," not "the current foreground color."
+     Using var(--fg) for that would flip them near-white in dark mode and
+     break the white text sitting on top. */
+  --navy-fixed: #0c1e2d;
+  /* Translucent glass for the sticky marketing nav — must track the theme,
+     unlike --navy-fixed above, since it's a light-tinted overlay meant to
+     sit on top of the page background, not a fixed brand color. */
+  --nav-glass: rgba(240, 249, 255, 0.88);
+  /* Logo gradient's mid/end stops. Dark mode brightens both (see override
+     below) — the light-mode mid stop (#0f6f63) is dark enough that it reads
+     as a muddy patch against a dark background, so it isn't just the first
+     stop that needs to flip. */
+  --logo-mid: #0f6f63;
+  --logo-end: #14b8a6;
   --bg: #f0f9ff;
   --bg-warm: #f0fdf4;
   --surface: #ffffff;
@@ -155,7 +173,7 @@ button {
   font-family: var(--font-mono);
   font-size: 9px;
   background: var(--warn-soft);
-  color: #92400e;
+  color: var(--warn-fg);
   padding: 1px 5px;
   border-radius: 4px;
   text-transform: uppercase;
@@ -185,7 +203,7 @@ button {
   transition: background 0.15s ease, color 0.15s ease;
 }
 .pricing-toggle-btn.is-active {
-  background: var(--fg);
+  background: var(--navy-fixed);
   color: #fafaf9;
 }
 .pricing-toggle-save {
@@ -231,12 +249,12 @@ button {
 }
 
 .btn-primary {
-  background: var(--fg);
+  background: var(--navy-fixed);
   color: white;
-  border-color: var(--fg);
+  border-color: var(--navy-fixed);
 }
 .btn-primary:hover {
-  background: var(--fg-2);
+  background: #1a3448;
   transform: translateY(-1px);
 }
 
@@ -289,7 +307,7 @@ button {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(240, 249, 255, 0.88);
+  background: var(--nav-glass);
   backdrop-filter: saturate(180%) blur(18px);
   -webkit-backdrop-filter: saturate(180%) blur(18px);
   border-bottom: 1px solid transparent;
@@ -307,24 +325,36 @@ button {
 .nav-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  font-size: 17px;
-  letter-spacing: -0.02em;
+  gap: 2px;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.03em;
   color: var(--fg);
   text-decoration: none;
 }
-.nav-logo .mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--sky) 100%);
-  color: white;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-mono);
-  font-size: 13px;
+.logo-word {
+  /* All three stops track theme-aware tokens — var(--fg) for the same reason
+     as the icon's gradient in logo.tsx, and --logo-mid/--logo-end because
+     the light-mode teal shades are dark enough to read as a muddy patch
+     against a dark background otherwise. */
+  background: linear-gradient(90deg, var(--fg) 0%, var(--logo-mid) 55%, var(--logo-end) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.nav-logo .logo-word {
+  margin-left: -10px;
+  transform: translateY(1px);
+}
+.site-logo {
+  gap: 2px;
   font-weight: 600;
+  font-size: 26px;
+  letter-spacing: -0.01em;
+}
+.site-logo .logo-word {
+  margin-left: -14px;
+  transform: translateY(2px);
 }
 .nav-links {
   display: flex;
@@ -501,7 +531,7 @@ button {
   color: var(--fg);
 }
 .persona-rail-link.is-active {
-  background: var(--fg);
+  background: var(--navy-fixed);
   color: white;
   font-weight: 500;
 }
@@ -559,7 +589,7 @@ button {
   padding: 64px 0 96px;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(155deg, #e0f2fe 0%, #f0f9ff 42%, #f0fdf4 100%);
+  background: linear-gradient(155deg, var(--sky-soft) 0%, var(--bg) 42%, var(--bg-warm) 100%);
 }
 .hero::before {
   content: "";
@@ -677,7 +707,7 @@ button {
   top: 10px;
   width: 340px;
   height: 600px;
-  background: var(--fg);
+  background: var(--navy-fixed);
   border-radius: 44px;
   padding: 10px;
   box-shadow: var(--shadow-3);
@@ -927,7 +957,7 @@ button {
 
 /* ---------- roles section ---------- */
 .roles {
-  background: var(--fg);
+  background: var(--navy-fixed);
   color: white;
   padding: 120px 0;
   position: relative;
@@ -1093,7 +1123,10 @@ button {
   padding: 120px 0;
 }
 .cta-card {
-  background: linear-gradient(135deg, var(--fg) 0%, #1a3448 50%, #0c2a1e 100%);
+  /* Fixed brand-navy panel — intentionally the same in both themes, so this
+     uses var(--navy-fixed) rather than var(--fg) (which flips to near-white
+     in dark mode and would break the white text below). */
+  background: linear-gradient(135deg, var(--navy-fixed) 0%, #1a3448 50%, #0c2a1e 100%);
   color: white;
   border-radius: var(--radius-xl);
   padding: 80px 48px;
@@ -1208,6 +1241,17 @@ button {
   color: var(--muted);
   margin: 14px 0 0;
   max-width: 320px;
+}
+.brand-tagline {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-700);
+}
+.footer-tagline {
+  margin-top: 6px;
 }
 .footer-base {
   margin-top: 48px;
@@ -1363,8 +1407,8 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--purple-soft);
+  color: var(--purple-fg);
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 11px;
@@ -1781,7 +1825,7 @@ button {
 .pay-btn {
   width: 100%;
   height: 44px;
-  background: var(--fg);
+  background: var(--navy-fixed);
   color: #fafaf9;
   border: none;
   border-radius: 10px;
@@ -1969,9 +2013,9 @@ button {
   overflow: hidden;
 }
 .bento-cell.dark {
-  background: var(--fg);
+  background: var(--navy-fixed);
   color: #fafaf9;
-  border-color: var(--fg);
+  border-color: var(--navy-fixed);
 }
 .bento-cell.tint {
   background: var(--accent-soft);
@@ -2112,8 +2156,10 @@ button {
   flex-direction: column;
 }
 .tier.featured {
-  border-color: var(--fg);
-  background: linear-gradient(160deg, var(--fg) 0%, #1a3a55 100%);
+  /* Fixed brand-navy panel — see .cta-card comment above for why this uses
+     var(--navy-fixed) instead of var(--fg). */
+  border-color: var(--navy-fixed);
+  background: linear-gradient(160deg, var(--navy-fixed) 0%, #1a3a55 100%);
   color: white;
   box-shadow: var(--shadow-3);
   transform: translateY(-8px);
@@ -2403,11 +2449,16 @@ button {
 .sign-in-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 18px;
-  font-weight: 600;
+  gap: 2px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   color: var(--fg);
   margin-bottom: 32px;
+}
+.sign-in-logo .logo-word {
+  margin-left: -10px;
+  transform: translateY(1px);
 }
 .sign-in-title {
   font-size: 22px;
@@ -2511,11 +2562,16 @@ button {
 .app-header-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 600;
+  gap: 2px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   color: var(--fg);
   text-decoration: none;
+}
+.app-header-logo .logo-word {
+  margin-left: -10px;
+  transform: translateY(1px);
 }
 .app-header-right {
   display: flex;
@@ -2582,6 +2638,9 @@ button {
 }
 .stepper-step.active { color: var(--accent-700); }
 .stepper-step.done   { color: var(--muted); }
+.stepper-step-link   { text-decoration: none; cursor: pointer; }
+.stepper-step-link:hover { color: var(--accent-700); }
+.stepper-step-link:hover .stepper-dot { border-color: var(--accent); }
 .stepper-dot {
   width: 24px;
   height: 24px;
@@ -2711,40 +2770,40 @@ button {
   letter-spacing: 0.04em;
 }
 .badge-present  { background: var(--accent-soft);  color: var(--accent-700); }
-.badge-late     { background: var(--warn-soft);     color: #92400e; }
-.badge-absent   { background: #fee2e2;              color: #991b1b; }
+.badge-late     { background: var(--warn-soft);     color: var(--warn-fg); }
+.badge-absent   { background: var(--danger-soft);   color: var(--danger-fg); }
 .badge-excused  { background: var(--sky-soft);      color: var(--sky-700); }
 .badge-sabak    { background: var(--accent-soft);   color: var(--accent-700); }
 .badge-sabqi    { background: var(--sky-soft);      color: var(--sky-700); }
-.badge-manzil   { background: #ede9fe;              color: #5b21b6; }
+.badge-manzil   { background: var(--purple-soft);   color: var(--purple-fg); }
 .badge-praise   { background: var(--accent-soft);   color: var(--accent-700); }
-.badge-homework { background: var(--warn-soft);     color: #92400e; }
+.badge-homework { background: var(--warn-soft);     color: var(--warn-fg); }
 .badge-mastered      { background: var(--accent-soft); color: var(--accent-700); }
 .badge-passed        { background: var(--sky-soft);    color: var(--sky-700); }
-.badge-needs_review  { background: var(--warn-soft);   color: #92400e; }
-.badge-weak          { background: #fee2e2;            color: #991b1b; }
+.badge-needs_review  { background: var(--warn-soft);   color: var(--warn-fg); }
+.badge-weak          { background: var(--danger-soft); color: var(--danger-fg); }
 
 /* Tuition status */
 .badge-active        { background: var(--accent-soft); color: var(--accent-700); }
 .badge-paid          { background: var(--accent-soft); color: var(--accent-700); }
 .badge-pending_payment,
-.badge-pending       { background: var(--warn-soft);   color: #92400e; }
-.badge-past_due      { background: #fee2e2;            color: #991b1b; }
-.badge-failed        { background: #fee2e2;            color: #991b1b; }
+.badge-pending       { background: var(--warn-soft);   color: var(--warn-fg); }
+.badge-past_due      { background: var(--danger-soft); color: var(--danger-fg); }
+.badge-failed        { background: var(--danger-soft); color: var(--danger-fg); }
 .badge-cancelled     { background: var(--neutral-soft);color: var(--neutral-fg); }
 .badge-assistance,
 .badge-discount      { background: var(--purple-soft); color: var(--purple-fg); }
 
 /* Homework status */
-.badge-due_soon      { background: var(--warn-soft);   color: #92400e; }
-.badge-overdue       { background: #fee2e2;            color: #991b1b; }
+.badge-due_soon      { background: var(--warn-soft);   color: var(--warn-fg); }
+.badge-overdue       { background: var(--danger-soft); color: var(--danger-fg); }
 .badge-completed     { background: var(--accent-soft); color: var(--accent-700); }
 .badge-assigned      { background: var(--sky-soft);    color: var(--sky-700); }
 
 /* Trial / placement status */
 .badge-inquiry       { background: var(--neutral-soft);color: var(--neutral-fg); }
 .badge-scheduled     { background: var(--sky-soft);    color: var(--sky-700); }
-.badge-assessed      { background: var(--warn-soft);   color: #92400e; }
+.badge-assessed      { background: var(--warn-soft);   color: var(--warn-fg); }
 .badge-converted     { background: var(--accent-soft); color: var(--accent-700); }
 
 /* Generic neutral fallback */
@@ -2759,22 +2818,50 @@ button {
   flex-direction: column;
   gap: 10px;
 }
-.attendance-student-card {
+.attendance-row-wrap {
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 20px;
+  padding: 14px 18px;
+}
+.attendance-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.attendance-note-input {
+  margin-top: 10px;
+  width: 100%;
+}
+.attendance-student-name { font-size: 16px; font-weight: 500; color: var(--fg); }
+.attendance-status-buttons {
+  display: flex;
+  gap: 8px;
+}
+.attendance-status-btn {
+  border: 2px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
   cursor: pointer;
   user-select: none;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
-.attendance-student-card.present { border-color: var(--accent); background: var(--accent-soft); }
-.attendance-student-card.late    { border-color: var(--warn);   background: var(--warn-soft); }
-.attendance-student-card.absent  { border-color: var(--rose);   background: #fee2e2; }
-.attendance-student-name { font-size: 16px; font-weight: 500; color: var(--fg); }
+.attendance-status-btn:hover { border-color: var(--border-2); }
+.attendance-status-btn.present.is-selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-700); }
+.attendance-status-btn.late.is-selected    { border-color: var(--warn);   background: var(--warn-soft);   color: #92400e; }
+.attendance-status-btn.absent.is-selected  { border-color: var(--rose);   background: #fee2e2;            color: #991b1b; }
+.attendance-status-btn.excused.is-selected { border-color: var(--sky);    background: var(--sky-soft);    color: var(--sky-700); }
+@media (max-width: 480px) {
+  .attendance-row { flex-direction: column; align-items: stretch; }
+  .attendance-status-buttons { justify-content: space-between; }
+  .attendance-status-btn { flex: 1; padding: 8px 4px; }
+}
 
 /* ─── Teacher wrap actions bar ────────────────────────────────────────────── */
 .wrap-actions {
@@ -3130,6 +3217,70 @@ button {
   --warn-bg: #fffbeb;
   --warn-border: #fde68a;
   --warn-fg: #92400e;
+}
+
+/* ─── Dark mode ────────────────────────────────────────────────────────────
+   Same token names, dark values. Everything built on var(--fg)/var(--surface)/
+   etc. picks this up automatically — only hardcoded hex colors need separate
+   fixes (see badge-* overrides further down). Toggled via a `data-theme="dark"`
+   attribute on <html> (see the no-flash bootstrap script in layout.tsx and
+   the ThemeToggle component). Declared after both :root blocks above so it
+   wins the cascade at equal specificity for every token, including the
+   success/error/info/warn set defined just above. */
+[data-theme="dark"] {
+  --nav-glass: rgba(10, 21, 32, 0.85);
+  --logo-mid: #2dd4bf;
+  --logo-end: #99f6e4;
+  --bg: #0a1520;
+  --bg-warm: #0d1a16;
+  --surface: #101f2e;
+  --fg: #eef6fb;
+  --fg-2: #d7e3ec;
+  --muted: #93a8ba;
+  --subtle: #64798c;
+  --border: #22374a;
+  --border-2: #2c4359;
+  --accent: #34d399;
+  --accent-700: #6ee7b7;
+  --accent-soft: #0f3d30;
+  --accent-soft-2: #14532d;
+  --sky: #38bdf8;
+  --sky-700: #7dd3fc;
+  --sky-soft: #0c2d42;
+  --warn: #fbbf24;
+  --warn-soft: #3f2d0a;
+  --rose: #fb7185;
+  --indigo: #a5b4fc;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-2: 0 10px 24px -8px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-3: 0 30px 60px -20px rgba(0, 0, 0, 0.7), 0 12px 28px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+
+  --danger: var(--rose);
+  --danger-soft: #3f1620;
+  --danger-fg: #fca5a5;
+  --neutral-soft: #1c2b3a;
+  --neutral-fg: var(--muted);
+  --purple-soft: #2e2250;
+  --purple-fg: #c4b5fd;
+
+  --sand: #2a2013;
+  --sand-border: #4a3a1f;
+  --sand-fg: #d9c290;
+
+  --success-bg: #0f2b1c;
+  --success-border: #14532d;
+  --success-fg: #86efac;
+  --error-bg: #3a1418;
+  --error-border: #7f1d1d;
+  --error-fg: #fca5a5;
+  --info-bg: var(--sky-soft);
+  --info-border: #164e63;
+  --info-fg: #7dd3fc;
+  --warn-bg: #2e2107;
+  --warn-border: #92400e;
+  --warn-fg: #fcd34d;
+
+  color-scheme: dark;
 }
 
 /* ─── Typography utilities (logged-in app) ────────────────────────────────── */
@@ -3896,4 +4047,69 @@ button {
     width: auto;
     max-height: calc(100vh - 80px);
   }
+}
+
+/* Report card — printable monthly progress summary. Hide app chrome and let
+   the report fill the page when printed / saved as PDF. */
+.report-card { max-width: 720px; margin: 0 auto; }
+.report-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--border); }
+.report-stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; margin-bottom: 24px; }
+@media print {
+  .app-header, .app-sidebar, .child-tabs, .no-print { display: none !important; }
+  .app-main { padding: 0 !important; max-width: 100% !important; }
+  body { background: #fff !important; }
+  .app-card, .report-card { box-shadow: none !important; }
+}
+
+/* ─── Theme toggle (light/dark) ───────────────────────────────────────────── */
+.theme-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.theme-toggle-btn.is-active {
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: var(--shadow-1);
+}
+.theme-toggle-compact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+.theme-toggle-compact:hover {
+  color: var(--fg);
+  border-color: var(--border-2);
+}
+.auth-theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
 }

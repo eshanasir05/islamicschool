@@ -1,24 +1,45 @@
 import { env } from '@/env';
-import { getAdminTuition } from '../../actions';
+import { getAdminTuition, sendTuitionReminders, sendSingleTuitionReminder } from '../../actions';
 import Link from 'next/link';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ExportButton } from '@/components/ui/export-button';
+import { SubmitButton } from '@/components/ui/submit-button';
+import { ToastOnParam } from '@/components/ui/toast-on-param';
 
 function formatAmount(cents: number, currency: string) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
 }
 
-export default async function TuitionPage() {
+type Props = { searchParams: Promise<{ notice?: string }> };
+
+export default async function TuitionPage({ searchParams }: Props) {
+  const { notice } = await searchParams;
   const students = await getAdminTuition(env.NEXT_PUBLIC_ORG_ID);
 
   const withPlan = students.filter(s => s.tuitionPlans.length > 0);
   const withoutPlan = students.filter(s => s.tuitionPlans.length === 0);
+  const pastDueCount = withPlan.filter(s => s.tuitionPlans[0]!.status === 'past_due').length;
+
+  const sendAllAction = async () => {
+    'use server';
+    await sendTuitionReminders(env.NEXT_PUBLIC_ORG_ID);
+  };
 
   return (
     <main className="app-main">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '24px 0 20px' }}>
+      <ToastOnParam notice={notice} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '24px 0 20px', flexWrap: 'wrap', gap: 10 }}>
         <h1 className="text-h1">Tuition</h1>
-        <ExportButton href="/api/admin/exports/payments" label="↓ Export ledger (CSV)" />
+        <div style={{ display: 'flex', gap: 8 }}>
+          {pastDueCount > 0 && (
+            <form action={sendAllAction}>
+              <SubmitButton className="btn btn-ghost" pendingLabel="Sending…">
+                Send reminders ({pastDueCount})
+              </SubmitButton>
+            </form>
+          )}
+          <ExportButton href="/api/admin/exports/payments" label="↓ Export ledger (CSV)" />
+        </div>
       </div>
 
       {withPlan.length > 0 && (
@@ -29,7 +50,7 @@ export default async function TuitionPage() {
           <table className="rtable">
             <thead>
               <tr>
-                {['Student', 'Guardian', 'Amount', 'Status', 'Last payment', 'Receipt'].map(h => (
+                {['Student', 'Guardian', 'Amount', 'Status', 'Last payment', 'Receipt', 'Reminder'].map(h => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -38,6 +59,10 @@ export default async function TuitionPage() {
               {withPlan.map(s => {
                 const plan = s.tuitionPlans[0]!;
                 const lastPayment = plan.payments[0];
+                const sendOneAction = async () => {
+                  'use server';
+                  await sendSingleTuitionReminder(plan.id, env.NEXT_PUBLIC_ORG_ID);
+                };
                 return (
                   <tr key={s.id}>
                     <td data-label="Student">
@@ -70,6 +95,20 @@ export default async function TuitionPage() {
                         <a href={lastPayment.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: 13 }}>
                           View
                         </a>
+                      ) : '—'}
+                    </td>
+                    <td data-label="Reminder">
+                      {plan.status === 'past_due' ? (
+                        <form action={sendOneAction}>
+                          <SubmitButton className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }} pendingLabel="Sending…">
+                            Send
+                          </SubmitButton>
+                          {plan.lastReminderSentAt && (
+                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                              Last sent {new Date(plan.lastReminderSentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </div>
+                          )}
+                        </form>
                       ) : '—'}
                     </td>
                   </tr>

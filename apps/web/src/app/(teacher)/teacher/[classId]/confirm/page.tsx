@@ -4,7 +4,8 @@ import { env } from '@/env';
 import Link from 'next/link';
 import { Stepper } from '@skooly/ui';
 import { ConfirmSubmit } from '@/components/ui/confirm-submit';
-import { notifyParents } from '../../../actions';
+import { LogoMark } from '@/components/ui/logo';
+import { notifyParents, eraseClassSession } from '../../../actions';
 
 type Props = { params: Promise<{ classId: string }>; searchParams: Promise<{ sent?: string }> };
 
@@ -17,11 +18,15 @@ function surahName(n: number) {
   return SURAH_NAMES[n] ?? `Surah ${n}`;
 }
 
-const STEPS = [{ label: 'Attendance' }, { label: 'Hifz' }, { label: 'Notes' }, { label: 'Confirm' }];
-
 export default async function ConfirmPage({ params, searchParams }: Props) {
   const { classId } = await params;
   const { sent } = await searchParams;
+  const STEPS = [
+    { label: 'Attendance', href: `/teacher/${classId}/attendance` },
+    { label: 'Hifz', href: `/teacher/${classId}/hifz` },
+    { label: 'Notes', href: `/teacher/${classId}/notes` },
+    { label: 'Confirm', href: `/teacher/${classId}/confirm` },
+  ];
   const today = new Date().toISOString().slice(0, 10);
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
@@ -60,15 +65,22 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
     await notifyParents(classId, today);
   };
 
+  const eraseAction = async () => {
+    'use server';
+    await eraseClassSession(classId, today);
+  };
+
   if (sent) {
     return (
       <main className="app-main">
         <div className="success-screen" style={{ paddingTop: 64 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+            <LogoMark size={48} />
+          </div>
           <h2>Class session complete!</h2>
           <p>Parents have been notified. JazakAllah khair.</p>
           <div className="success-actions">
-            <Link href="/teacher" className="btn btn-ghost">Start another class session</Link>
-            <Link href="/parent" className="btn btn-accent">View as parent →</Link>
+            <Link href="/teacher" className="btn btn-accent">Back to dashboard</Link>
           </div>
         </div>
       </main>
@@ -134,9 +146,17 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
         />
       </form>
       <div style={{ textAlign: 'center', marginTop: 12 }}>
-        <Link href="/teacher" className="btn btn-ghost btn-sm">
-          Skip &amp; finish
-        </Link>
+        <form action={eraseAction}>
+          <ConfirmSubmit
+            label="Erase class session"
+            title="Erase today's class session?"
+            body="This permanently deletes today's attendance, hifz, and notes for this class so you can start over. This can't be undone."
+            confirmLabel="Yes, erase everything"
+            variant="danger"
+            className="btn btn-ghost"
+            buttonStyle={{ fontSize: 11, padding: '2px 8px', color: 'var(--subtle)' }}
+          />
+        </form>
       </div>
     </main>
   );
