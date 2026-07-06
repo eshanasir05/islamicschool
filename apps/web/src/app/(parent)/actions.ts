@@ -325,7 +325,8 @@ export async function createParentPaymentSession(planId: string, studentId: stri
 
   const appUrl = env.NEXT_PUBLIC_APP_URL;
 
-  if ((plan.status === 'past_due' || plan.status === 'active') && plan.stripeCustomerId) {
+  if (plan.status === 'past_due' || plan.status === 'active') {
+    if (!plan.stripeCustomerId) redirect(`/parent/${studentId}?notice=billing_no_customer`);
     const portal = await stripe.billingPortal.sessions.create({
       customer: plan.stripeCustomerId,
       return_url: `${appUrl}/parent/${plan.studentId}`,
