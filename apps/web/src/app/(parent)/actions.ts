@@ -8,7 +8,7 @@ import { env } from '@/env';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe';
 import { logActivity } from '@/lib/activity-log';
-import { notifyTeacherIfEnabled } from '@/lib/notifications';
+import { notifyTeacherIfEnabled, createNotification } from '@/lib/notifications';
 
 export async function getAnnouncements(orgId: string) {
   const rows = await db
@@ -126,15 +126,51 @@ export async function getStudentHomework(studentId: string) {
   if (enrollments.length === 0) return [];
   const classIds = enrollments.map(e => e.classId);
 
-  return db.query.homeworkAssignments.findMany({
-    where: and(
-      eq(schema.homeworkAssignments.archived, false),
-      inArray(schema.homeworkAssignments.classId, classIds),
-    ),
-    with: { class: { columns: { name: true } } },
-    orderBy: (h, { asc }) => asc(h.dueDate),
-    limit: 5,
-  });
+  const [assignments, completions] = await Promise.all([
+    db.query.homeworkAssignments.findMany({
+      where: and(
+        eq(schema.homeworkAssignments.archived, false),
+        inArray(schema.homeworkAssignments.classId, classIds),
+      ),
+      with: { class: { columns: { name: true } } },
+      orderBy: (h, { asc }) => asc(h.dueDate),
+      limit: 5,
+    }),
+    db.query.homeworkCompletions.findMany({
+      where: eq(schema.homeworkCompletions.studentId, studentId),
+      columns: { homeworkAssignmentId: true },
+    }),
+  ]);
+  const doneIds = new Set(completions.map(c => c.homeworkAssignmentId));
+  return assignments.map(hw => ({ ...hw, done: doneIds.has(hw.id) }));
+}
+
+// Parent marks (or unmarks) homework as done for their child. Completion is
+// per-child, not per-assignment, since siblings in the same class finish
+// at different times.
+export async function setHomeworkDone(homeworkAssignmentId: string, studentId: string, done: boolean) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+  await assertGuardianOf(studentId);
+
+  if (done) {
+    await db.insert(schema.homeworkCompletions)
+      .values({
+        organizationId: env.NEXT_PUBLIC_ORG_ID,
+        homeworkAssignmentId,
+        studentId,
+        completedBy: user.id,
+      })
+      .onConflictDoNothing();
+  } else {
+    await db.delete(schema.homeworkCompletions)
+      .where(and(
+        eq(schema.homeworkCompletions.homeworkAssignmentId, homeworkAssignmentId),
+        eq(schema.homeworkCompletions.studentId, studentId),
+      ));
+  }
+  revalidatePath(`/parent/${studentId}`);
 }
 
 export async function getStudentMilestones(studentId: string) {
@@ -302,6 +338,78 @@ export async function submitAbsenceReason(
 
   revalidatePath(`/parent/${studentId}`);
   redirect(`/parent/${studentId}?notice=absence_reason_submitted`);
+}
+
+// Recent direct messages between this parent and the child's teacher —
+// reuses the existing message_threads/messages tables (scope: 'direct'),
+// which already supported this but had no UI writing to it yet.
+export async function getNotesToTeacher(studentId: string) {
+  await assertGuardianOf(studentId);
+  const threads = await db.query.messageThreads.findMany({
+    where: and(
+      eq(schema.messageThreads.studentId, studentId),
+      eq(schema.messageThreads.scope, 'direct'),
+    ),
+    with: {
+      messages: {
+        orderBy: (m, { asc }) => asc(m.createdAt),
+        with: { sender: { columns: { fullName: true } } },
+      },
+    },
+    orderBy: (t, { desc }) => desc(t.createdAt),
+    limit: 5,
+  });
+  return threads.flatMap(t => t.messages).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export async function sendNoteToTeacher(studentId: string, content: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+  await assertGuardianOf(studentId);
+
+  const trimmed = content.trim();
+  if (!trimmed) redirect(`/parent/${studentId}`);
+
+  const enrollment = await db.query.classEnrollments.findFirst({
+    where: eq(schema.classEnrollments.studentId, studentId),
+    with: { class: { columns: { id: true, primaryTeacherId: true } } },
+  });
+  const classId = enrollment?.class?.id;
+  const teacherId = enrollment?.class?.primaryTeacherId;
+
+  const [thread] = await db.insert(schema.messageThreads).values({
+    organizationId: env.NEXT_PUBLIC_ORG_ID,
+    scope: 'direct',
+    studentId,
+    classId: classId ?? null,
+    createdBy: user.id,
+  }).returning({ id: schema.messageThreads.id });
+  if (!thread) redirect(`/parent/${studentId}`);
+
+  await db.insert(schema.messages).values({
+    threadId: thread.id,
+    senderUserId: user.id,
+    content: trimmed,
+  });
+
+  if (teacherId) {
+    const [student, parentRow] = await Promise.all([
+      db.query.students.findFirst({ where: eq(schema.students.id, studentId), columns: { fullName: true } }),
+      db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { fullName: true } }),
+    ]);
+    await createNotification({
+      organizationId: env.NEXT_PUBLIC_ORG_ID,
+      userId: teacherId,
+      type: 'note_added',
+      title: `Note from ${parentRow?.fullName ?? 'a parent'} about ${student?.fullName ?? 'a student'}`,
+      body: trimmed.length > 100 ? `${trimmed.slice(0, 100)}…` : trimmed,
+      link: `/teacher/${classId}/students/${studentId}`,
+    });
+  }
+
+  revalidatePath(`/parent/${studentId}`);
+  redirect(`/parent/${studentId}?notice=note_sent_to_teacher`);
 }
 
 export async function createParentPaymentSession(planId: string, studentId: string) {

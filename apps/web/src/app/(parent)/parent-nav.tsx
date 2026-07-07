@@ -50,6 +50,10 @@ export default function ParentNav({ students }: { students: { id: string; fullNa
         <Icon name="money" size={18} />
         Billing
       </Link>
+      <Link href="/parent/billing#payment-methods" className="teacher-sidebar-link">
+        <Icon name="shield" size={18} />
+        Payment methods
+      </Link>
     </aside>
   );
 }

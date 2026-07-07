@@ -5,6 +5,7 @@ import { hifzRecords } from './hifz';
 import { hifzMilestones } from './hifz-milestones';
 import { homeworkAssignments } from './homework';
 import { memberships } from './memberships';
+import { messages, messageThreads } from './messaging';
 import { studentNotes } from './notes';
 import { organizations } from './organizations';
 import { payments } from './payments';
@@ -88,6 +89,18 @@ export const tuitionPlansRelations = relations(tuitionPlans, ({ one, many }) => 
 export const paymentsRelations = relations(payments, ({ one }) => ({
   tuitionPlan: one(tuitionPlans, { fields: [payments.tuitionPlanId], references: [tuitionPlans.id] }),
   payer: one(users, { fields: [payments.payerUserId], references: [users.id] }),
+}));
+
+export const messageThreadsRelations = relations(messageThreads, ({ one, many }) => ({
+  student: one(students, { fields: [messageThreads.studentId], references: [students.id] }),
+  class: one(classes, { fields: [messageThreads.classId], references: [classes.id] }),
+  creator: one(users, { fields: [messageThreads.createdBy], references: [users.id] }),
+  messages: many(messages),
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  thread: one(messageThreads, { fields: [messages.threadId], references: [messageThreads.id] }),
+  sender: one(users, { fields: [messages.senderUserId], references: [users.id] }),
 }));
 
 export const trialPlacementsRelations = relations(trialPlacements, ({ one }) => ({

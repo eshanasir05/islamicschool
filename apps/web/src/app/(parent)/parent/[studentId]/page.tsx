@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession, getStudentHomework, getStudentMilestones, submitAbsenceReason } from '../../actions';
+import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession, getStudentHomework, getStudentMilestones, submitAbsenceReason, setHomeworkDone, sendNoteToTeacher, getNotesToTeacher } from '../../actions';
 import AudioPlayer from './audio-player';
 import { toHijriString } from '@/lib/hijri';
 import { env } from '@/env';
@@ -54,12 +54,13 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
   if (!student) redirect('/parent');
 
   const today = new Date().toISOString().slice(0, 10);
-  const [{ attendance, hifz, audioSignedUrl, notes }, announcements, tuition, homework, milestones] = await Promise.all([
+  const [{ attendance, hifz, audioSignedUrl, notes }, announcements, tuition, homework, milestones, notesToTeacher] = await Promise.all([
     getStudentFeed(studentId, today),
     getAnnouncements(env.NEXT_PUBLIC_ORG_ID),
     getParentTuition(studentId),
     getStudentHomework(studentId),
     getStudentMilestones(studentId),
+    getNotesToTeacher(studentId),
   ]);
 
   const now = new Date();
@@ -108,6 +109,21 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
     const note = formData.get('note') as string;
     if (!attendanceId || !reason) return;
     await submitAbsenceReason(attendanceId, studentId, reason, note);
+  }
+
+  async function toggleHomeworkAction(formData: FormData) {
+    'use server';
+    const homeworkAssignmentId = formData.get('homeworkAssignmentId') as string;
+    const done = formData.get('done') === 'true';
+    if (!homeworkAssignmentId) return;
+    await setHomeworkDone(homeworkAssignmentId, studentId, done);
+  }
+
+  async function sendNoteAction(formData: FormData) {
+    'use server';
+    const content = formData.get('content') as string;
+    if (!content?.trim()) return;
+    await sendNoteToTeacher(studentId, content);
   }
 
   return (
@@ -290,11 +306,11 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
                 {homework.map(hw => {
                   const dueSoon = daysUntil(hw.dueDate, today) <= 3;
                   return (
-                    <div key={hw.id} className={dueSoon ? 'card-attention' : 'app-card'}>
+                    <div key={hw.id} className={hw.done ? 'app-card' : dueSoon ? 'card-attention' : 'app-card'} style={hw.done ? { opacity: 0.7 } : undefined}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)' }}>{hw.title}</span>
-                        <span className="badge badge-homework" style={{ whiteSpace: 'nowrap' }}>
-                          Due {shortDate(hw.dueDate)}
+                        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', textDecoration: hw.done ? 'line-through' : 'none' }}>{hw.title}</span>
+                        <span className={`badge ${hw.done ? 'badge-completed' : 'badge-homework'}`} style={{ whiteSpace: 'nowrap' }}>
+                          {hw.done ? 'Done' : `Due ${shortDate(hw.dueDate)}`}
                         </span>
                       </div>
                       {hw.class?.name && (
@@ -303,6 +319,13 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
                       {hw.description && (
                         <p style={{ fontSize: 14, color: 'var(--fg-2)', lineHeight: 1.5, margin: '8px 0 0' }}>{hw.description}</p>
                       )}
+                      <form action={toggleHomeworkAction} style={{ marginTop: 10 }}>
+                        <input type="hidden" name="homeworkAssignmentId" value={hw.id} />
+                        <input type="hidden" name="done" value={hw.done ? 'false' : 'true'} />
+                        <button type="submit" className="btn btn-ghost" style={{ fontSize: 12, padding: '5px 12px' }}>
+                          {hw.done ? 'Mark not done' : 'Mark as done'}
+                        </button>
+                      </form>
                     </div>
                   );
                 })}
@@ -388,6 +411,39 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
               </div>
             </div>
           )}
+
+          {/* Message the teacher — a subtle, direct way to reach out */}
+          <div>
+            <h2 className="text-h2" style={{ marginBottom: 10 }}>Message the teacher</h2>
+            <div className="app-card">
+              <form action={sendNoteAction} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <textarea
+                  name="content"
+                  required
+                  rows={2}
+                  placeholder={`Ask about ${firstName}'s hifz, homework, or anything else…`}
+                  className="form-input"
+                  style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                />
+                <SubmitButton className="btn btn-accent" style={{ alignSelf: 'flex-start', fontSize: 13, padding: '7px 16px' }} pendingLabel="Sending…">
+                  Send note
+                </SubmitButton>
+              </form>
+
+              {notesToTeacher.length > 0 && (
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {notesToTeacher.slice(0, 4).map(m => (
+                    <div key={m.id} style={{ fontSize: 13 }}>
+                      <div style={{ color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
+                        {m.senderUserId === user.id ? 'You' : (m.sender?.fullName ?? 'Teacher')} · {shortDate(m.createdAt.toISOString().slice(0, 10))}
+                      </div>
+                      <div style={{ color: 'var(--fg-2)' }}>{m.content}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── Right rail ───────────────────────────────────────────────── */}
@@ -467,11 +523,9 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
                       ? new Date(tuition.payments[0].paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                       : '—'}
                   </div>
-                  <form action={payNowAction} style={{ marginTop: 10 }}>
-                    <button type="submit" className="btn btn-ghost" style={{ fontSize: 13, padding: '7px 16px', width: '100%' }}>
-                      Manage billing →
-                    </button>
-                  </form>
+                  <Link href="/parent/billing" className="btn btn-ghost" style={{ fontSize: 13, padding: '7px 16px', width: '100%', marginTop: 10, textAlign: 'center', display: 'block' }}>
+                    Manage billing →
+                  </Link>
                 </>
               )}
             </div>

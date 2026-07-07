@@ -16,7 +16,7 @@ export default async function TeacherStudentDetailPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
 
-  const { student, className, age, hifz, notes, retentionFlags, classPrefs } = await getTeacherStudentDetail(classId, studentId, user.id);
+  const { student, className, age, hifz, notes, notesFromParent, retentionFlags, classPrefs } = await getTeacherStudentDetail(classId, studentId, user.id);
   if (!student) notFound();
 
   const hasRetentionWarning = classPrefs.showRetentionWarnings &&
@@ -101,7 +101,7 @@ export default async function TeacherStudentDetailPage({ params }: Props) {
       {notes.length === 0 ? (
         <EmptyState icon="paper" title="No notes yet" body="Notes you send to parents for this student will appear here." />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
           {notes.map(n => (
             <div key={n.id} className="app-card" style={{ fontSize: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -115,6 +115,22 @@ export default async function TeacherStudentDetailPage({ params }: Props) {
             </div>
           ))}
         </div>
+      )}
+
+      {notesFromParent.length > 0 && (
+        <>
+          <h2 className="text-h2" style={{ marginBottom: 12 }}>Notes from parent</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {notesFromParent.map(m => (
+              <div key={m.id} className="app-card" style={{ fontSize: 14 }}>
+                <div style={{ color: 'var(--fg-2)' }}>{m.content}</div>
+                <div style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 6 }}>
+                  {m.sender?.fullName ?? 'Parent'} · {shortDate(m.createdAt.toISOString().slice(0, 10))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </>
   );

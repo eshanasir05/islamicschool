@@ -115,6 +115,20 @@ export default async function ParentBillingPage({ searchParams }: Props) {
                     </form>
                   )}
 
+                  <div id="payment-methods" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', scrollMarginTop: 24 }}>
+                    <div className="text-label" style={{ marginBottom: 6 }}>Payment methods</div>
+                    <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 10px' }}>
+                      Update the saved card or billing address on file for {student.fullName.split(' ')[0]}&apos;s plan.
+                    </p>
+                    <form action={payNowAction}>
+                      <input type="hidden" name="planId" value={plan.id} />
+                      <input type="hidden" name="studentId" value={student.id} />
+                      <button type="submit" className="btn btn-ghost" style={{ fontSize: 13, padding: '7px 16px' }}>
+                        Manage payment methods →
+                      </button>
+                    </form>
+                  </div>
+
                   {plan.payments.length > 0 && (
                     <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
                       <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 8 }}>

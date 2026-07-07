@@ -342,7 +342,7 @@ export async function getTeacherStudentDetail(classId: string, studentId: string
   await assertTeacherOwnsClass(classId, teacherId);
   await assertTeacherOwnsStudent(studentId, teacherId);
 
-  const [student, cls, hifz, notes] = await Promise.all([
+  const [student, cls, hifz, notes, parentThreads] = await Promise.all([
     db.query.students.findFirst({ where: eq(schema.students.id, studentId) }),
     db.query.classes.findFirst({ where: eq(schema.classes.id, classId), columns: { name: true } }),
     db.query.hifzRecords.findMany({
@@ -355,7 +355,19 @@ export async function getTeacherStudentDetail(classId: string, studentId: string
       orderBy: (n, { desc }) => desc(n.createdAt),
       limit: 5,
     }),
+    db.query.messageThreads.findMany({
+      where: and(eq(schema.messageThreads.studentId, studentId), eq(schema.messageThreads.scope, 'direct')),
+      with: {
+        messages: {
+          orderBy: (m, { asc }) => asc(m.createdAt),
+          with: { sender: { columns: { fullName: true } } },
+        },
+      },
+      orderBy: (t, { desc }) => desc(t.createdAt),
+      limit: 5,
+    }),
   ]);
+  const notesFromParent = parentThreads.flatMap(t => t.messages).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   const hifzWithAudio = await Promise.all(hifz.map(async h => {
     if (!h.audioUrl) return { ...h, audioSignedUrl: null };
@@ -382,6 +394,7 @@ export async function getTeacherStudentDetail(classId: string, studentId: string
     age: student ? ageFromDob(student.dateOfBirth) : null,
     hifz: hifzWithAudio,
     notes,
+    notesFromParent,
     retentionFlags: getHifzRetentionFlags(hifz),
     classPrefs,
   };

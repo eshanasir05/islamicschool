@@ -54,6 +54,9 @@ export const NOTICES: Record<string, { type: NoticeType; message: string }> = {
   // Attendance follow-up
   absence_reason_submitted: { type: 'success', message: 'Thanks — the school has been notified.' },
 
+  // Parent-teacher notes
+  note_sent_to_teacher: { type: 'success', message: 'Note sent to the teacher.' },
+
   // Billing
   billing_no_customer: { type: 'info', message: 'No billing history yet for this plan — nothing to manage until your first payment.' },
 
