@@ -1,5 +1,5 @@
 import { db, schema } from '@/lib/db';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { env } from '@/env';
 import Link from 'next/link';
 import { Stepper } from '@skooly/ui';
@@ -51,6 +51,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
       where: and(
         eq(schema.studentNotes.classId, classId),
         eq(schema.studentNotes.organizationId, orgId),
+        isNull(schema.studentNotes.deletedAt),
       ),
       with: { student: true },
       orderBy: (n, { desc }) => desc(n.createdAt),

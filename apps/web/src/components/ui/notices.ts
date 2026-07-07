@@ -47,6 +47,11 @@ export const NOTICES: Record<string, { type: NoticeType; message: string }> = {
   // Homework
   homework_assigned: { type: 'success', message: 'Homework assigned. Parents have been notified.' },
   homework_archived: { type: 'success', message: 'Homework archived.' },
+  homework_restored: { type: 'success', message: 'Homework restored.' },
+
+  // Notes
+  note_deleted: { type: 'success', message: 'Note deleted. You can restore it from Recently deleted.' },
+  note_restored: { type: 'success', message: 'Note restored.' },
 
   // Hifz milestones
   milestone_recorded: { type: 'success', message: 'Milestone recorded. Parents have been notified.' },

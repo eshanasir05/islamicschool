@@ -1,6 +1,6 @@
 'use server';
 
-import { and, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, ne } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
@@ -89,6 +89,7 @@ export async function getStudentFeed(studentId: string, date: string) {
         eq(schema.studentNotes.studentId, studentId),
         eq(schema.studentNotes.visibleToParent, true),
         eq(schema.studentNotes.organizationId, orgId),
+        isNull(schema.studentNotes.deletedAt),
       ),
       orderBy: (n, { desc }) => desc(n.createdAt),
       limit: 10,
@@ -117,6 +118,40 @@ export async function getStudentFeed(studentId: string, date: string) {
   return { attendance, hifz, audioSignedUrl, notes };
 }
 
+// General/concern notes from the teacher — content that isn't praise or
+// homework, shown on the "Message the teacher" page alongside the direct
+// message thread.
+export async function getGeneralNotesForStudent(studentId: string) {
+  await assertGuardianOf(studentId);
+  return db.query.studentNotes.findMany({
+    where: and(
+      eq(schema.studentNotes.studentId, studentId),
+      eq(schema.studentNotes.visibleToParent, true),
+      inArray(schema.studentNotes.noteType, ['general', 'concern']),
+      isNull(schema.studentNotes.deletedAt),
+    ),
+    orderBy: (n, { desc }) => desc(n.createdAt),
+    limit: 20,
+  });
+}
+
+// Informal "homework" notes a teacher jots down during class (distinct from
+// the formal homeworkAssignments table) — shown alongside real assignments
+// on the Homework page.
+export async function getHomeworkNotesForStudent(studentId: string) {
+  await assertGuardianOf(studentId);
+  return db.query.studentNotes.findMany({
+    where: and(
+      eq(schema.studentNotes.studentId, studentId),
+      eq(schema.studentNotes.visibleToParent, true),
+      eq(schema.studentNotes.noteType, 'homework'),
+      isNull(schema.studentNotes.deletedAt),
+    ),
+    orderBy: (n, { desc }) => desc(n.createdAt),
+    limit: 10,
+  });
+}
+
 export async function getStudentHomework(studentId: string) {
   await assertGuardianOf(studentId);
   const enrollments = await db.query.classEnrollments.findMany({
@@ -134,7 +169,7 @@ export async function getStudentHomework(studentId: string) {
       ),
       with: { class: { columns: { name: true } } },
       orderBy: (h, { asc }) => asc(h.dueDate),
-      limit: 5,
+      limit: 30,
     }),
     db.query.homeworkCompletions.findMany({
       where: eq(schema.homeworkCompletions.studentId, studentId),
@@ -178,7 +213,7 @@ export async function getStudentMilestones(studentId: string) {
   return db.query.hifzMilestones.findMany({
     where: eq(schema.hifzMilestones.studentId, studentId),
     orderBy: (m, { desc }) => desc(m.achievedDate),
-    limit: 5,
+    limit: 30,
   });
 }
 
@@ -190,6 +225,7 @@ export async function getAdabJournal(studentId: string) {
       eq(schema.studentNotes.studentId, studentId),
       eq(schema.studentNotes.noteType, 'praise'),
       eq(schema.studentNotes.visibleToParent, true),
+      isNull(schema.studentNotes.deletedAt),
     ),
     with: { class: { columns: { name: true } } },
     orderBy: (n, { desc }) => desc(n.createdAt),
@@ -256,6 +292,7 @@ export async function getStudentReportCard(studentId: string, month: string) {
         eq(schema.studentNotes.visibleToParent, true),
         gte(schema.studentNotes.createdAt, rangeStart),
         lte(schema.studentNotes.createdAt, rangeEnd),
+        isNull(schema.studentNotes.deletedAt),
       ),
       orderBy: (n, { asc }) => asc(n.createdAt),
     }),
@@ -357,7 +394,7 @@ export async function getNotesToTeacher(studentId: string) {
       },
     },
     orderBy: (t, { desc }) => desc(t.createdAt),
-    limit: 5,
+    limit: 30,
   });
   return threads.flatMap(t => t.messages).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }

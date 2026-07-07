@@ -1,29 +1,44 @@
 import { redirect, notFound } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getTeacherStudentDetail } from '../../../../actions';
+import { getTeacherStudentDetail, deleteNote, restoreNote } from '../../../../actions';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { ToastOnParam } from '@/components/ui/toast-on-param';
 
-type Props = { params: Promise<{ classId: string; studentId: string }> };
+type Props = { params: Promise<{ classId: string; studentId: string }>; searchParams: Promise<{ notice?: string }> };
 
 function shortDate(d: string) {
   return new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default async function TeacherStudentDetailPage({ params }: Props) {
+export default async function TeacherStudentDetailPage({ params, searchParams }: Props) {
   const { classId, studentId } = await params;
+  const { notice } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
 
-  const { student, className, age, hifz, notes, notesFromParent, retentionFlags, classPrefs } = await getTeacherStudentDetail(classId, studentId, user.id);
+  const { student, className, age, hifz, notes, deletedNotes, notesFromParent, retentionFlags, classPrefs } = await getTeacherStudentDetail(classId, studentId, user.id);
   if (!student) notFound();
+
+  const deleteNoteAction = async (formData: FormData) => {
+    'use server';
+    const noteId = formData.get('noteId') as string;
+    if (noteId) await deleteNote(noteId, classId, studentId);
+  };
+  const restoreNoteAction = async (formData: FormData) => {
+    'use server';
+    const noteId = formData.get('noteId') as string;
+    if (noteId) await restoreNote(noteId, classId, studentId);
+  };
 
   const hasRetentionWarning = classPrefs.showRetentionWarnings &&
     (retentionFlags.noReviewInWeeks || retentionFlags.repeatedWeak || retentionFlags.noUpdateInWeeks);
 
   return (
     <>
+      <ToastOnParam notice={notice} />
       <Breadcrumb
         items={[
           { label: 'Dashboard', href: '/teacher' },
@@ -104,9 +119,23 @@ export default async function TeacherStudentDetailPage({ params }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
           {notes.map(n => (
             <div key={n.id} className="app-card" style={{ fontSize: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="badge badge-sabak" style={{ textTransform: 'capitalize' }}>{n.noteType}</span>
-                {n.category && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{n.category}</span>}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="badge badge-sabak" style={{ textTransform: 'capitalize' }}>{n.noteType}</span>
+                  {n.category && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{n.category}</span>}
+                </div>
+                <form action={deleteNoteAction}>
+                  <input type="hidden" name="noteId" value={n.id} />
+                  <ConfirmSubmit
+                    label="Delete"
+                    title="Delete this note?"
+                    body="It will no longer show to the parent. You can restore it from Recently deleted below."
+                    confirmLabel="Delete note"
+                    variant="danger"
+                    className="btn btn-ghost"
+                    buttonStyle={{ fontSize: 12, padding: '3px 8px', color: 'var(--muted)' }}
+                  />
+                </form>
               </div>
               <div style={{ color: 'var(--fg-2)', marginTop: 6 }}>{n.content}</div>
               <div style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 6 }}>
@@ -115,6 +144,30 @@ export default async function TeacherStudentDetailPage({ params }: Props) {
             </div>
           ))}
         </div>
+      )}
+
+      {deletedNotes.length > 0 && (
+        <details style={{ marginBottom: 24 }}>
+          <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--muted)' }}>
+            Recently deleted ({deletedNotes.length})
+          </summary>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+            {deletedNotes.map(n => (
+              <div key={n.id} className="app-card" style={{ fontSize: 14, opacity: 0.7 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span className="badge badge-sabak" style={{ textTransform: 'capitalize' }}>{n.noteType}</span>
+                  <form action={restoreNoteAction}>
+                    <input type="hidden" name="noteId" value={n.id} />
+                    <button type="submit" className="btn btn-ghost" style={{ fontSize: 12, padding: '3px 8px' }}>
+                      Restore
+                    </button>
+                  </form>
+                </div>
+                <div style={{ color: 'var(--fg-2)', marginTop: 6, textDecoration: 'line-through' }}>{n.content}</div>
+              </div>
+            ))}
+          </div>
+        </details>
       )}
 
       {notesFromParent.length > 0 && (

@@ -1,6 +1,6 @@
 'use server';
 
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db, schema } from '@/lib/db';
@@ -115,7 +115,7 @@ export async function getTeacherClasses(teacherId: string) {
         classId: schema.studentNotes.classId,
         d: sql<string>`to_char(${schema.studentNotes.createdAt}, 'YYYY-MM-DD')`,
       }).from(schema.studentNotes)
-        .where(inArray(schema.studentNotes.classId, classIds)),
+        .where(and(inArray(schema.studentNotes.classId, classIds), isNull(schema.studentNotes.deletedAt))),
     ]);
 
     for (const r of attRows) {
@@ -191,7 +191,7 @@ export async function getTeacherRecentActivity(teacherId: string, limit = 5): Pr
       limit: 20,
     }),
     db.query.studentNotes.findMany({
-      where: inArray(schema.studentNotes.classId, classIds),
+      where: and(inArray(schema.studentNotes.classId, classIds), isNull(schema.studentNotes.deletedAt)),
       with: { student: { columns: { fullName: true } } },
       orderBy: (n, { desc }) => desc(n.createdAt),
       limit: 20,
@@ -342,7 +342,7 @@ export async function getTeacherStudentDetail(classId: string, studentId: string
   await assertTeacherOwnsClass(classId, teacherId);
   await assertTeacherOwnsStudent(studentId, teacherId);
 
-  const [student, cls, hifz, notes, parentThreads] = await Promise.all([
+  const [student, cls, hifz, notes, deletedNotes, parentThreads] = await Promise.all([
     db.query.students.findFirst({ where: eq(schema.students.id, studentId) }),
     db.query.classes.findFirst({ where: eq(schema.classes.id, classId), columns: { name: true } }),
     db.query.hifzRecords.findMany({
@@ -351,8 +351,13 @@ export async function getTeacherStudentDetail(classId: string, studentId: string
       limit: 5,
     }),
     db.query.studentNotes.findMany({
-      where: and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.classId, classId)),
+      where: and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.classId, classId), isNull(schema.studentNotes.deletedAt)),
       orderBy: (n, { desc }) => desc(n.createdAt),
+      limit: 5,
+    }),
+    db.query.studentNotes.findMany({
+      where: and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.classId, classId), sql`${schema.studentNotes.deletedAt} IS NOT NULL`),
+      orderBy: (n, { desc }) => desc(n.deletedAt),
       limit: 5,
     }),
     db.query.messageThreads.findMany({
@@ -394,10 +399,51 @@ export async function getTeacherStudentDetail(classId: string, studentId: string
     age: student ? ageFromDob(student.dateOfBirth) : null,
     hifz: hifzWithAudio,
     notes,
+    deletedNotes,
     notesFromParent,
     retentionFlags: getHifzRetentionFlags(hifz),
     classPrefs,
   };
+}
+
+export async function deleteNote(noteId: string, classId: string, studentId: string) {
+  const user = await requireUser();
+  const note = await db.query.studentNotes.findFirst({
+    where: eq(schema.studentNotes.id, noteId),
+    columns: { classId: true },
+  });
+  if (!note?.classId) redirect('/teacher');
+  await assertTeacherOwnsClass(note.classId, user.id);
+  await db.update(schema.studentNotes).set({ deletedAt: new Date() }).where(eq(schema.studentNotes.id, noteId));
+  revalidatePath(`/teacher/${classId}/students/${studentId}`);
+  redirect(`/teacher/${classId}/students/${studentId}?notice=note_deleted`);
+}
+
+export async function restoreNote(noteId: string, classId: string, studentId: string) {
+  const user = await requireUser();
+  const note = await db.query.studentNotes.findFirst({
+    where: eq(schema.studentNotes.id, noteId),
+    columns: { classId: true },
+  });
+  if (!note?.classId) redirect('/teacher');
+  await assertTeacherOwnsClass(note.classId, user.id);
+  await db.update(schema.studentNotes).set({ deletedAt: null }).where(eq(schema.studentNotes.id, noteId));
+  revalidatePath(`/teacher/${classId}/students/${studentId}`);
+  redirect(`/teacher/${classId}/students/${studentId}?notice=note_restored`);
+}
+
+export async function restoreHomework(id: string) {
+  const user = await requireUser();
+  const homework = await db.query.homeworkAssignments.findFirst({
+    where: eq(schema.homeworkAssignments.id, id),
+    columns: { classId: true },
+  });
+  if (!homework) redirect('/teacher/homework');
+  await assertTeacherOwnsClass(homework.classId, user.id);
+  await db.update(schema.homeworkAssignments).set({ archived: false }).where(eq(schema.homeworkAssignments.id, id));
+  revalidatePath('/teacher/homework');
+  revalidatePath('/parent');
+  redirect('/teacher/homework?notice=homework_restored');
 }
 
 export async function teacherEnrollStudent(classId: string, studentId: string, teacherId: string) {
@@ -430,17 +476,28 @@ export async function getTeacherHomeworkOverview(teacherId: string) {
   if (classes.length === 0) return [];
 
   const classIds = classes.map(c => c.id);
-  const assignments = await db.query.homeworkAssignments.findMany({
-    where: and(
-      inArray(schema.homeworkAssignments.classId, classIds),
-      eq(schema.homeworkAssignments.archived, false),
-    ),
-    orderBy: (h, { desc }) => desc(h.dueDate),
-  });
+  const [assignments, archivedAssignments] = await Promise.all([
+    db.query.homeworkAssignments.findMany({
+      where: and(
+        inArray(schema.homeworkAssignments.classId, classIds),
+        eq(schema.homeworkAssignments.archived, false),
+      ),
+      orderBy: (h, { desc }) => desc(h.dueDate),
+    }),
+    db.query.homeworkAssignments.findMany({
+      where: and(
+        inArray(schema.homeworkAssignments.classId, classIds),
+        eq(schema.homeworkAssignments.archived, true),
+      ),
+      orderBy: (h, { desc }) => desc(h.dueDate),
+      limit: 10,
+    }),
+  ]);
 
   return classes.map(cls => ({
     ...cls,
     homework: assignments.filter(a => a.classId === cls.id),
+    archivedHomework: archivedAssignments.filter(a => a.classId === cls.id),
   }));
 }
 

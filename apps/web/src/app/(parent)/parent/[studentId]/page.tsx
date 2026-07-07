@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession, getStudentHomework, getStudentMilestones, submitAbsenceReason, setHomeworkDone, sendNoteToTeacher, getNotesToTeacher } from '../../actions';
+import { getStudentFeed, getGuardianStudents, getAnnouncements, getParentTuition, createParentPaymentSession, getStudentHomework, getStudentMilestones, submitAbsenceReason } from '../../actions';
 import AudioPlayer from './audio-player';
 import { toHijriString } from '@/lib/hijri';
 import { env } from '@/env';
@@ -10,7 +10,7 @@ import { ToastOnParam } from '@/components/ui/toast-on-param';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { LogoMark } from '@/components/ui/logo';
 import { Icon } from '@/components/marketing/icon';
-import { buildAttentionItems, daysUntil } from '@/lib/parent-attention';
+import { buildAttentionItems } from '@/lib/parent-attention';
 
 type Props = { params: Promise<{ studentId: string }>; searchParams: Promise<{ payment?: string; notice?: string }> };
 
@@ -54,13 +54,12 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
   if (!student) redirect('/parent');
 
   const today = new Date().toISOString().slice(0, 10);
-  const [{ attendance, hifz, audioSignedUrl, notes }, announcements, tuition, homework, milestones, notesToTeacher] = await Promise.all([
+  const [{ attendance, hifz, audioSignedUrl, notes }, announcements, tuition, homework, milestones] = await Promise.all([
     getStudentFeed(studentId, today),
     getAnnouncements(env.NEXT_PUBLIC_ORG_ID),
     getParentTuition(studentId),
     getStudentHomework(studentId),
     getStudentMilestones(studentId),
-    getNotesToTeacher(studentId),
   ]);
 
   const now = new Date();
@@ -74,8 +73,6 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
     seenNoteIds.add(n.id);
     return true;
   });
-  const homeworkNotes = uniqueNotes.filter(n => n.noteType === 'homework');
-  const generalNotes = uniqueNotes.filter(n => n.noteType === 'general' || n.noteType === 'concern');
   const todayPraise = uniqueNotes.find(n => n.noteType === 'praise' && n.createdAt && new Date(n.createdAt).toISOString().slice(0, 10) === today);
   const praiseNotes = uniqueNotes.filter(n => n.noteType === 'praise' && n.id !== todayPraise?.id);
   const featuredPraise = todayPraise ?? praiseNotes[0];
@@ -87,7 +84,10 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
   const latestMilestone = milestones[0];
 
   // "Needs your attention" — only real, actionable items, nothing fabricated.
-  const attentionItems = buildAttentionItems({ basePath: '', attendance, nextHomework, tuition, today });
+  const dashboardAttention = buildAttentionItems({ basePath: '', attendance, nextHomework, tuition, today });
+  const attentionItems = dashboardAttention.map(item =>
+    item.href === '#homework' ? { ...item, href: `/parent/${studentId}/homework` } : item,
+  );
 
   const greetingPills: { label: string; badge: string }[] = [];
   if (attendance) greetingPills.push({ label: `${attendance.status.charAt(0).toUpperCase()}${attendance.status.slice(1)} today`, badge: `badge-${attendance.status}` });
@@ -109,21 +109,6 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
     const note = formData.get('note') as string;
     if (!attendanceId || !reason) return;
     await submitAbsenceReason(attendanceId, studentId, reason, note);
-  }
-
-  async function toggleHomeworkAction(formData: FormData) {
-    'use server';
-    const homeworkAssignmentId = formData.get('homeworkAssignmentId') as string;
-    const done = formData.get('done') === 'true';
-    if (!homeworkAssignmentId) return;
-    await setHomeworkDone(homeworkAssignmentId, studentId, done);
-  }
-
-  async function sendNoteAction(formData: FormData) {
-    'use server';
-    const content = formData.get('content') as string;
-    if (!content?.trim()) return;
-    await sendNoteToTeacher(studentId, content);
   }
 
   return (
@@ -298,72 +283,53 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
             )}
           </div>
 
-          {/* Homework */}
-          {(homework.length > 0 || homeworkNotes.length > 0) && (
-            <div id="homework" style={{ scrollMarginTop: 24 }}>
-              <h2 className="text-h2" style={{ marginBottom: 10 }}>Homework</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {homework.map(hw => {
-                  const dueSoon = daysUntil(hw.dueDate, today) <= 3;
-                  return (
-                    <div key={hw.id} className={hw.done ? 'app-card' : dueSoon ? 'card-attention' : 'app-card'} style={hw.done ? { opacity: 0.7 } : undefined}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', textDecoration: hw.done ? 'line-through' : 'none' }}>{hw.title}</span>
-                        <span className={`badge ${hw.done ? 'badge-completed' : 'badge-homework'}`} style={{ whiteSpace: 'nowrap' }}>
-                          {hw.done ? 'Done' : `Due ${shortDate(hw.dueDate)}`}
-                        </span>
-                      </div>
-                      {hw.class?.name && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{hw.class.name}</div>
-                      )}
-                      {hw.description && (
-                        <p style={{ fontSize: 14, color: 'var(--fg-2)', lineHeight: 1.5, margin: '8px 0 0' }}>{hw.description}</p>
-                      )}
-                      <form action={toggleHomeworkAction} style={{ marginTop: 10 }}>
-                        <input type="hidden" name="homeworkAssignmentId" value={hw.id} />
-                        <input type="hidden" name="done" value={hw.done ? 'false' : 'true'} />
-                        <button type="submit" className="btn btn-ghost" style={{ fontSize: 12, padding: '5px 12px' }}>
-                          {hw.done ? 'Mark not done' : 'Mark as done'}
-                        </button>
-                      </form>
-                    </div>
-                  );
-                })}
-                {homeworkNotes.slice(0, 2).map(note => (
-                  <div key={note.id} className="app-card">
-                    <div className="text-label" style={{ marginBottom: 6 }}>Teacher note</div>
-                    <p style={{ fontSize: 14, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>{note.content}</p>
+          {/* Homework preview */}
+          <div>
+            <h2 className="text-h2" style={{ marginBottom: 10 }}>Homework</h2>
+            <div className="app-card">
+              {nextHomework ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)' }}>{nextHomework.title}</span>
+                    <span className="badge badge-homework" style={{ whiteSpace: 'nowrap' }}>Due {shortDate(nextHomework.dueDate)}</span>
                   </div>
-                ))}
-              </div>
+                  {homework.length > 1 && (
+                    <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0 0' }}>
+                      +{homework.length - 1} more assignment{homework.length - 1 === 1 ? '' : 's'}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0 }}>No homework assigned yet.</p>
+              )}
+              <Link href={`/parent/${studentId}/homework`} className="btn-link" style={{ marginTop: 14, display: 'inline-block' }}>
+                View all homework →
+              </Link>
             </div>
-          )}
+          </div>
 
-          {/* Quran / Hifz progress */}
-          {milestones.length > 0 && (
-            <div>
-              <h2 className="text-h2" style={{ marginBottom: 10 }}>Quran progress</h2>
-              <div className="app-card">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)' }}>{latestMilestone!.label}</span>
-                  <span className="badge badge-sabak" style={{ whiteSpace: 'nowrap' }}>{shortDate(latestMilestone!.achievedDate)}</span>
-                </div>
-                {latestMilestone!.teacherNotes && (
-                  <p style={{ fontSize: 14, color: 'var(--fg-2)', lineHeight: 1.5, margin: '8px 0 0' }}>{latestMilestone!.teacherNotes}</p>
-                )}
-                {milestones.length > 1 && (
-                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {milestones.slice(1, 4).map(m => (
-                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                        <span style={{ color: 'var(--fg-2)' }}>{m.label}</span>
-                        <span style={{ color: 'var(--muted)' }}>{shortDate(m.achievedDate)}</span>
-                      </div>
-                    ))}
+          {/* Quran / Hifz progress preview */}
+          <div>
+            <h2 className="text-h2" style={{ marginBottom: 10 }}>Quran progress</h2>
+            <div className="app-card">
+              {latestMilestone ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)' }}>{latestMilestone.label}</span>
+                    <span className="badge badge-sabak" style={{ whiteSpace: 'nowrap' }}>{shortDate(latestMilestone.achievedDate)}</span>
                   </div>
-                )}
-              </div>
+                  {latestMilestone.teacherNotes && (
+                    <p style={{ fontSize: 14, color: 'var(--fg-2)', lineHeight: 1.5, margin: '8px 0 0' }}>{latestMilestone.teacherNotes}</p>
+                  )}
+                </>
+              ) : (
+                <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0 }}>No milestones recorded yet.</p>
+              )}
+              <Link href={`/parent/${studentId}/quran`} className="btn-link" style={{ marginTop: 14, display: 'inline-block' }}>
+                View Quran progress →
+              </Link>
             </div>
-          )}
+          </div>
 
           {/* Adab Growth preview */}
           {(featuredPraise || recentAdabMoments.length > 0) && (
@@ -398,50 +364,16 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
             </div>
           )}
 
-          {/* Teacher note — general/concern notes with no other home */}
-          {generalNotes.length > 0 && (
-            <div>
-              <h2 className="text-h2" style={{ marginBottom: 10 }}>Teacher note</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {generalNotes.slice(0, 2).map(note => (
-                  <div key={note.id} className="app-card">
-                    <p style={{ fontSize: 14, color: 'var(--fg-2)', lineHeight: 1.55, margin: 0 }}>{note.content}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Message the teacher — a subtle, direct way to reach out */}
           <div>
             <h2 className="text-h2" style={{ marginBottom: 10 }}>Message the teacher</h2>
             <div className="app-card">
-              <form action={sendNoteAction} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <textarea
-                  name="content"
-                  required
-                  rows={2}
-                  placeholder={`Ask about ${firstName}'s hifz, homework, or anything else…`}
-                  className="form-input"
-                  style={{ resize: 'vertical', fontFamily: 'inherit' }}
-                />
-                <SubmitButton className="btn btn-accent" style={{ alignSelf: 'flex-start', fontSize: 13, padding: '7px 16px' }} pendingLabel="Sending…">
-                  Send note
-                </SubmitButton>
-              </form>
-
-              {notesToTeacher.length > 0 && (
-                <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {notesToTeacher.slice(0, 4).map(m => (
-                    <div key={m.id} style={{ fontSize: 13 }}>
-                      <div style={{ color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
-                        {m.senderUserId === user.id ? 'You' : (m.sender?.fullName ?? 'Teacher')} · {shortDate(m.createdAt.toISOString().slice(0, 10))}
-                      </div>
-                      <div style={{ color: 'var(--fg-2)' }}>{m.content}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0 }}>
+                Have a question about {firstName}&apos;s hifz, homework, or anything else? Send the teacher a note.
+              </p>
+              <Link href={`/parent/${studentId}/message`} className="btn-link" style={{ marginTop: 14, display: 'inline-block' }}>
+                Message the teacher →
+              </Link>
             </div>
           </div>
         </div>

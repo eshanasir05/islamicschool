@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getTeacherHomeworkOverview, createHomework, archiveHomework } from '../../actions';
+import { getTeacherHomeworkOverview, createHomework, archiveHomework, restoreHomework } from '../../actions';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { ConfirmSubmit } from '@/components/ui/confirm-submit';
@@ -118,10 +118,10 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
                           </div>
                           <form action={archiveAction}>
                             <ConfirmSubmit
-                              label="Archive"
-                              title="Archive this homework?"
-                              body="It will no longer show in parents' feeds."
-                              confirmLabel="Archive homework"
+                              label="Delete"
+                              title="Delete this homework?"
+                              body="It will no longer show in parents' feeds. You can restore it from Recently deleted below."
+                              confirmLabel="Delete homework"
                               variant="danger"
                               className="btn btn-ghost"
                               buttonStyle={{ fontSize: 12, padding: '4px 10px', color: 'var(--muted)' }}
@@ -131,6 +131,35 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
                       );
                     })}
                   </div>
+                )}
+
+                {cls.archivedHomework.length > 0 && (
+                  <details style={{ marginTop: 16 }}>
+                    <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--muted)' }}>
+                      Recently deleted ({cls.archivedHomework.length})
+                    </summary>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                      {cls.archivedHomework.map(hw => {
+                        const restoreAction = async () => {
+                          'use server';
+                          await restoreHomework(hw.id);
+                        };
+                        return (
+                          <div key={hw.id} className="app-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, opacity: 0.7 }}>
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--fg)', textDecoration: 'line-through' }}>{hw.title}</div>
+                              <div style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 4 }}>Due {shortDate(hw.dueDate)}</div>
+                            </div>
+                            <form action={restoreAction}>
+                              <button type="submit" className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }}>
+                                Restore
+                              </button>
+                            </form>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
                 )}
               </div>
             );

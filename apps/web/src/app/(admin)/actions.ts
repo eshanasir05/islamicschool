@@ -1,6 +1,6 @@
 'use server';
 
-import { and, count, desc, eq, gte, inArray, max, ne, sql, sum } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNull, max, ne, sql, sum } from 'drizzle-orm';
 import { Resend } from 'resend';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -134,7 +134,7 @@ export async function getAdminStudent(studentId: string, orgId: string) {
       orderBy: (m, { desc }) => desc(m.achievedDate),
     }),
     db.select({ cnt: count() }).from(schema.studentNotes)
-      .where(and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.organizationId, orgId))),
+      .where(and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.organizationId, orgId), isNull(schema.studentNotes.deletedAt))),
   ]);
   const retentionFlags = getHifzRetentionFlags(hifz);
   return { student, attendance, hifz, milestones, noteCount: Number(noteCount[0]?.cnt ?? 0), retentionFlags };
@@ -701,6 +701,7 @@ export async function getAdminAdabHighlights(orgId: string) {
     where: and(
       eq(schema.studentNotes.organizationId, orgId),
       eq(schema.studentNotes.noteType, 'praise'),
+      isNull(schema.studentNotes.deletedAt),
     ),
     with: {
       student: { columns: { fullName: true } },
@@ -825,7 +826,7 @@ export async function getFamilyProfile(guardianUserId: string, orgId: string) {
       orderBy: (t, { desc }) => desc(t.createdAt),
     }),
     studentIds.length === 0 ? Promise.resolve([]) : db.query.studentNotes.findMany({
-      where: inArray(schema.studentNotes.studentId, studentIds),
+      where: and(inArray(schema.studentNotes.studentId, studentIds), isNull(schema.studentNotes.deletedAt)),
       with: { student: { columns: { fullName: true } } },
       orderBy: (n, { desc }) => desc(n.createdAt),
       limit: 5,

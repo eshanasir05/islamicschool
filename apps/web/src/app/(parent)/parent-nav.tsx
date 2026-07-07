@@ -6,6 +6,8 @@ import { Icon } from '@/components/marketing/icon';
 
 export default function ParentNav({ students }: { students: { id: string; fullName: string }[] }) {
   const pathname = usePathname();
+  const activeStudentId = students.find(s => pathname.startsWith(`/parent/${s.id}`))?.id ?? students[0]?.id;
+  const messageHref = activeStudentId ? `/parent/${activeStudentId}/message` : '/parent';
 
   return (
     <aside className="teacher-sidebar">
@@ -16,6 +18,13 @@ export default function ParentNav({ students }: { students: { id: string; fullNa
       >
         <Icon name="home" size={18} />
         Dashboard
+      </Link>
+      <Link
+        href={messageHref}
+        className={`teacher-sidebar-link${pathname.endsWith('/message') ? ' is-active' : ''}`}
+      >
+        <Icon name="msg" size={18} />
+        Message teacher
       </Link>
 
       {students.length > 0 && (

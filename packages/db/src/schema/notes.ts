@@ -24,6 +24,7 @@ export const studentNotes = pgTable('student_notes', {
     .notNull()
     .references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 export type StudentNote = typeof studentNotes.$inferSelect;
