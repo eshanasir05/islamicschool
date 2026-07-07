@@ -6,8 +6,6 @@ import { Icon } from '@/components/marketing/icon';
 
 export default function ParentNav({ students }: { students: { id: string; fullName: string }[] }) {
   const pathname = usePathname();
-  const activeStudentId = students.find(s => pathname.startsWith(`/parent/${s.id}`))?.id ?? students[0]?.id;
-  const billingHref = activeStudentId ? `/parent/${activeStudentId}#billing` : '/parent';
 
   return (
     <aside className="teacher-sidebar">
@@ -48,7 +46,7 @@ export default function ParentNav({ students }: { students: { id: string; fullNa
         <Icon name="settings" size={18} />
         Account
       </Link>
-      <Link href={billingHref} className="teacher-sidebar-link">
+      <Link href="/parent/billing" className={`teacher-sidebar-link${pathname === '/parent/billing' ? ' is-active' : ''}`}>
         <Icon name="money" size={18} />
         Billing
       </Link>

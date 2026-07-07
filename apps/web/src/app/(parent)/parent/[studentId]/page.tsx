@@ -9,7 +9,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ToastOnParam } from '@/components/ui/toast-on-param';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { LogoMark } from '@/components/ui/logo';
-import { Icon, type IconName } from '@/components/marketing/icon';
+import { Icon } from '@/components/marketing/icon';
+import { buildAttentionItems, daysUntil } from '@/lib/parent-attention';
 
 type Props = { params: Promise<{ studentId: string }>; searchParams: Promise<{ payment?: string; notice?: string }> };
 
@@ -38,12 +39,6 @@ function practiceSuggestion(hifz: { stream: string; surahNumber: number; ayahSta
 
 function shortDate(dateStr: string) {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function daysUntil(dateStr: string, today: string) {
-  const a = new Date(`${dateStr}T00:00:00`).getTime();
-  const b = new Date(`${today}T00:00:00`).getTime();
-  return Math.round((a - b) / 86_400_000);
 }
 
 export default async function ParentFeedPage({ params, searchParams }: Props) {
@@ -88,28 +83,10 @@ export default async function ParentFeedPage({ params, searchParams }: Props) {
   const hasTonight = !!(attendance || hifz || todayPraise);
   const suggestion = practiceSuggestion(hifz);
   const nextHomework = homework[0];
-  const homeworkDueSoon = nextHomework ? daysUntil(nextHomework.dueDate, today) <= 3 : false;
   const latestMilestone = milestones[0];
 
   // "Needs your attention" — only real, actionable items, nothing fabricated.
-  const attentionItems: { icon: IconName; label: string; href: string; tone: 'danger' | 'warn' }[] = [];
-  if (attendance?.status === 'absent' && !attendance.guardianReason) {
-    attentionItems.push({ icon: 'shield', label: 'Absence reason needed for today', href: '#absence-reason', tone: 'danger' });
-  }
-  if (nextHomework && homeworkDueSoon) {
-    const due = daysUntil(nextHomework.dueDate, today);
-    attentionItems.push({
-      icon: 'book',
-      label: `Homework due ${due < 0 ? 'was' : shortDate(nextHomework.dueDate)}: ${nextHomework.title}`,
-      href: '#homework',
-      tone: 'warn',
-    });
-  }
-  if (tuition?.status === 'past_due') {
-    attentionItems.push({ icon: 'money', label: 'Tuition payment failed — please update billing', href: '#billing', tone: 'danger' });
-  } else if (tuition?.status === 'pending_payment') {
-    attentionItems.push({ icon: 'money', label: 'Tuition payment needed to activate your plan', href: '#billing', tone: 'warn' });
-  }
+  const attentionItems = buildAttentionItems({ basePath: '', attendance, nextHomework, tuition, today });
 
   const greetingPills: { label: string; badge: string }[] = [];
   if (attendance) greetingPills.push({ label: `${attendance.status.charAt(0).toUpperCase()}${attendance.status.slice(1)} today`, badge: `badge-${attendance.status}` });

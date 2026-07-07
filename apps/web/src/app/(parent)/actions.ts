@@ -374,3 +374,23 @@ export async function getParentTuition(studentId: string) {
   });
   return plan ?? null;
 }
+
+// Full billing page: every linked child's tuition plan with complete payment
+// history (no limit), for the dedicated /parent/billing page.
+export async function getAllParentTuition(guardianUserId: string) {
+  const students = await getGuardianStudents(guardianUserId);
+  const rows = await Promise.all(students.map(async student => {
+    const plan = await db.query.tuitionPlans.findFirst({
+      where: and(
+        eq(schema.tuitionPlans.studentId, student.id),
+        ne(schema.tuitionPlans.status, 'cancelled'),
+      ),
+      with: {
+        payments: { orderBy: (p, { desc }) => desc(p.paidAt) },
+      },
+      orderBy: (t, { desc }) => desc(t.createdAt),
+    });
+    return { student, plan: plan ?? null };
+  }));
+  return rows;
+}
