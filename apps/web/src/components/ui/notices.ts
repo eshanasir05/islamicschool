@@ -61,6 +61,8 @@ export const NOTICES: Record<string, { type: NoticeType; message: string }> = {
 
   // Parent-teacher notes
   note_sent_to_teacher: { type: 'success', message: 'Note sent to the teacher.' },
+  note_sent_to_all_teachers: { type: 'success', message: 'Note sent to all of your children\'s teachers.' },
+  message_unsent: { type: 'success', message: 'Message unsent.' },
 
   // Billing
   billing_no_customer: { type: 'info', message: 'No billing history yet for this plan — nothing to manage until your first payment.' },

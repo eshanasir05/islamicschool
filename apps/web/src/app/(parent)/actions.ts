@@ -399,15 +399,10 @@ export async function getNotesToTeacher(studentId: string) {
   return threads.flatMap(t => t.messages).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export async function sendNoteToTeacher(studentId: string, content: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
-  await assertGuardianOf(studentId);
-
-  const trimmed = content.trim();
-  if (!trimmed) redirect(`/parent/${studentId}`);
-
+// Shared by sendNoteToTeacher (one child) and sendNoteToAllTeachers (every
+// linked child) — creates the thread/message and notifies that child's
+// teacher, without redirecting, so callers can loop or redirect once.
+async function sendNoteToTeacherInternal(userId: string, studentId: string, trimmed: string) {
   const enrollment = await db.query.classEnrollments.findFirst({
     where: eq(schema.classEnrollments.studentId, studentId),
     with: { class: { columns: { id: true, primaryTeacherId: true } } },
@@ -420,20 +415,20 @@ export async function sendNoteToTeacher(studentId: string, content: string) {
     scope: 'direct',
     studentId,
     classId: classId ?? null,
-    createdBy: user.id,
+    createdBy: userId,
   }).returning({ id: schema.messageThreads.id });
-  if (!thread) redirect(`/parent/${studentId}`);
+  if (!thread) return;
 
   await db.insert(schema.messages).values({
     threadId: thread.id,
-    senderUserId: user.id,
+    senderUserId: userId,
     content: trimmed,
   });
 
   if (teacherId) {
     const [student, parentRow] = await Promise.all([
       db.query.students.findFirst({ where: eq(schema.students.id, studentId), columns: { fullName: true } }),
-      db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { fullName: true } }),
+      db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { fullName: true } }),
     ]);
     await createNotification({
       organizationId: env.NEXT_PUBLIC_ORG_ID,
@@ -444,9 +439,60 @@ export async function sendNoteToTeacher(studentId: string, content: string) {
       link: `/teacher/${classId}/students/${studentId}`,
     });
   }
+}
 
-  revalidatePath(`/parent/${studentId}`);
-  redirect(`/parent/${studentId}?notice=note_sent_to_teacher`);
+export async function sendNoteToTeacher(studentId: string, content: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+  await assertGuardianOf(studentId);
+
+  const trimmed = content.trim();
+  if (!trimmed) redirect(`/parent/${studentId}/message`);
+
+  await sendNoteToTeacherInternal(user.id, studentId, trimmed);
+
+  revalidatePath(`/parent/${studentId}/message`);
+  redirect(`/parent/${studentId}/message?notice=note_sent_to_teacher`);
+}
+
+// Sends the same note to every linked child's teacher — one thread per
+// child, so it shows up correctly in each child's own message history.
+export async function sendNoteToAllTeachers(content: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+
+  const trimmed = content.trim();
+  if (!trimmed) redirect('/parent/message');
+
+  const students = await getGuardianStudents(user.id);
+  for (const student of students) {
+    await sendNoteToTeacherInternal(user.id, student.id, trimmed);
+  }
+
+  revalidatePath('/parent');
+  redirect('/parent/message?notice=note_sent_to_all_teachers');
+}
+
+// "Unsend" — only the sender can remove their own message. Hard delete
+// (unlike homework/notes, unsending isn't meant to be recoverable).
+export async function unsendMessage(messageId: string, studentId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+  await assertGuardianOf(studentId);
+
+  const message = await db.query.messages.findFirst({
+    where: eq(schema.messages.id, messageId),
+    columns: { senderUserId: true },
+  });
+  if (message?.senderUserId === user.id) {
+    await db.delete(schema.messages).where(eq(schema.messages.id, messageId));
+  }
+
+  revalidatePath(`/parent/${studentId}/message`);
+  redirect(`/parent/${studentId}/message?notice=message_unsent`);
 }
 
 export async function createParentPaymentSession(planId: string, studentId: string) {

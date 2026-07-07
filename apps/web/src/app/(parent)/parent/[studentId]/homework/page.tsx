@@ -3,8 +3,12 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getGuardianStudents, getStudentHomework, setHomeworkDone, getHomeworkNotesForStudent } from '../../../actions';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { EmptyState } from '@/components/ui/empty-state';
+import { HomeworkFilters } from './filters';
 
-type Props = { params: Promise<{ studentId: string }> };
+type Props = {
+  params: Promise<{ studentId: string }>;
+  searchParams: Promise<{ status?: string; due?: string }>;
+};
 
 function shortDate(dateStr: string) {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -16,8 +20,9 @@ function daysUntil(dateStr: string, today: string) {
   return Math.round((a - b) / 86_400_000);
 }
 
-export default async function ParentHomeworkPage({ params }: Props) {
+export default async function ParentHomeworkPage({ params, searchParams }: Props) {
   const { studentId } = await params;
+  const { status = 'all', due = 'all' } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
@@ -26,11 +31,20 @@ export default async function ParentHomeworkPage({ params }: Props) {
   const student = students.find(s => s?.id === studentId);
   if (!student) notFound();
 
-  const [homework, homeworkNotes] = await Promise.all([
+  const [allHomework, homeworkNotes] = await Promise.all([
     getStudentHomework(studentId),
     getHomeworkNotesForStudent(studentId),
   ]);
   const today = new Date().toISOString().slice(0, 10);
+
+  const homework = allHomework.filter(hw => {
+    if (status === 'done' && !hw.done) return false;
+    if (status === 'incomplete' && hw.done) return false;
+    const days = daysUntil(hw.dueDate, today);
+    if (due === 'due_soon' && !(days >= 0 && days <= 3)) return false;
+    if (due === 'past_due' && !(days < 0 && !hw.done)) return false;
+    return true;
+  });
 
   async function toggleHomeworkAction(formData: FormData) {
     'use server';
@@ -48,11 +62,21 @@ export default async function ParentHomeworkPage({ params }: Props) {
         Everything assigned across {student.fullName.split(' ')[0]}&apos;s classes.
       </p>
 
-      {homework.length === 0 && homeworkNotes.length === 0 ? (
+      {allHomework.length > 0 && (
+        <HomeworkFilters pathname={`/parent/${studentId}/homework`} status={status} due={due} />
+      )}
+
+      {allHomework.length === 0 && homeworkNotes.length === 0 ? (
         <EmptyState
           icon="book"
           title="No homework assigned yet"
           body="Once a teacher assigns homework, it will show up here."
+        />
+      ) : homework.length === 0 && homeworkNotes.length === 0 ? (
+        <EmptyState
+          icon="book"
+          title="No homework matches these filters"
+          body="Try a different filter, or clear filters to see everything."
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
