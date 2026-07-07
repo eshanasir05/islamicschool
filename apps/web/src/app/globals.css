@@ -2924,6 +2924,24 @@ button {
   margin-bottom: 16px;
 }
 
+/* ─── Parent dashboard: two-column layout (main + right rail) ────────────── */
+.parent-dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .parent-dash-grid { grid-template-columns: 1fr; }
+}
+.parent-dash-main { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.parent-dash-aside { display: flex; flex-direction: column; gap: 16px; }
+.greeting-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.attendance-snapshot-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.attendance-snapshot-row + .attendance-snapshot-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+
 /* ─── Adab Growth Journal — a warm timeline, not a flat list ─────────────── */
 .adab-timeline { display: flex; flex-direction: column; }
 .adab-entry { display: flex; gap: 14px; }

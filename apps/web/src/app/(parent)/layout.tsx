@@ -10,6 +10,8 @@ import { NotificationBell } from '@/components/ui/notification-bell';
 import { HelpLink } from '@/components/ui/help-link';
 import { TaliblyLogo } from '@/components/ui/logo';
 import { initialsOf } from '@/lib/initials';
+import ParentNav from './parent-nav';
+import ParentUserMenu from './parent-user-menu';
 
 export default async function ParentLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -28,6 +30,8 @@ export default async function ParentLayout({ children }: { children: React.React
     if (g.student && !studentMap.has(g.student.id)) studentMap.set(g.student.id, g.student);
   }
   const students = [...studentMap.values()];
+  const name = publicUser?.fullName?.trim() || user.email || 'Parent';
+  const initials = initialsOf(name);
 
   return (
     <div className="app-shell">
@@ -38,30 +42,15 @@ export default async function ParentLayout({ children }: { children: React.React
         <div className="app-header-right">
           <HelpLink />
           <NotificationBell />
-          <Link href="/account" className="app-header-user" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit' }}>
-            <span className="avatar" style={{ width: 26, height: 26, fontSize: 11, overflow: 'hidden' }}>
-              {publicUser?.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={publicUser.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                initialsOf(publicUser?.fullName ?? user.email ?? '?')
-              )}
-            </span>
-            {publicUser?.fullName ?? user.email}
-          </Link>
-          <a className="app-logout" href="/auth/signout">Sign out</a>
+          <ParentUserMenu name={name} initials={initials} avatarUrl={publicUser?.avatarUrl} />
         </div>
       </header>
-      {students.length > 0 && (
-        <div className="child-tabs">
-          {students.map(s => s && (
-            <Link key={s.id} href={`/parent/${s.id}`} className="child-tab">
-              {s.fullName}
-            </Link>
-          ))}
+      <div className="teacher-shell">
+        <ParentNav students={students} />
+        <div className="teacher-content">
+          <Suspense fallback={<SkeletonPage />}>{children}</Suspense>
         </div>
-      )}
-      <Suspense fallback={<SkeletonPage />}>{children}</Suspense>
+      </div>
       <Toaster />
     </div>
   );

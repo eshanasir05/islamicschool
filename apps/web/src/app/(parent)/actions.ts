@@ -131,6 +131,7 @@ export async function getStudentHomework(studentId: string) {
       eq(schema.homeworkAssignments.archived, false),
       inArray(schema.homeworkAssignments.classId, classIds),
     ),
+    with: { class: { columns: { name: true } } },
     orderBy: (h, { asc }) => asc(h.dueDate),
     limit: 5,
   });
