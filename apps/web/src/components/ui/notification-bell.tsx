@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/marketing/icon';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type NotificationItem = {
   id: string;
@@ -56,8 +56,10 @@ export function NotificationBell() {
   }, [fetchNotifications]);
 
   async function markRead(id: string) {
-    setItems(prev => prev.map(n => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
-    setUnreadCount(c => Math.max(0, c - 1));
+    setItems((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)),
+    );
+    setUnreadCount((c) => Math.max(0, c - 1));
     await fetch('/api/notifications', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,8 +67,28 @@ export function NotificationBell() {
     }).catch(() => null);
   }
 
+  async function deleteNotification(id: string) {
+    const item = items.find((n) => n.id === id);
+    setItems((prev) => prev.filter((n) => n.id !== id));
+    if (item && !item.readAt) setUnreadCount((c) => Math.max(0, c - 1));
+    await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', id }),
+    }).catch(() => fetchNotifications());
+  }
+
+  async function deleteRead() {
+    setItems((prev) => prev.filter((n) => !n.readAt));
+    await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'deleteRead' }),
+    }).catch(() => fetchNotifications());
+  }
+
   async function markAllRead() {
-    setItems(prev => prev.map(n => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
+    setItems((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
     setUnreadCount(0);
     await fetch('/api/notifications', {
       method: 'POST',
@@ -81,12 +103,14 @@ export function NotificationBell() {
     if (n.link) router.push(n.link);
   }
 
+  const hasReadItems = items.some((n) => n.readAt);
+
   return (
     <div className="notif-bell-wrap">
       <button
         type="button"
         className="notif-bell-trigger"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Notifications"
@@ -99,30 +123,113 @@ export function NotificationBell() {
 
       {open && (
         <>
-          <button type="button" className="notif-backdrop" aria-label="Close notifications" onClick={() => setOpen(false)} />
-          <div className="notif-panel" role="menu">
+          <button
+            type="button"
+            className="notif-backdrop"
+            aria-label="Close notifications"
+            onClick={() => setOpen(false)}
+          />
+          <div className="notif-panel">
             <div className="notif-panel-head">
               <span className="notif-panel-title">Notifications</span>
-              {unreadCount > 0 && (
-                <button type="button" className="notif-mark-all" onClick={markAllRead}>
-                  Mark all as read
-                </button>
-              )}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                  justifyContent: 'flex-end',
+                }}
+              >
+                {unreadCount > 0 && (
+                  <button type="button" className="notif-mark-all" onClick={markAllRead}>
+                    Mark all read
+                  </button>
+                )}
+                {hasReadItems && (
+                  <button type="button" className="notif-mark-all" onClick={deleteRead}>
+                    Clear read
+                  </button>
+                )}
+              </div>
             </div>
             {items.length === 0 ? (
               <div className="notif-empty">You&apos;re all caught up.</div>
             ) : (
-              items.map(n => (
-                <button
+              items.map((n) => (
+                <div
                   key={n.id}
-                  type="button"
                   className={`notif-item${!n.readAt ? ' is-unread' : ''}`}
-                  onClick={() => handleClick(n)}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto',
+                    alignItems: 'start',
+                    gap: 8,
+                  }}
                 >
-                  <div className="notif-item-title">{n.title}</div>
-                  {n.body && <div className="notif-item-body">{n.body}</div>}
-                  <div className="notif-item-time">{relativeTime(n.createdAt)}</div>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleClick(n)}
+                    style={{
+                      minWidth: 0,
+                      padding: 0,
+                      border: 0,
+                      background: 'none',
+                      color: 'inherit',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div className="notif-item-title">{n.title}</div>
+                    {n.body && <div className="notif-item-body">{n.body}</div>}
+                    <div className="notif-item-time">{relativeTime(n.createdAt)}</div>
+                  </button>
+                  <div
+                    aria-label={`${n.title} actions`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                  >
+                    {!n.readAt && (
+                      <button
+                        type="button"
+                        onClick={() => markRead(n.id)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          border: '1px solid var(--border)',
+                          background: 'var(--surface)',
+                          color: 'var(--muted)',
+                        }}
+                        title="Mark as read"
+                        aria-label={`Mark ${n.title} as read`}
+                      >
+                        <Icon name="check" size={14} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => deleteNotification(n.id)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 28,
+                        height: 28,
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface)',
+                        color: 'var(--rose)',
+                      }}
+                      title="Delete notification"
+                      aria-label={`Delete ${n.title}`}
+                    >
+                      <Icon name="trash" size={14} />
+                    </button>
+                  </div>
+                </div>
               ))
             )}
           </div>
