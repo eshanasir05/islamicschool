@@ -1,13 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
-import { db, schema } from '@/lib/db';
-import { stripe } from '@/lib/stripe';
 import { env } from '@/env';
-import { createNotification } from '@/lib/notifications';
 import { logActivity } from '@/lib/activity-log';
+import { db, schema } from '@/lib/db';
+import { createNotification } from '@/lib/notifications';
+import { stripe } from '@/lib/stripe';
+import { and, eq } from 'drizzle-orm';
+import { type NextRequest, NextResponse } from 'next/server';
+import type Stripe from 'stripe';
 
 function formatCents(cents: number, currency: string) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency.toUpperCase(),
+  }).format(cents / 100);
 }
 
 export const runtime = 'nodejs';
@@ -18,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   if (!sig) return NextResponse.json({ error: 'No signature' }, { status: 400 });
 
-  let event;
+  let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(body, sig, env.STRIPE_WEBHOOK_SECRET);
   } catch {
@@ -30,14 +34,22 @@ export async function POST(req: NextRequest) {
       const session = event.data.object;
       const planId = session.metadata?.planId;
       if (!planId) break;
+      const checkoutSessionId = typeof session.id === 'string' ? session.id : null;
+      if (!checkoutSessionId) break;
 
       await db
         .update(schema.tuitionPlans)
         .set({
-          stripeSubscriptionId: typeof session.subscription === 'string' ? session.subscription : null,
+          stripeSubscriptionId:
+            typeof session.subscription === 'string' ? session.subscription : null,
           status: 'active',
         })
-        .where(eq(schema.tuitionPlans.id, planId));
+        .where(
+          and(
+            eq(schema.tuitionPlans.id, planId),
+            eq(schema.tuitionPlans.stripeCheckoutSessionId, checkoutSessionId),
+          ),
+        );
       break;
     }
 
@@ -53,12 +65,21 @@ export async function POST(req: NextRequest) {
       };
       const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : null;
       if (!subscriptionId) break;
+      const stripePaymentIntentId =
+        typeof invoice.payment_intent === 'string' ? invoice.payment_intent : null;
 
       const plan = await db.query.tuitionPlans.findFirst({
         where: eq(schema.tuitionPlans.stripeSubscriptionId, subscriptionId),
         with: { student: { columns: { fullName: true } } },
       });
       if (!plan || !plan.guardianUserId) break;
+      if (stripePaymentIntentId) {
+        const existingPayment = await db.query.payments.findFirst({
+          where: eq(schema.payments.stripePaymentIntentId, stripePaymentIntentId),
+          columns: { id: true },
+        });
+        if (existingPayment) break;
+      }
 
       await db.insert(schema.payments).values({
         organizationId: plan.organizationId,
@@ -67,10 +88,14 @@ export async function POST(req: NextRequest) {
         amountCents: invoice.amount_paid,
         currency: invoice.currency.toUpperCase(),
         paymentMethod: 'card',
-        stripePaymentIntentId: typeof invoice.payment_intent === 'string' ? invoice.payment_intent : null,
+        stripePaymentIntentId,
         status: 'succeeded',
         receiptUrl: invoice.hosted_invoice_url ?? null,
-        paidAt: new Date(invoice.status_transitions?.paid_at ? invoice.status_transitions.paid_at * 1000 : Date.now()),
+        paidAt: new Date(
+          invoice.status_transitions?.paid_at
+            ? invoice.status_transitions.paid_at * 1000
+            : Date.now(),
+        ),
       });
 
       await createNotification({
@@ -83,9 +108,16 @@ export async function POST(req: NextRequest) {
       });
 
       await logActivity({
-        organizationId: plan.organizationId, actorUserId: null, actorName: 'Stripe',
-        action: 'payment.succeeded', targetType: 'tuition_plan', targetId: plan.id,
-        metadata: { targetLabel: plan.student?.fullName ?? 'a student', amount: formatCents(invoice.amount_paid, invoice.currency) },
+        organizationId: plan.organizationId,
+        actorUserId: null,
+        actorName: 'Stripe',
+        action: 'payment.succeeded',
+        targetType: 'tuition_plan',
+        targetId: plan.id,
+        metadata: {
+          targetLabel: plan.student?.fullName ?? 'a student',
+          amount: formatCents(invoice.amount_paid, invoice.currency),
+        },
       });
       break;
     }
@@ -127,8 +159,12 @@ export async function POST(req: NextRequest) {
       }
 
       await logActivity({
-        organizationId: plan.organizationId, actorUserId: null, actorName: 'Stripe',
-        action: 'payment.failed', targetType: 'tuition_plan', targetId: plan.id,
+        organizationId: plan.organizationId,
+        actorUserId: null,
+        actorName: 'Stripe',
+        action: 'payment.failed',
+        targetType: 'tuition_plan',
+        targetId: plan.id,
         metadata: { targetLabel: plan.student?.fullName ?? 'a student' },
       });
       break;
