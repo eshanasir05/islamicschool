@@ -1,25 +1,11 @@
-import { NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
-import { db, schema } from '@/lib/db';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { env } from '@/env';
+import { getAdminActorForOrg } from '@/lib/admin-auth';
 import { parseCsv } from '@/lib/csv';
+import { db, schema } from '@/lib/db';
+import { eq } from 'drizzle-orm';
+import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-
-async function getCallerRole(): Promise<string | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const membership = await db.query.memberships.findFirst({
-    where: and(
-      eq(schema.memberships.userId, user.id),
-      eq(schema.memberships.organizationId, env.NEXT_PUBLIC_ORG_ID),
-      eq(schema.memberships.status, 'active'),
-    ),
-  });
-  return membership?.role ?? null;
-}
 
 const REQUIRED_HEADERS = [
   'student_first_name',
@@ -48,12 +34,13 @@ export type ParsedRosterRow = {
 };
 
 export async function POST(req: Request) {
-  const role = await getCallerRole();
-  if (!role || !['admin', 'principal'].includes(role)) {
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
+  const caller = await getAdminActorForOrg(orgId);
+  if (!caller) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { csv } = await req.json() as { csv?: string };
+  const { csv } = (await req.json()) as { csv?: string };
   if (!csv || typeof csv !== 'string') {
     return NextResponse.json({ error: 'Missing CSV text' }, { status: 400 });
   }
@@ -64,8 +51,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'CSV is empty' }, { status: 400 });
   }
 
-  const header = headerRow.map(h => h.trim().toLowerCase());
-  const missingHeaders = REQUIRED_HEADERS.filter(h => !header.includes(h));
+  const header = headerRow.map((h) => h.trim().toLowerCase());
+  const missingHeaders = REQUIRED_HEADERS.filter((h) => !header.includes(h));
   if (missingHeaders.length > 0) {
     return NextResponse.json(
       { error: `Missing required column(s): ${missingHeaders.join(', ')}` },
@@ -75,16 +62,15 @@ export async function POST(req: Request) {
   const col = (name: string) => header.indexOf(name);
   const phoneCol = header.indexOf('guardian_phone');
 
-  const orgId = env.NEXT_PUBLIC_ORG_ID;
   const [existingClasses, existingUsers] = await Promise.all([
     db.query.classes.findMany({
-      where: and(eq(schema.classes.organizationId, orgId)),
+      where: eq(schema.classes.organizationId, orgId),
       columns: { name: true },
     }),
     db.query.users.findMany({ columns: { email: true } }),
   ]);
-  const classNames = new Set(existingClasses.map(c => c.name.trim().toLowerCase()));
-  const userEmails = new Set(existingUsers.map(u => (u.email ?? '').trim().toLowerCase()));
+  const classNames = new Set(existingClasses.map((c) => c.name.trim().toLowerCase()));
+  const userEmails = new Set(existingUsers.map((u) => (u.email ?? '').trim().toLowerCase()));
 
   const dataRows = rawRows.slice(1);
   const rows: ParsedRosterRow[] = dataRows.map((cells, i) => {

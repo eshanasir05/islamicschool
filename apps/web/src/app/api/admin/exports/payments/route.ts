@@ -1,39 +1,22 @@
-import { NextResponse } from 'next/server';
-import { eq, and } from 'drizzle-orm';
-import { db, schema } from '@/lib/db';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { env } from '@/env';
-import { buildCsv, csvResponse } from '@/lib/csv';
 import { logActivity } from '@/lib/activity-log';
+import { getAdminActorForOrg } from '@/lib/admin-auth';
+import { buildCsv, csvResponse } from '@/lib/csv';
+import { db, schema } from '@/lib/db';
+import { eq } from 'drizzle-orm';
+import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-
-async function getCaller(): Promise<{ userId: string; role: string; name: string } | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const membership = await db.query.memberships.findFirst({
-    where: and(
-      eq(schema.memberships.userId, user.id),
-      eq(schema.memberships.organizationId, env.NEXT_PUBLIC_ORG_ID),
-      eq(schema.memberships.status, 'active'),
-    ),
-  });
-  if (!membership) return null;
-  const userRow = await db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { fullName: true } });
-  return { userId: user.id, role: membership.role, name: userRow?.fullName ?? 'Unknown' };
-}
 
 // Alias payer users table to avoid collision with guardian join
 const payerUsers = schema.users;
 
 export async function GET() {
-  const caller = await getCaller();
-  if (!caller || !['admin', 'principal'].includes(caller.role)) {
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
+  const caller = await getAdminActorForOrg(orgId);
+  if (!caller) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-
-  const orgId = env.NEXT_PUBLIC_ORG_ID;
 
   const rows = await db
     .select({
@@ -74,7 +57,7 @@ export async function GET() {
     'created_at',
   ];
 
-  const data = rows.map(r => [
+  const data = rows.map((r) => [
     r.paymentId,
     r.studentName,
     r.parentName,
@@ -91,8 +74,12 @@ export async function GET() {
   ]);
 
   await logActivity({
-    organizationId: orgId, actorUserId: caller.userId, actorName: caller.name,
-    action: 'csv_export.downloaded', targetType: 'payments_export', targetId: null,
+    organizationId: orgId,
+    actorUserId: caller.userId,
+    actorName: caller.name,
+    action: 'csv_export.downloaded',
+    targetType: 'payments_export',
+    targetId: null,
     metadata: { targetLabel: 'tuition/payments' },
   });
 

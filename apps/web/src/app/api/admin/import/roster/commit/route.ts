@@ -1,42 +1,27 @@
-import { NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
-import { db, schema } from '@/lib/db';
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { env } from '@/env';
 import { logActivity } from '@/lib/activity-log';
+import { getAdminActorForOrg } from '@/lib/admin-auth';
+import { db, schema } from '@/lib/db';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { eq } from 'drizzle-orm';
+import { NextResponse } from 'next/server';
 import type { ParsedRosterRow } from '../parse/route';
 
 export const runtime = 'nodejs';
 
-async function getCaller(): Promise<{ userId: string; role: string; name: string } | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const membership = await db.query.memberships.findFirst({
-    where: and(
-      eq(schema.memberships.userId, user.id),
-      eq(schema.memberships.organizationId, env.NEXT_PUBLIC_ORG_ID),
-      eq(schema.memberships.status, 'active'),
-    ),
-  });
-  if (!membership) return null;
-  const userRow = await db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { fullName: true } });
-  return { userId: user.id, role: membership.role, name: userRow?.fullName ?? 'Unknown' };
-}
-
 export async function POST(req: Request) {
-  const caller = await getCaller();
-  if (!caller || !['admin', 'principal'].includes(caller.role)) {
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
+  const caller = await getAdminActorForOrg(orgId);
+  if (!caller) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { rows } = await req.json() as { rows?: ParsedRosterRow[] };
-  const validRows = (rows ?? []).filter(r => r.errors.length === 0);
+  const { rows } = (await req.json()) as { rows?: ParsedRosterRow[] };
+  const validRows = (rows ?? []).filter((r) => r.errors.length === 0);
   if (validRows.length === 0) {
     return NextResponse.json({ error: 'No valid rows to import' }, { status: 400 });
   }
 
-  const orgId = env.NEXT_PUBLIC_ORG_ID;
   const serviceClient = await createSupabaseServiceClient();
 
   let studentsCreated = 0;
@@ -50,7 +35,9 @@ export async function POST(req: Request) {
     .select({ id: schema.classes.id, name: schema.classes.name })
     .from(schema.classes)
     .where(eq(schema.classes.organizationId, orgId));
-  const classCache = new Map<string, string>(classRows.map(c => [c.name.trim().toLowerCase(), c.id]));
+  const classCache = new Map<string, string>(
+    classRows.map((c) => [c.name.trim().toLowerCase(), c.id]),
+  );
   const guardianCache = new Map<string, string>();
 
   for (const row of validRows) {
@@ -84,19 +71,32 @@ export async function POST(req: Request) {
             email_confirm: true,
           });
           if (result.error || !result.data.user) {
-            rowErrors.push({ rowIndex: row.rowIndex, message: `Could not create guardian account: ${result.error?.message ?? 'unknown error'}` });
+            rowErrors.push({
+              rowIndex: row.rowIndex,
+              message: `Could not create guardian account: ${result.error?.message ?? 'unknown error'}`,
+            });
             continue;
           }
           guardianUserId = result.data.user.id;
           await db
             .insert(schema.users)
-            .values({ id: guardianUserId, email: row.guardianEmail, fullName: row.guardianName, phone: row.guardianPhone || null })
+            .values({
+              id: guardianUserId,
+              email: row.guardianEmail,
+              fullName: row.guardianName,
+              phone: row.guardianPhone || null,
+            })
             .onConflictDoNothing();
           guardiansCreated++;
         }
         await db
           .insert(schema.memberships)
-          .values({ userId: guardianUserId, organizationId: orgId, role: 'parent', status: 'active' })
+          .values({
+            userId: guardianUserId,
+            organizationId: orgId,
+            role: 'parent',
+            status: 'active',
+          })
           .onConflictDoNothing();
         guardianCache.set(row.guardianEmail, guardianUserId);
       }
@@ -116,23 +116,36 @@ export async function POST(req: Request) {
       studentsCreated++;
 
       // Enroll + link guardian
-      await db.insert(schema.classEnrollments).values({ classId, studentId: student.id }).onConflictDoNothing();
-      await db.insert(schema.studentGuardians).values({
-        studentId: student.id,
-        guardianUserId,
-        relationship: null,
-        isPrimary: true,
-        receivesNotifications: true,
-      }).onConflictDoNothing();
+      await db
+        .insert(schema.classEnrollments)
+        .values({ classId, studentId: student.id })
+        .onConflictDoNothing();
+      await db
+        .insert(schema.studentGuardians)
+        .values({
+          studentId: student.id,
+          guardianUserId,
+          relationship: null,
+          isPrimary: true,
+          receivesNotifications: true,
+        })
+        .onConflictDoNothing();
     } catch (err) {
-      rowErrors.push({ rowIndex: row.rowIndex, message: err instanceof Error ? err.message : 'Unknown error' });
+      rowErrors.push({
+        rowIndex: row.rowIndex,
+        message: err instanceof Error ? err.message : 'Unknown error',
+      });
     }
   }
 
   if (studentsCreated > 0) {
     await logActivity({
-      organizationId: orgId, actorUserId: caller.userId, actorName: caller.name,
-      action: 'roster_import.completed', targetType: 'roster_import', targetId: null,
+      organizationId: orgId,
+      actorUserId: caller.userId,
+      actorName: caller.name,
+      action: 'roster_import.completed',
+      targetType: 'roster_import',
+      targetId: null,
       metadata: { targetLabel: `${studentsCreated} student${studentsCreated === 1 ? '' : 's'}` },
     });
   }

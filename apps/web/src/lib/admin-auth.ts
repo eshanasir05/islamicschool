@@ -11,12 +11,14 @@ export type AdminActorContext = {
   role: AdminRole;
 };
 
-export async function requireAdminForOrg(organizationId: string): Promise<AdminActorContext> {
+async function resolveAdminActorForOrg(
+  organizationId: string,
+): Promise<{ hasSession: boolean; actor: AdminActorContext | null }> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
+  if (!user) return { hasSession: false, actor: null };
 
   const membership = await db.query.memberships.findFirst({
     where: and(
@@ -28,13 +30,28 @@ export async function requireAdminForOrg(organizationId: string): Promise<AdminA
     with: { user: { columns: { fullName: true, email: true } } },
   });
 
-  if (!membership) {
-    throw new Error('Forbidden');
-  }
+  if (!membership) return { hasSession: true, actor: null };
 
   return {
-    userId: user.id,
-    name: membership.user?.fullName ?? membership.user?.email ?? 'Admin',
-    role: membership.role as AdminRole,
+    hasSession: true,
+    actor: {
+      userId: user.id,
+      name: membership.user?.fullName ?? membership.user?.email ?? 'Admin',
+      role: membership.role as AdminRole,
+    },
   };
+}
+
+export async function getAdminActorForOrg(
+  organizationId: string,
+): Promise<AdminActorContext | null> {
+  const { actor } = await resolveAdminActorForOrg(organizationId);
+  return actor;
+}
+
+export async function requireAdminForOrg(organizationId: string): Promise<AdminActorContext> {
+  const { actor, hasSession } = await resolveAdminActorForOrg(organizationId);
+  if (!hasSession) redirect('/sign-in');
+  if (!actor) throw new Error('Forbidden');
+  return actor;
 }
