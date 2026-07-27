@@ -1,42 +1,52 @@
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { and, eq } from 'drizzle-orm';
-import { db, schema } from '@/lib/db';
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
-import { env } from '@/env';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { env } from '@/env';
+import { requireAdminForOrg } from '@/lib/admin-auth';
+import { db, schema } from '@/lib/db';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { and, eq } from 'drizzle-orm';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 type Props = { searchParams: Promise<{ status?: string }> };
 
 const STATUS_MESSAGES: Record<string, { text: string; tone: 'success' | 'warn' | 'error' }> = {
-  invited:         { text: 'Invite sent! The parent will receive an email with a sign-in link and will be linked to the selected student.', tone: 'success' },
-  added:           { text: 'Parent already has an account — added as a parent and linked to the selected student.', tone: 'success' },
-  already_linked:  { text: 'This parent is already linked to that student. No changes were made.', tone: 'warn' },
-  invalid_email:   { text: 'Please enter a valid email address.', tone: 'error' },
+  invited: {
+    text: 'Invite sent! The parent will receive an email with a sign-in link and will be linked to the selected student.',
+    tone: 'success',
+  },
+  added: {
+    text: 'Parent already has an account — added as a parent and linked to the selected student.',
+    tone: 'success',
+  },
+  already_linked: {
+    text: 'This parent is already linked to that student. No changes were made.',
+    tone: 'warn',
+  },
+  invalid_email: { text: 'Please enter a valid email address.', tone: 'error' },
   missing_student: { text: 'Please select a student to link this parent to.', tone: 'error' },
-  not_admin:       { text: 'Permission denied. Only admins can invite parents.', tone: 'error' },
-  error:           { text: 'Something went wrong. Please try again.', tone: 'error' },
+  not_admin: { text: 'Permission denied. Only admins can invite parents.', tone: 'error' },
+  error: { text: 'Something went wrong. Please try again.', tone: 'error' },
 };
 
 export default async function InviteParentPage({ searchParams }: Props) {
   const { status } = await searchParams;
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
+  await requireAdminForOrg(orgId);
+
   const statusInfo = status ? STATUS_MESSAGES[status] : null;
 
   // Fetch active students for the dropdown
   const students = await db.query.students.findMany({
-    where: and(
-      eq(schema.students.organizationId, env.NEXT_PUBLIC_ORG_ID),
-      eq(schema.students.status, 'active'),
-    ),
+    where: and(eq(schema.students.organizationId, orgId), eq(schema.students.status, 'active')),
     orderBy: (s, { asc }) => asc(s.fullName),
   });
 
   async function inviteParentAction(formData: FormData) {
     'use server';
 
-    const email     = (formData.get('email') as string | null)?.trim().toLowerCase() ?? '';
-    const fullName  = (formData.get('fullName') as string | null)?.trim() ?? '';
+    const email = (formData.get('email') as string | null)?.trim().toLowerCase() ?? '';
+    const fullName = (formData.get('fullName') as string | null)?.trim() ?? '';
     const studentId = (formData.get('studentId') as string | null)?.trim() ?? '';
     const relationship = (formData.get('relationship') as string | null)?.trim() ?? null;
     const orgId = env.NEXT_PUBLIC_ORG_ID;
@@ -49,28 +59,11 @@ export default async function InviteParentPage({ searchParams }: Props) {
       redirect('/admin/parents/invite?status=missing_student');
     }
 
-    // Verify caller is admin or principal
-    const supabase = await createSupabaseServerClient();
-    const { data: { user: caller } } = await supabase.auth.getUser();
-    if (!caller) redirect('/sign-in');
-
-    const callerMembership = await db.query.memberships.findFirst({
-      where: and(
-        eq(schema.memberships.userId, caller.id),
-        eq(schema.memberships.organizationId, orgId),
-        eq(schema.memberships.status, 'active'),
-      ),
-    });
-    if (!callerMembership || !['admin', 'principal'].includes(callerMembership.role)) {
-      redirect('/admin/parents/invite?status=not_admin');
-    }
+    await requireAdminForOrg(orgId);
 
     // Verify the submitted studentId belongs to this org (prevent cross-org injection)
     const student = await db.query.students.findFirst({
-      where: and(
-        eq(schema.students.id, studentId),
-        eq(schema.students.organizationId, orgId),
-      ),
+      where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
     });
     if (!student) {
       redirect('/admin/parents/invite?status=missing_student');
@@ -155,74 +148,133 @@ export default async function InviteParentPage({ searchParams }: Props) {
 
   return (
     <main className="app-main">
-      <Breadcrumb
-        items={[
-          { label: 'Parents', href: '/admin/parents' },
-          { label: 'Invite' },
-        ]}
-      />
+      <Breadcrumb items={[{ label: 'Parents', href: '/admin/parents' }, { label: 'Invite' }]} />
 
-      <h1 className="text-h1" style={{ marginBottom: 6 }}>Invite a parent</h1>
+      <h1 className="text-h1" style={{ marginBottom: 6 }}>
+        Invite a parent
+      </h1>
       <p className="text-body" style={{ marginBottom: 24 }}>
-        The parent will receive an email with a sign-in link and will immediately be linked to the selected student.
+        The parent will receive an email with a sign-in link and will immediately be linked to the
+        selected student.
       </p>
 
-      {statusInfo && (
-        <div className={`banner banner-${statusInfo.tone}`}>
-          {statusInfo.text}
-        </div>
-      )}
+      {statusInfo && <div className={`banner banner-${statusInfo.tone}`}>{statusInfo.text}</div>}
 
       <div className="app-card" style={{ maxWidth: 500 }}>
-        <form action={inviteParentAction} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
+        <form
+          action={inviteParentAction}
+          style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+        >
           {/* Email */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>
+            <label
+              htmlFor="parentEmail"
+              style={{
+                display: 'block',
+                fontSize: 13,
+                fontWeight: 500,
+                color: 'var(--fg)',
+                marginBottom: 6,
+              }}
+            >
               Email address <span style={{ color: 'var(--accent)' }}>*</span>
             </label>
             <input
+              id="parentEmail"
               name="email"
               type="email"
               required
               placeholder="parent@example.com"
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, background: 'var(--surface)', color: 'var(--fg)', boxSizing: 'border-box' }}
+              style={{
+                width: '100%',
+                padding: '9px 12px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                fontSize: 14,
+                background: 'var(--surface)',
+                color: 'var(--fg)',
+                boxSizing: 'border-box',
+              }}
             />
           </div>
 
           {/* Full name */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>
+            <label
+              htmlFor="parentFullName"
+              style={{
+                display: 'block',
+                fontSize: 13,
+                fontWeight: 500,
+                color: 'var(--fg)',
+                marginBottom: 6,
+              }}
+            >
               Full name
             </label>
             <input
+              id="parentFullName"
               name="fullName"
               type="text"
               placeholder="Sister Fatima"
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, background: 'var(--surface)', color: 'var(--fg)', boxSizing: 'border-box' }}
+              style={{
+                width: '100%',
+                padding: '9px 12px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                fontSize: 14,
+                background: 'var(--surface)',
+                color: 'var(--fg)',
+                boxSizing: 'border-box',
+              }}
             />
-            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Optional — parent can update after signing in.</p>
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+              Optional — parent can update after signing in.
+            </p>
           </div>
 
           {/* Student select */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>
+            <label
+              htmlFor="parentStudentId"
+              style={{
+                display: 'block',
+                fontSize: 13,
+                fontWeight: 500,
+                color: 'var(--fg)',
+                marginBottom: 6,
+              }}
+            >
               Link to student <span style={{ color: 'var(--accent)' }}>*</span>
             </label>
             {students.length === 0 ? (
               <p style={{ fontSize: 14, color: 'var(--muted)' }}>
                 No students found.{' '}
-                <Link href="/admin/students/new" style={{ color: 'var(--accent)' }}>Add a student first.</Link>
+                <Link href="/admin/students/new" style={{ color: 'var(--accent)' }}>
+                  Add a student first.
+                </Link>
               </p>
             ) : (
               <select
+                id="parentStudentId"
                 name="studentId"
                 required
-                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, background: 'var(--surface)', color: 'var(--fg)', boxSizing: 'border-box' }}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  fontSize: 14,
+                  background: 'var(--surface)',
+                  color: 'var(--fg)',
+                  boxSizing: 'border-box',
+                }}
               >
                 <option value="">— Select a student —</option>
-                {students.map(s => (
-                  <option key={s.id} value={s.id}>{s.fullName}</option>
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.fullName}
+                  </option>
                 ))}
               </select>
             )}
@@ -230,12 +282,31 @@ export default async function InviteParentPage({ searchParams }: Props) {
 
           {/* Relationship */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>
+            <label
+              htmlFor="parentRelationship"
+              style={{
+                display: 'block',
+                fontSize: 13,
+                fontWeight: 500,
+                color: 'var(--fg)',
+                marginBottom: 6,
+              }}
+            >
               Relationship
             </label>
             <select
+              id="parentRelationship"
               name="relationship"
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, background: 'var(--surface)', color: 'var(--fg)', boxSizing: 'border-box' }}
+              style={{
+                width: '100%',
+                padding: '9px 12px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                fontSize: 14,
+                background: 'var(--surface)',
+                color: 'var(--fg)',
+                boxSizing: 'border-box',
+              }}
             >
               <option value="">— Select —</option>
               <option value="mother">Mother</option>
@@ -256,10 +327,20 @@ export default async function InviteParentPage({ searchParams }: Props) {
         </form>
       </div>
 
-      <div style={{ marginTop: 20, padding: '12px 14px', background: 'var(--surface-2, #f8f9fa)', borderRadius: 8, fontSize: 13, color: 'var(--muted)', maxWidth: 500 }}>
-        <strong style={{ color: 'var(--fg)' }}>How it works:</strong> The parent receives a sign-in link by email.
-        Clicking it logs them in directly and shows them their child&apos;s feed and billing information.
-        They can set a password later via &ldquo;Forgot password&rdquo;.
+      <div
+        style={{
+          marginTop: 20,
+          padding: '12px 14px',
+          background: 'var(--surface-2, #f8f9fa)',
+          borderRadius: 8,
+          fontSize: 13,
+          color: 'var(--muted)',
+          maxWidth: 500,
+        }}
+      >
+        <strong style={{ color: 'var(--fg)' }}>How it works:</strong> The parent receives a sign-in
+        link by email. Clicking it logs them in directly and shows them their child&apos;s feed and
+        billing information. They can set a password later via &ldquo;Forgot password&rdquo;.
       </div>
     </main>
   );
