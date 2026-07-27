@@ -1,28 +1,17 @@
 'use server';
 
+import { env } from '@/env';
+import { logActivity } from '@/lib/activity-log';
+import { requireAdminForOrg } from '@/lib/admin-auth';
+import { db, schema } from '@/lib/db';
+import { getHifzRetentionFlags } from '@/lib/hifz-retention';
+import { createNotification, notifyAllGuardiansInOrg, notifyAllTeachersIfEnabled, notifyTeacherIfEnabled } from '@/lib/notifications';
+import { stripe } from '@/lib/stripe';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { and, count, desc, eq, gte, inArray, isNull, max, ne, sql, sum } from 'drizzle-orm';
-import { Resend } from 'resend';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { db, schema } from '@/lib/db';
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
-import { stripe } from '@/lib/stripe';
-import { env } from '@/env';
-import { notifyAllGuardiansInOrg, createNotification, notifyTeacherIfEnabled, notifyAllTeachersIfEnabled } from '@/lib/notifications';
-import { getHifzRetentionFlags } from '@/lib/hifz-retention';
-import { logActivity } from '@/lib/activity-log';
-
-// Resolves who is calling — used only to attribute Activity Log entries.
-// Every admin mutation is already gated to admin/principal roles by
-// middleware, so this never performs its own authorization; it just
-// looks up a display name for the person already known to be allowed.
-async function getActorContext(): Promise<{ userId: string | null; name: string }> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { userId: null, name: 'Unknown' };
-  const row = await db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { fullName: true } });
-  return { userId: user.id, name: row?.fullName ?? 'Unknown' };
-}
+import { Resend } from 'resend';
 
 export async function getAdminStats(orgId: string) {
   const sevenDaysAgo = new Date();
@@ -237,18 +226,20 @@ export async function getAnnouncements(orgId: string) {
   }));
 }
 
-export async function createAnnouncement(orgId: string, userId: string, content: string) {
+export async function createAnnouncement(orgId: string, _userId: string, content: string) {
+  const actor = await requireAdminForOrg(orgId);
+
   const [thread] = await db.insert(schema.messageThreads).values({
     organizationId: orgId,
     scope: 'school_wide',
-    createdBy: userId,
+    createdBy: actor.userId,
   }).returning({ id: schema.messageThreads.id });
 
   if (!thread) throw new Error('Failed to create thread');
 
   await db.insert(schema.messages).values({
     threadId: thread.id,
-    senderUserId: userId,
+    senderUserId: actor.userId,
     content,
   });
 
@@ -266,9 +257,8 @@ export async function createAnnouncement(orgId: string, userId: string, content:
     link: '/teacher',
   });
 
-  const actorRow = await db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { fullName: true } });
   await logActivity({
-    organizationId: orgId, actorUserId: userId, actorName: actorRow?.fullName ?? 'Unknown',
+    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
     action: 'announcement.posted', targetType: 'announcement', targetId: thread.id,
     metadata: { targetLabel: content.length > 60 ? `${content.slice(0, 60)}…` : content },
   });
@@ -278,8 +268,16 @@ export async function createAnnouncement(orgId: string, userId: string, content:
 }
 
 export async function deleteAnnouncement(threadId: string) {
+  const thread = await db.query.messageThreads.findFirst({
+    where: eq(schema.messageThreads.id, threadId),
+    columns: { organizationId: true },
+  });
+  if (!thread) return;
+  await requireAdminForOrg(thread.organizationId);
+
   await db.delete(schema.messages).where(eq(schema.messages.threadId, threadId));
-  await db.delete(schema.messageThreads).where(eq(schema.messageThreads.id, threadId));
+  await db.delete(schema.messageThreads)
+    .where(and(eq(schema.messageThreads.id, threadId), eq(schema.messageThreads.organizationId, thread.organizationId)));
   revalidatePath('/admin/announcements');
   revalidatePath('/parent');
 }
@@ -291,6 +289,8 @@ export async function createStudent(
   orgId: string,
   data: { fullName: string; dateOfBirth: string; gender?: string },
 ) {
+  const actor = await requireAdminForOrg(orgId);
+
   const [row] = await db
     .insert(schema.students)
     .values({
@@ -303,7 +303,6 @@ export async function createStudent(
     .returning({ id: schema.students.id });
   if (!row) throw new Error('Insert failed');
 
-  const actor = await getActorContext();
   await logActivity({
     organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
     action: 'student.created', targetType: 'student', targetId: row.id,
@@ -319,6 +318,8 @@ export async function updateStudent(
   orgId: string,
   data: { fullName: string; dateOfBirth: string; gender?: string; medicalNotes?: string },
 ) {
+  const actor = await requireAdminForOrg(orgId);
+
   await db
     .update(schema.students)
     .set({
@@ -329,7 +330,6 @@ export async function updateStudent(
     })
     .where(and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)));
 
-  const actor = await getActorContext();
   await logActivity({
     organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
     action: 'student.updated', targetType: 'student', targetId: studentId,
@@ -346,13 +346,14 @@ export async function setStudentStatus(
   orgId: string,
   status: 'active' | 'inactive',
 ) {
+  const actor = await requireAdminForOrg(orgId);
+
   await db
     .update(schema.students)
     .set({ status })
     .where(and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)));
 
   const student = await db.query.students.findFirst({ where: eq(schema.students.id, studentId), columns: { fullName: true } });
-  const actor = await getActorContext();
   await logActivity({
     organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
     action: status === 'active' ? 'student.restored' : 'student.archived', targetType: 'student', targetId: studentId,
@@ -371,6 +372,8 @@ export async function createClass(
   orgId: string,
   data: { name: string; gradeLevel?: string; academicYear?: string; capacity?: number; primaryTeacherId?: string },
 ) {
+  const actor = await requireAdminForOrg(orgId);
+
   const [row] = await db
     .insert(schema.classes)
     .values({
@@ -384,7 +387,6 @@ export async function createClass(
     .returning({ id: schema.classes.id });
   if (!row) throw new Error('Insert failed');
 
-  const actor = await getActorContext();
   await logActivity({
     organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
     action: 'class.created', targetType: 'class', targetId: row.id,
@@ -401,6 +403,8 @@ export async function updateClass(
   orgId: string,
   data: { name: string; gradeLevel?: string; academicYear?: string; capacity?: string; primaryTeacherId?: string },
 ) {
+  const actor = await requireAdminForOrg(orgId);
+
   await db
     .update(schema.classes)
     .set({
@@ -412,7 +416,6 @@ export async function updateClass(
     })
     .where(and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)));
 
-  const actor = await getActorContext();
   await logActivity({
     organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
     action: 'class.updated', targetType: 'class', targetId: classId,
@@ -425,6 +428,8 @@ export async function updateClass(
 }
 
 export async function archiveClass(classId: string, orgId: string) {
+  await requireAdminForOrg(orgId);
+
   await db
     .update(schema.classes)
     .set({ deletedAt: new Date() })
@@ -435,6 +440,8 @@ export async function archiveClass(classId: string, orgId: string) {
 }
 
 export async function restoreClass(classId: string, orgId: string) {
+  await requireAdminForOrg(orgId);
+
   await db
     .update(schema.classes)
     .set({ deletedAt: null })
@@ -538,7 +545,29 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
   return { cls, sessions, homework, milestones, hifzProgress };
 }
 
+async function requireAdminForClassStudent(classId: string, studentId: string) {
+  const [cls, student] = await Promise.all([
+    db.query.classes.findFirst({
+      where: eq(schema.classes.id, classId),
+      columns: { organizationId: true },
+    }),
+    db.query.students.findFirst({
+      where: eq(schema.students.id, studentId),
+      columns: { organizationId: true },
+    }),
+  ]);
+
+  if (!cls || !student || cls.organizationId !== student.organizationId) {
+    throw new Error('Forbidden');
+  }
+
+  await requireAdminForOrg(cls.organizationId);
+  return { orgId: cls.organizationId };
+}
+
 export async function enrollStudent(classId: string, studentId: string) {
+  await requireAdminForClassStudent(classId, studentId);
+
   await db.insert(schema.classEnrollments).values({ classId, studentId }).onConflictDoNothing();
   revalidatePath(`/admin/classes/${classId}`);
   revalidatePath(`/admin/students/${studentId}`);
@@ -546,6 +575,8 @@ export async function enrollStudent(classId: string, studentId: string) {
 }
 
 export async function unenrollStudent(classId: string, studentId: string) {
+  await requireAdminForClassStudent(classId, studentId);
+
   await db
     .delete(schema.classEnrollments)
     .where(
@@ -569,6 +600,13 @@ export async function linkGuardian(
   isPrimary: boolean,
   receivesNotifications: boolean,
 ) {
+  const actor = await requireAdminForOrg(orgId);
+  const studentForOrg = await db.query.students.findFirst({
+    where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
+    columns: { fullName: true },
+  });
+  if (!studentForOrg) throw new Error('Forbidden');
+
   let guardianUserId: string;
 
   const existing = await db.query.users.findFirst({
@@ -614,24 +652,19 @@ export async function linkGuardian(
       receivesNotifications,
     });
 
-    const student = await db.query.students.findFirst({
-      where: eq(schema.students.id, studentId),
-      columns: { fullName: true },
-    });
     await createNotification({
       organizationId: orgId,
       userId: guardianUserId,
       type: 'guardian_linked',
-      title: `You've been linked to ${student?.fullName ?? 'a student'}'s account`,
+      title: `You've been linked to ${studentForOrg.fullName}'s account`,
       body: 'You can now see attendance, hifz progress, and tuition in your parent portal.',
       link: `/parent/${studentId}`,
     });
 
-    const actor = await getActorContext();
     await logActivity({
       organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
       action: 'guardian.linked', targetType: 'guardian', targetId: guardianUserId,
-      metadata: { targetLabel: `${email} → ${student?.fullName ?? 'a student'}` },
+      metadata: { targetLabel: `${email} → ${studentForOrg.fullName}` },
     });
   }
 
@@ -641,14 +674,20 @@ export async function linkGuardian(
 
 export async function unlinkGuardian(linkId: string, studentId: string) {
   const link = await db.query.studentGuardians.findFirst({
-    where: eq(schema.studentGuardians.id, linkId),
-    with: { guardian: { columns: { fullName: true } } },
+    where: and(eq(schema.studentGuardians.id, linkId), eq(schema.studentGuardians.studentId, studentId)),
+    with: {
+      guardian: { columns: { fullName: true } },
+      student: { columns: { organizationId: true } },
+    },
   });
-  await db.delete(schema.studentGuardians).where(eq(schema.studentGuardians.id, linkId));
+  if (!link?.student) throw new Error('Forbidden');
 
-  const actor = await getActorContext();
+  const actor = await requireAdminForOrg(link.student.organizationId);
+  await db.delete(schema.studentGuardians)
+    .where(and(eq(schema.studentGuardians.id, linkId), eq(schema.studentGuardians.studentId, studentId)));
+
   await logActivity({
-    organizationId: env.NEXT_PUBLIC_ORG_ID, actorUserId: actor.userId, actorName: actor.name,
+    organizationId: link.student.organizationId, actorUserId: actor.userId, actorName: actor.name,
     action: 'guardian.unlinked', targetType: 'guardian', targetId: link?.guardianUserId ?? null,
     metadata: { targetLabel: link?.guardian?.fullName ?? 'a guardian' },
   });
@@ -965,6 +1004,8 @@ async function runTuitionReminders(orgId: string, opts: { planId?: string; throt
 
 // Admin-triggered: remind every family currently past due, right now.
 export async function sendTuitionReminders(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const { sent } = await runTuitionReminders(orgId);
   revalidatePath('/admin/tuition');
   redirect(`/admin/tuition?notice=${sent > 0 ? 'reminders_sent' : 'no_reminders_due'}`);
@@ -972,6 +1013,8 @@ export async function sendTuitionReminders(orgId: string) {
 
 // Admin-triggered: remind a single family.
 export async function sendSingleTuitionReminder(planId: string, orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const { sent } = await runTuitionReminders(orgId, { planId });
   revalidatePath('/admin/tuition');
   redirect(`/admin/tuition?notice=${sent > 0 ? 'reminders_sent' : 'no_reminders_due'}`);
@@ -1039,6 +1082,34 @@ export async function createTuitionPlan(
     discountReason?: string;
   },
 ) {
+  const actor = await requireAdminForOrg(orgId);
+  const [studentForOrg, guardianMembership, guardianLink] = await Promise.all([
+    db.query.students.findFirst({
+      where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
+      columns: { id: true },
+    }),
+    db.query.memberships.findFirst({
+      where: and(
+        eq(schema.memberships.userId, data.guardianUserId),
+        eq(schema.memberships.organizationId, orgId),
+        eq(schema.memberships.role, 'parent'),
+        eq(schema.memberships.status, 'active'),
+      ),
+      columns: { id: true },
+    }),
+    db.query.studentGuardians.findFirst({
+      where: and(
+        eq(schema.studentGuardians.studentId, studentId),
+        eq(schema.studentGuardians.guardianUserId, data.guardianUserId),
+      ),
+      columns: { id: true },
+    }),
+  ]);
+
+  if (!studentForOrg || !guardianMembership || !guardianLink) {
+    throw new Error('Forbidden');
+  }
+
   const hasDiscount = !!data.discountType && !!data.discountValue && data.discountValue > 0;
   const discountCents = !hasDiscount
     ? 0
@@ -1102,7 +1173,6 @@ export async function createTuitionPlan(
     metadata: { planId: plan.id },
   });
 
-  const actor = await getActorContext();
   const isSiblingDiscount = hasDiscount && /sibling/i.test(data.discountReason ?? 'Sibling discount');
   await logActivity({
     organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
@@ -1310,6 +1380,8 @@ export async function getBoardPack(orgId: string) {
 }
 
 export async function cancelTuitionPlan(planId: string, orgId: string, studentId: string) {
+  await requireAdminForOrg(orgId);
+
   const plan = await db.query.tuitionPlans.findFirst({
     where: and(eq(schema.tuitionPlans.id, planId), eq(schema.tuitionPlans.organizationId, orgId)),
   });
@@ -1362,7 +1434,7 @@ export async function getRecentLeadsForTrial() {
 
 export async function createTrialPlacement(
   orgId: string,
-  createdBy: string,
+  _createdBy: string,
   data: {
     studentFirstName: string;
     studentLastName: string;
@@ -1374,6 +1446,8 @@ export async function createTrialPlacement(
     contactSubmissionId?: string;
   },
 ) {
+  const actor = await requireAdminForOrg(orgId);
+
   const [row] = await db
     .insert(schema.trialPlacements)
     .values({
@@ -1386,7 +1460,7 @@ export async function createTrialPlacement(
       scheduledDate: data.scheduledDate || null,
       assignedTeacherId: data.assignedTeacherId || null,
       contactSubmissionId: data.contactSubmissionId || null,
-      createdBy,
+      createdBy: actor.userId,
     })
     .returning({ id: schema.trialPlacements.id });
   if (!row) throw new Error('Insert failed');
@@ -1405,6 +1479,8 @@ export async function createTrialPlacement(
 }
 
 export async function cancelTrialPlacement(trialId: string, orgId: string) {
+  await requireAdminForOrg(orgId);
+
   await db.update(schema.trialPlacements)
     .set({ status: 'cancelled' })
     .where(and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)));
@@ -1418,10 +1494,18 @@ export async function convertTrialToStudent(
   orgId: string,
   data: { dateOfBirth: string; classId: string },
 ) {
+  const actor = await requireAdminForOrg(orgId);
+
   const trial = await db.query.trialPlacements.findFirst({
     where: and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)),
   });
   if (!trial) redirect('/admin/trials');
+
+  const targetClass = await db.query.classes.findFirst({
+    where: and(eq(schema.classes.id, data.classId), eq(schema.classes.organizationId, orgId)),
+    columns: { id: true },
+  });
+  if (!targetClass) throw new Error('Forbidden');
 
   // Resolve guardian: link existing by email or create silently (no invite email)
   let guardianUserId: string;
@@ -1465,7 +1549,6 @@ export async function convertTrialToStudent(
     .set({ status: 'converted', convertedStudentId: student.id, convertedAt: new Date() })
     .where(eq(schema.trialPlacements.id, trialId));
 
-  const actor = await getActorContext();
   await logActivity({
     organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
     action: 'inquiry.converted', targetType: 'student', targetId: student.id,
