@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { z } from 'zod';
 
-const schema = z.object({ email: z.string().trim().email().toLowerCase() });
+const schema = z.object({ email: z.string().trim().email().max(320).toLowerCase() });
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
