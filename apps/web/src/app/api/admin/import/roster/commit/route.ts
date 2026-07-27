@@ -9,6 +9,52 @@ import type { ParsedRosterRow } from '../parse/route';
 
 export const runtime = 'nodejs';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_IMPORT_ROWS = 500;
+
+function cleanString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeRosterRow(row: Partial<ParsedRosterRow>, fallbackIndex: number): ParsedRosterRow {
+  const studentFirstName = cleanString(row.studentFirstName);
+  const studentLastName = cleanString(row.studentLastName);
+  const dateOfBirth = cleanString(row.dateOfBirth);
+  const className = cleanString(row.className);
+  const guardianName = cleanString(row.guardianName);
+  const guardianEmail = cleanString(row.guardianEmail).toLowerCase();
+  const guardianPhone = cleanString(row.guardianPhone);
+  const rowIndex =
+    typeof row.rowIndex === 'number' && Number.isInteger(row.rowIndex) && row.rowIndex > 0
+      ? row.rowIndex
+      : fallbackIndex;
+
+  const errors: string[] = [];
+  if (!studentFirstName) errors.push('Missing student first name');
+  if (!studentLastName) errors.push('Missing student last name');
+  if (!dateOfBirth) errors.push('Missing date of birth');
+  else if (!DATE_RE.test(dateOfBirth)) errors.push('Date of birth must be YYYY-MM-DD');
+  if (!className) errors.push('Missing class name');
+  if (!guardianName) errors.push('Missing guardian name');
+  if (!guardianEmail) errors.push('Missing guardian email');
+  else if (!EMAIL_RE.test(guardianEmail)) errors.push('Guardian email is invalid');
+
+  return {
+    rowIndex,
+    studentFirstName,
+    studentLastName,
+    dateOfBirth,
+    className,
+    guardianName,
+    guardianEmail,
+    guardianPhone,
+    errors,
+    willCreateClass: false,
+    existingGuardian: false,
+  };
+}
+
 export async function POST(req: Request) {
   const orgId = env.NEXT_PUBLIC_ORG_ID;
   const caller = await getAdminActorForOrg(orgId);
@@ -16,10 +62,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { rows } = (await req.json()) as { rows?: ParsedRosterRow[] };
-  const validRows = (rows ?? []).filter((r) => r.errors.length === 0);
+  const body = (await req.json().catch(() => null)) as { rows?: unknown } | null;
+  if (!body || !Array.isArray(body.rows)) {
+    return NextResponse.json({ error: 'Missing roster rows' }, { status: 400 });
+  }
+  if (body.rows.length > MAX_IMPORT_ROWS) {
+    return NextResponse.json(
+      { error: `Import is limited to ${MAX_IMPORT_ROWS} rows at a time` },
+      { status: 400 },
+    );
+  }
+
+  const normalizedRows = body.rows.map((row, i) =>
+    normalizeRosterRow((row ?? {}) as Partial<ParsedRosterRow>, i + 2),
+  );
+  const validRows = normalizedRows.filter((r) => r.errors.length === 0);
+  const rowErrors: { rowIndex: number; message: string }[] = normalizedRows
+    .filter((r) => r.errors.length > 0)
+    .map((r) => ({ rowIndex: r.rowIndex, message: r.errors.join('; ') }));
   if (validRows.length === 0) {
-    return NextResponse.json({ error: 'No valid rows to import' }, { status: 400 });
+    return NextResponse.json({ error: 'No valid rows to import', rowErrors }, { status: 400 });
   }
 
   const serviceClient = await createSupabaseServiceClient();
@@ -28,7 +90,6 @@ export async function POST(req: Request) {
   let classesCreated = 0;
   let guardiansLinked = 0;
   let guardiansCreated = 0;
-  const rowErrors: { rowIndex: number; message: string }[] = [];
 
   // Cache class name -> id and guardian email -> user id within this import run
   const classRows = await db
