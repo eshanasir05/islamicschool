@@ -1,17 +1,19 @@
+import { env } from '@/env';
+import { db, schema } from '@/lib/db';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { and, eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 
 async function roleRedirect(userId: string, origin: string): Promise<NextResponse> {
-  const orgId = process.env.NEXT_PUBLIC_ORG_ID!;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/memberships?user_id=eq.${userId}&organization_id=eq.${orgId}&status=eq.active&select=role&limit=1`,
-    { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
-  );
-  const memberships: { role: string }[] = await res.json();
-  const role = memberships[0]?.role;
+  const membership = await db.query.memberships.findFirst({
+    where: and(
+      eq(schema.memberships.userId, userId),
+      eq(schema.memberships.organizationId, env.NEXT_PUBLIC_ORG_ID),
+      eq(schema.memberships.status, 'active'),
+    ),
+    columns: { role: true },
+  });
+  const role = membership?.role;
 
   if (!role) return NextResponse.redirect(`${origin}/sign-in?error=no-access`);
   const home = role === 'teacher' ? '/teacher' : role === 'parent' ? '/parent' : '/admin';
@@ -33,7 +35,9 @@ export async function GET(request: NextRequest) {
   }
 
   // Password flow: session already set by the client action
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return NextResponse.redirect(`${origin}/sign-in`);
   return roleRedirect(user.id, origin);
 }
