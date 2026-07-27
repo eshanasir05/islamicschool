@@ -1,9 +1,10 @@
+import { escapeHtml } from '@/lib/html';
+import { type NextRequest, NextResponse } from 'next/server';
 // TODO: replace RESEND_FROM_EMAIL=onboarding@resend.dev with a verified domain before production
 import { Resend } from 'resend';
 import { z } from 'zod';
-import { NextRequest, NextResponse } from 'next/server';
 
-const schema = z.object({ email: z.string().email() });
+const schema = z.object({ email: z.string().trim().email().toLowerCase() });
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
 
   const resend = new Resend(apiKey);
   const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const safeEmail = escapeHtml(email);
 
   const [internal, confirmation] = await Promise.all([
     resend.emails.send({
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
       subject: `New demo request — ${email}`,
       html: `
         <p>A new lead just submitted their email through the Talibly website.</p>
-        <p><strong>Email:</strong> ${email}<br/>
+        <p><strong>Email:</strong> ${safeEmail}<br/>
         <strong>Time:</strong> ${timestamp} UTC</p>
         <p>Reply directly to this email to reach them, or follow up within 24 hours while they're warm.</p>
       `,
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
     resend.emails.send({
       from: fromEmail,
       to: email,
-      subject: `We received your request — Talibly`,
+      subject: 'We received your request — Talibly',
       html: `
         <p>Assalamu alaikum,</p>
         <p>Thank you for your interest in Talibly — we're glad your school is looking to simplify its weekend mornings!</p>
