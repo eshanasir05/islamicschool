@@ -1,19 +1,22 @@
 'use server';
 
+import { env } from '@/env';
+import { logActivity } from '@/lib/activity-log';
+import { db, schema } from '@/lib/db';
+import { getHifzRetentionFlags } from '@/lib/hifz-retention';
+import { notifyClassGuardians, notifyGuardians } from '@/lib/notifications';
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
+import { parseClassPrefs } from '@/lib/teacher-prefs';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { db, schema } from '@/lib/db';
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
-import { env } from '@/env';
 import { Resend } from 'resend';
-import { notifyGuardians, notifyClassGuardians } from '@/lib/notifications';
-import { logActivity } from '@/lib/activity-log';
-import { getHifzRetentionFlags } from '@/lib/hifz-retention';
-import { parseClassPrefs } from '@/lib/teacher-prefs';
 
 async function actorName(userId: string): Promise<string> {
-  const row = await db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { fullName: true } });
+  const row = await db.query.users.findFirst({
+    where: eq(schema.users.id, userId),
+    columns: { fullName: true },
+  });
   return row?.fullName ?? 'Unknown';
 }
 
@@ -25,21 +28,43 @@ async function actorName(userId: string): Promise<string> {
 // ---------------------------------------------------------------------------
 async function requireUser() {
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
   return user;
 }
 
 async function assertTeacherOwnsClass(classId: string, userId: string) {
+  await requireTeacherOwnedClass(classId, userId);
+}
+
+async function requireTeacherOwnedClass(classId: string, userId: string) {
   const cls = await db.query.classes.findFirst({
     where: and(
       eq(schema.classes.id, classId),
       eq(schema.classes.primaryTeacherId, userId),
       eq(schema.classes.organizationId, env.NEXT_PUBLIC_ORG_ID),
     ),
-    columns: { id: true },
+    columns: { id: true, name: true, organizationId: true },
   });
   if (!cls) redirect('/teacher');
+  return cls;
+}
+
+async function assertStudentsEnrolledInClass(classId: string, studentIds: string[]) {
+  const uniqueStudentIds = [...new Set(studentIds.filter(Boolean))];
+  if (uniqueStudentIds.length === 0) return;
+
+  const enrollments = await db.query.classEnrollments.findMany({
+    where: and(
+      eq(schema.classEnrollments.classId, classId),
+      inArray(schema.classEnrollments.studentId, uniqueStudentIds),
+    ),
+    columns: { studentId: true },
+  });
+  const enrolledIds = new Set(enrollments.map((e) => e.studentId));
+  if (enrolledIds.size !== uniqueStudentIds.length) redirect(`/teacher/${classId}`);
 }
 
 async function assertTeacherOwnsStudent(studentId: string, userId: string) {
@@ -47,13 +72,19 @@ async function assertTeacherOwnsStudent(studentId: string, userId: string) {
     where: eq(schema.classEnrollments.studentId, studentId),
     with: { class: { columns: { primaryTeacherId: true, organizationId: true } } },
   });
-  const owns = enrollments.some(e => e.class?.primaryTeacherId === userId && e.class.organizationId === env.NEXT_PUBLIC_ORG_ID);
+  const owns = enrollments.some(
+    (e) =>
+      e.class?.primaryTeacherId === userId && e.class.organizationId === env.NEXT_PUBLIC_ORG_ID,
+  );
   if (!owns) redirect('/teacher');
 }
 
 async function assertTeacherOwnsTrial(trialId: string, userId: string) {
   const trial = await db.query.trialPlacements.findFirst({
-    where: and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.assignedTeacherId, userId)),
+    where: and(
+      eq(schema.trialPlacements.id, trialId),
+      eq(schema.trialPlacements.assignedTeacherId, userId),
+    ),
     columns: { id: true },
   });
   if (!trial) redirect('/teacher/trials');
@@ -72,7 +103,7 @@ export async function getTeacherClasses(teacherId: string) {
   });
   if (classes.length === 0) return [];
 
-  const classIds = classes.map(c => c.id);
+  const classIds = classes.map((c) => c.id);
 
   // Student count + most recent session date per class — both derived from
   // existing rows, no schema changes.
@@ -83,14 +114,17 @@ export async function getTeacherClasses(teacherId: string) {
       .where(inArray(schema.classEnrollments.classId, classIds))
       .groupBy(schema.classEnrollments.classId),
     db
-      .select({ classId: schema.attendanceRecords.classId, last: sql<string>`max(${schema.attendanceRecords.sessionDate})` })
+      .select({
+        classId: schema.attendanceRecords.classId,
+        last: sql<string>`max(${schema.attendanceRecords.sessionDate})`,
+      })
       .from(schema.attendanceRecords)
       .where(inArray(schema.attendanceRecords.classId, classIds))
       .groupBy(schema.attendanceRecords.classId),
   ]);
 
-  const countMap = new Map(counts.map(c => [c.classId, c.count]));
-  const lastMap = new Map(lastSessions.map(s => [s.classId, s.last]));
+  const countMap = new Map(counts.map((c) => [c.classId, c.count]));
+  const lastMap = new Map(lastSessions.map((s) => [s.classId, s.last]));
   const relevantDates = [...new Set([...lastMap.values()].filter((d): d is string => !!d))];
 
   // Breakdown of each class's most recent session: present / hifz / notes.
@@ -100,22 +134,43 @@ export async function getTeacherClasses(teacherId: string) {
 
   if (relevantDates.length > 0) {
     const [attRows, hifzRows, noteRows] = await Promise.all([
-      db.select({
-        classId: schema.attendanceRecords.classId,
-        sessionDate: schema.attendanceRecords.sessionDate,
-        status: schema.attendanceRecords.status,
-      }).from(schema.attendanceRecords)
-        .where(and(inArray(schema.attendanceRecords.classId, classIds), inArray(schema.attendanceRecords.sessionDate, relevantDates))),
-      db.select({
-        classId: schema.hifzRecords.classId,
-        sessionDate: schema.hifzRecords.sessionDate,
-      }).from(schema.hifzRecords)
-        .where(and(inArray(schema.hifzRecords.classId, classIds), inArray(schema.hifzRecords.sessionDate, relevantDates))),
-      db.select({
-        classId: schema.studentNotes.classId,
-        d: sql<string>`to_char(${schema.studentNotes.createdAt}, 'YYYY-MM-DD')`,
-      }).from(schema.studentNotes)
-        .where(and(inArray(schema.studentNotes.classId, classIds), isNull(schema.studentNotes.deletedAt))),
+      db
+        .select({
+          classId: schema.attendanceRecords.classId,
+          sessionDate: schema.attendanceRecords.sessionDate,
+          status: schema.attendanceRecords.status,
+        })
+        .from(schema.attendanceRecords)
+        .where(
+          and(
+            inArray(schema.attendanceRecords.classId, classIds),
+            inArray(schema.attendanceRecords.sessionDate, relevantDates),
+          ),
+        ),
+      db
+        .select({
+          classId: schema.hifzRecords.classId,
+          sessionDate: schema.hifzRecords.sessionDate,
+        })
+        .from(schema.hifzRecords)
+        .where(
+          and(
+            inArray(schema.hifzRecords.classId, classIds),
+            inArray(schema.hifzRecords.sessionDate, relevantDates),
+          ),
+        ),
+      db
+        .select({
+          classId: schema.studentNotes.classId,
+          d: sql<string>`to_char(${schema.studentNotes.createdAt}, 'YYYY-MM-DD')`,
+        })
+        .from(schema.studentNotes)
+        .where(
+          and(
+            inArray(schema.studentNotes.classId, classIds),
+            isNull(schema.studentNotes.deletedAt),
+          ),
+        ),
     ]);
 
     for (const r of attRows) {
@@ -166,7 +221,10 @@ export type TeacherActivity = {
 // Recent attendance sessions + hifz + notes across the teacher's classes,
 // newest first. Used for the dashboard "Recent activity" panel and the full
 // /teacher/activity page.
-export async function getTeacherRecentActivity(teacherId: string, limit = 5): Promise<TeacherActivity[]> {
+export async function getTeacherRecentActivity(
+  teacherId: string,
+  limit = 5,
+): Promise<TeacherActivity[]> {
   const teacherClasses = await db.query.classes.findMany({
     where: and(
       eq(schema.classes.primaryTeacherId, teacherId),
@@ -174,16 +232,19 @@ export async function getTeacherRecentActivity(teacherId: string, limit = 5): Pr
     ),
     columns: { id: true, name: true },
   });
-  const classIds = teacherClasses.map(c => c.id);
+  const classIds = teacherClasses.map((c) => c.id);
   if (classIds.length === 0) return [];
-  const classNameById = new Map(teacherClasses.map(c => [c.id, c.name]));
+  const classNameById = new Map(teacherClasses.map((c) => [c.id, c.name]));
 
   const [attRows, hifz, notes] = await Promise.all([
-    db.select({
-      classId: schema.attendanceRecords.classId,
-      sessionDate: schema.attendanceRecords.sessionDate,
-      createdAt: schema.attendanceRecords.createdAt,
-    }).from(schema.attendanceRecords).where(inArray(schema.attendanceRecords.classId, classIds)),
+    db
+      .select({
+        classId: schema.attendanceRecords.classId,
+        sessionDate: schema.attendanceRecords.sessionDate,
+        createdAt: schema.attendanceRecords.createdAt,
+      })
+      .from(schema.attendanceRecords)
+      .where(inArray(schema.attendanceRecords.classId, classIds)),
     db.query.hifzRecords.findMany({
       where: inArray(schema.hifzRecords.classId, classIds),
       with: { student: { columns: { fullName: true } } },
@@ -191,7 +252,10 @@ export async function getTeacherRecentActivity(teacherId: string, limit = 5): Pr
       limit: 20,
     }),
     db.query.studentNotes.findMany({
-      where: and(inArray(schema.studentNotes.classId, classIds), isNull(schema.studentNotes.deletedAt)),
+      where: and(
+        inArray(schema.studentNotes.classId, classIds),
+        isNull(schema.studentNotes.deletedAt),
+      ),
       with: { student: { columns: { fullName: true } } },
       orderBy: (n, { desc }) => desc(n.createdAt),
       limit: 20,
@@ -258,7 +322,7 @@ export async function getClassStudents(classId: string) {
     where: eq(schema.classEnrollments.classId, classId),
     with: { student: true },
   });
-  const students = enrollments.map(e => e.student);
+  const students = enrollments.map((e) => e.student);
 
   const teacherRow = await db.query.users.findFirst({
     where: eq(schema.users.id, user.id),
@@ -267,7 +331,7 @@ export async function getClassStudents(classId: string) {
   const prefs = parseClassPrefs(teacherRow?.classPrefs);
 
   if (prefs.sortStudents === 'attention') {
-    const studentIds = students.map(s => s.id);
+    const studentIds = students.map((s) => s.id);
     const hifzRecords = studentIds.length
       ? await db.query.hifzRecords.findMany({
           where: inArray(schema.hifzRecords.studentId, studentIds),
@@ -282,9 +346,13 @@ export async function getClassStudents(classId: string) {
     }
     const flagCount = (studentId: string) => {
       const flags = getHifzRetentionFlags(hifzByStudent.get(studentId) ?? []);
-      return Number(flags.noReviewInWeeks) + Number(flags.repeatedWeak) + Number(flags.noUpdateInWeeks);
+      return (
+        Number(flags.noReviewInWeeks) + Number(flags.repeatedWeak) + Number(flags.noUpdateInWeeks)
+      );
     };
-    return [...students].sort((a, b) => flagCount(b.id) - flagCount(a.id) || a.fullName.localeCompare(b.fullName));
+    return [...students].sort(
+      (a, b) => flagCount(b.id) - flagCount(a.id) || a.fullName.localeCompare(b.fullName),
+    );
   }
 
   return [...students].sort((a, b) => a.fullName.localeCompare(b.fullName));
@@ -323,22 +391,26 @@ export async function getTeacherClassRoster(classId: string, teacherId: string) 
     }),
   ]);
 
-  const enrolledIds = new Set(enrollments.map(e => e.studentId));
+  const enrolledIds = new Set(enrollments.map((e) => e.studentId));
   const students = enrollments
-    .filter(e => e.student)
-    .map(e => ({
+    .filter((e) => e.student)
+    .map((e) => ({
       id: e.student!.id,
       fullName: e.student!.fullName,
       gender: e.student!.gender,
       age: ageFromDob(e.student!.dateOfBirth),
       enrolledAt: e.enrolledAt,
     }));
-  const availableStudents = allStudents.filter(s => !enrolledIds.has(s.id));
+  const availableStudents = allStudents.filter((s) => !enrolledIds.has(s.id));
 
   return { cls, students, availableStudents };
 }
 
-export async function getTeacherStudentDetail(classId: string, studentId: string, teacherId: string) {
+export async function getTeacherStudentDetail(
+  classId: string,
+  studentId: string,
+  teacherId: string,
+) {
   await assertTeacherOwnsClass(classId, teacherId);
   await assertTeacherOwnsStudent(studentId, teacherId);
 
@@ -346,22 +418,36 @@ export async function getTeacherStudentDetail(classId: string, studentId: string
     db.query.students.findFirst({ where: eq(schema.students.id, studentId) }),
     db.query.classes.findFirst({ where: eq(schema.classes.id, classId), columns: { name: true } }),
     db.query.hifzRecords.findMany({
-      where: and(eq(schema.hifzRecords.studentId, studentId), eq(schema.hifzRecords.classId, classId)),
+      where: and(
+        eq(schema.hifzRecords.studentId, studentId),
+        eq(schema.hifzRecords.classId, classId),
+      ),
       orderBy: (h, { desc }) => desc(h.sessionDate),
       limit: 5,
     }),
     db.query.studentNotes.findMany({
-      where: and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.classId, classId), isNull(schema.studentNotes.deletedAt)),
+      where: and(
+        eq(schema.studentNotes.studentId, studentId),
+        eq(schema.studentNotes.classId, classId),
+        isNull(schema.studentNotes.deletedAt),
+      ),
       orderBy: (n, { desc }) => desc(n.createdAt),
       limit: 5,
     }),
     db.query.studentNotes.findMany({
-      where: and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.classId, classId), sql`${schema.studentNotes.deletedAt} IS NOT NULL`),
+      where: and(
+        eq(schema.studentNotes.studentId, studentId),
+        eq(schema.studentNotes.classId, classId),
+        sql`${schema.studentNotes.deletedAt} IS NOT NULL`,
+      ),
       orderBy: (n, { desc }) => desc(n.deletedAt),
       limit: 5,
     }),
     db.query.messageThreads.findMany({
-      where: and(eq(schema.messageThreads.studentId, studentId), eq(schema.messageThreads.scope, 'direct')),
+      where: and(
+        eq(schema.messageThreads.studentId, studentId),
+        eq(schema.messageThreads.scope, 'direct'),
+      ),
       with: {
         messages: {
           orderBy: (m, { asc }) => asc(m.createdAt),
@@ -372,20 +458,24 @@ export async function getTeacherStudentDetail(classId: string, studentId: string
       limit: 5,
     }),
   ]);
-  const notesFromParent = parentThreads.flatMap(t => t.messages).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const notesFromParent = parentThreads
+    .flatMap((t) => t.messages)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  const hifzWithAudio = await Promise.all(hifz.map(async h => {
-    if (!h.audioUrl) return { ...h, audioSignedUrl: null };
-    try {
-      const serviceClient = await createSupabaseServiceClient();
-      const path = new URL(h.audioUrl).pathname.split('/hifz-audio/')[1];
-      if (!path) return { ...h, audioSignedUrl: null };
-      const { data } = await serviceClient.storage.from('hifz-audio').createSignedUrl(path, 3600);
-      return { ...h, audioSignedUrl: data?.signedUrl ?? null };
-    } catch {
-      return { ...h, audioSignedUrl: null };
-    }
-  }));
+  const hifzWithAudio = await Promise.all(
+    hifz.map(async (h) => {
+      if (!h.audioUrl) return { ...h, audioSignedUrl: null };
+      try {
+        const serviceClient = await createSupabaseServiceClient();
+        const path = new URL(h.audioUrl).pathname.split('/hifz-audio/')[1];
+        if (!path) return { ...h, audioSignedUrl: null };
+        const { data } = await serviceClient.storage.from('hifz-audio').createSignedUrl(path, 3600);
+        return { ...h, audioSignedUrl: data?.signedUrl ?? null };
+      } catch {
+        return { ...h, audioSignedUrl: null };
+      }
+    }),
+  );
 
   const teacherRow = await db.query.users.findFirst({
     where: eq(schema.users.id, teacherId),
@@ -414,7 +504,10 @@ export async function deleteNote(noteId: string, classId: string, studentId: str
   });
   if (!note?.classId) redirect('/teacher');
   await assertTeacherOwnsClass(note.classId, user.id);
-  await db.update(schema.studentNotes).set({ deletedAt: new Date() }).where(eq(schema.studentNotes.id, noteId));
+  await db
+    .update(schema.studentNotes)
+    .set({ deletedAt: new Date() })
+    .where(eq(schema.studentNotes.id, noteId));
   revalidatePath(`/teacher/${classId}/students/${studentId}`);
   redirect(`/teacher/${classId}/students/${studentId}?notice=note_deleted`);
 }
@@ -427,7 +520,10 @@ export async function restoreNote(noteId: string, classId: string, studentId: st
   });
   if (!note?.classId) redirect('/teacher');
   await assertTeacherOwnsClass(note.classId, user.id);
-  await db.update(schema.studentNotes).set({ deletedAt: null }).where(eq(schema.studentNotes.id, noteId));
+  await db
+    .update(schema.studentNotes)
+    .set({ deletedAt: null })
+    .where(eq(schema.studentNotes.id, noteId));
   revalidatePath(`/teacher/${classId}/students/${studentId}`);
   redirect(`/teacher/${classId}/students/${studentId}?notice=note_restored`);
 }
@@ -440,24 +536,44 @@ export async function restoreHomework(id: string) {
   });
   if (!homework) redirect('/teacher/homework');
   await assertTeacherOwnsClass(homework.classId, user.id);
-  await db.update(schema.homeworkAssignments).set({ archived: false }).where(eq(schema.homeworkAssignments.id, id));
+  await db
+    .update(schema.homeworkAssignments)
+    .set({ archived: false })
+    .where(eq(schema.homeworkAssignments.id, id));
   revalidatePath('/teacher/homework');
   revalidatePath('/parent');
   redirect('/teacher/homework?notice=homework_restored');
 }
 
-export async function teacherEnrollStudent(classId: string, studentId: string, teacherId: string) {
-  await assertTeacherOwnsClass(classId, teacherId);
+export async function teacherEnrollStudent(classId: string, studentId: string) {
+  const user = await requireUser();
+  const cls = await requireTeacherOwnedClass(classId, user.id);
+  const student = await db.query.students.findFirst({
+    where: and(
+      eq(schema.students.id, studentId),
+      eq(schema.students.organizationId, cls.organizationId),
+      eq(schema.students.status, 'active'),
+    ),
+    columns: { id: true },
+  });
+  if (!student) redirect(`/teacher/${classId}`);
+
   await db.insert(schema.classEnrollments).values({ classId, studentId }).onConflictDoNothing();
   revalidatePath(`/teacher/${classId}`);
   redirect(`/teacher/${classId}?notice=student_enrolled`);
 }
 
-export async function teacherUnenrollStudent(classId: string, studentId: string, teacherId: string) {
-  await assertTeacherOwnsClass(classId, teacherId);
+export async function teacherUnenrollStudent(classId: string, studentId: string) {
+  const user = await requireUser();
+  await requireTeacherOwnedClass(classId, user.id);
   await db
     .delete(schema.classEnrollments)
-    .where(and(eq(schema.classEnrollments.classId, classId), eq(schema.classEnrollments.studentId, studentId)));
+    .where(
+      and(
+        eq(schema.classEnrollments.classId, classId),
+        eq(schema.classEnrollments.studentId, studentId),
+      ),
+    );
   revalidatePath(`/teacher/${classId}`);
   redirect(`/teacher/${classId}?notice=student_unenrolled`);
 }
@@ -475,7 +591,7 @@ export async function getTeacherHomeworkOverview(teacherId: string) {
   });
   if (classes.length === 0) return [];
 
-  const classIds = classes.map(c => c.id);
+  const classIds = classes.map((c) => c.id);
   const [assignments, archivedAssignments] = await Promise.all([
     db.query.homeworkAssignments.findMany({
       where: and(
@@ -494,36 +610,33 @@ export async function getTeacherHomeworkOverview(teacherId: string) {
     }),
   ]);
 
-  return classes.map(cls => ({
+  return classes.map((cls) => ({
     ...cls,
-    homework: assignments.filter(a => a.classId === cls.id),
-    archivedHomework: archivedAssignments.filter(a => a.classId === cls.id),
+    homework: assignments.filter((a) => a.classId === cls.id),
+    archivedHomework: archivedAssignments.filter((a) => a.classId === cls.id),
   }));
 }
 
 export async function createHomework(
   classId: string,
-  orgId: string,
-  teacherId: string,
   data: { title: string; description?: string; dueDate: string },
 ) {
   const user = await requireUser();
-  await assertTeacherOwnsClass(classId, user.id);
+  const cls = await requireTeacherOwnedClass(classId, user.id);
+  const orgId = cls.organizationId;
 
-  const [row] = await db.insert(schema.homeworkAssignments).values({
-    organizationId: orgId,
-    classId,
-    title: data.title,
-    description: data.description ?? null,
-    dueDate: data.dueDate,
-    createdBy: user.id,
-  }).returning({ id: schema.homeworkAssignments.id });
+  const [row] = await db
+    .insert(schema.homeworkAssignments)
+    .values({
+      organizationId: orgId,
+      classId,
+      title: data.title,
+      description: data.description ?? null,
+      dueDate: data.dueDate,
+      createdBy: user.id,
+    })
+    .returning({ id: schema.homeworkAssignments.id });
   if (!row) throw new Error('Failed to create homework');
-
-  const cls = await db.query.classes.findFirst({
-    where: eq(schema.classes.id, classId),
-    columns: { name: true },
-  });
 
   await notifyClassGuardians(classId, orgId, {
     type: 'homework_assigned',
@@ -533,8 +646,12 @@ export async function createHomework(
   });
 
   await logActivity({
-    organizationId: orgId, actorUserId: user.id, actorName: await actorName(user.id),
-    action: 'homework.assigned', targetType: 'class', targetId: classId,
+    organizationId: orgId,
+    actorUserId: user.id,
+    actorName: await actorName(user.id),
+    action: 'homework.assigned',
+    targetType: 'class',
+    targetId: classId,
     metadata: { targetLabel: `${data.title} — ${cls?.name ?? 'a class'}` },
   });
 
@@ -552,7 +669,10 @@ export async function archiveHomework(id: string) {
   if (!homework) redirect('/teacher/homework');
   await assertTeacherOwnsClass(homework.classId, user.id);
 
-  await db.update(schema.homeworkAssignments).set({ archived: true }).where(eq(schema.homeworkAssignments.id, id));
+  await db
+    .update(schema.homeworkAssignments)
+    .set({ archived: true })
+    .where(eq(schema.homeworkAssignments.id, id));
   revalidatePath('/teacher/homework');
   revalidatePath('/parent');
   redirect('/teacher/homework?notice=homework_archived');
@@ -561,11 +681,12 @@ export async function archiveHomework(id: string) {
 // ---------------------------------------------------------------------------
 // Hifz milestones
 // ---------------------------------------------------------------------------
-const MILESTONE_LABEL: Record<'surah_completed' | 'juz_completed' | 'revision_completed', string> = {
-  surah_completed: 'Surah completed',
-  juz_completed: 'Juz completed',
-  revision_completed: 'Revision completed',
-};
+const MILESTONE_LABEL: Record<'surah_completed' | 'juz_completed' | 'revision_completed', string> =
+  {
+    surah_completed: 'Surah completed',
+    juz_completed: 'Juz completed',
+    revision_completed: 'Revision completed',
+  };
 
 export async function getTeacherMilestonesOverview(teacherId: string) {
   const classes = await db.query.classes.findMany({
@@ -580,33 +701,38 @@ export async function getTeacherMilestonesOverview(teacherId: string) {
   });
   if (classes.length === 0) return [];
 
-  const studentIds = classes.flatMap(c => c.enrollments.map(e => e.studentId));
+  const studentIds = classes.flatMap((c) => c.enrollments.map((e) => e.studentId));
 
-  const allMilestones = studentIds.length === 0
-    ? []
-    : await db.query.hifzMilestones.findMany({
-        where: inArray(schema.hifzMilestones.studentId, studentIds),
-        with: { student: { columns: { fullName: true } } },
-        orderBy: (m, { desc }) => desc(m.achievedDate),
-      });
+  const allMilestones =
+    studentIds.length === 0
+      ? []
+      : await db.query.hifzMilestones.findMany({
+          where: inArray(schema.hifzMilestones.studentId, studentIds),
+          with: { student: { columns: { fullName: true } } },
+          orderBy: (m, { desc }) => desc(m.achievedDate),
+        });
 
-  return classes.map(cls => {
-    const classStudentIds = new Set(cls.enrollments.map(e => e.studentId));
+  return classes.map((cls) => {
+    const classStudentIds = new Set(cls.enrollments.map((e) => e.studentId));
     return {
       ...cls,
-      milestones: allMilestones.filter(m => classStudentIds.has(m.studentId)),
+      milestones: allMilestones.filter((m) => classStudentIds.has(m.studentId)),
     };
   });
 }
 
 export async function createMilestone(
   studentId: string,
-  orgId: string,
-  teacherId: string,
-  data: { type: 'surah_completed' | 'juz_completed' | 'revision_completed'; label: string; achievedDate: string; teacherNotes?: string },
+  data: {
+    type: 'surah_completed' | 'juz_completed' | 'revision_completed';
+    label: string;
+    achievedDate: string;
+    teacherNotes?: string;
+  },
 ) {
   const user = await requireUser();
   await assertTeacherOwnsStudent(studentId, user.id);
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
 
   await db.insert(schema.hifzMilestones).values({
     organizationId: orgId,
@@ -631,8 +757,12 @@ export async function createMilestone(
   });
 
   await logActivity({
-    organizationId: orgId, actorUserId: user.id, actorName: await actorName(user.id),
-    action: 'hifz_milestone.created', targetType: 'student', targetId: studentId,
+    organizationId: orgId,
+    actorUserId: user.id,
+    actorName: await actorName(user.id),
+    action: 'hifz_milestone.created',
+    targetType: 'student',
+    targetId: studentId,
     metadata: { targetLabel: `${data.label} — ${student?.fullName ?? 'a student'}` },
   });
 
@@ -650,62 +780,84 @@ export type AttendanceInput = {
   notes?: string;
 };
 
-export async function submitAttendance(
-  classId: string,
-  records: AttendanceInput[],
-) {
+export async function submitAttendance(classId: string, records: AttendanceInput[]) {
   const user = await requireUser();
-  await assertTeacherOwnsClass(classId, user.id);
+  const cls = await requireTeacherOwnedClass(classId, user.id);
+  const orgId = cls.organizationId;
+  if (records.length === 0) return;
+  await assertStudentsEnrolledInClass(
+    classId,
+    records.map((r) => r.studentId),
+  );
 
   const today = new Date().toISOString().slice(0, 10);
 
   const existing = await db.query.attendanceRecords.findFirst({
-    where: and(eq(schema.attendanceRecords.classId, classId), eq(schema.attendanceRecords.sessionDate, today)),
+    where: and(
+      eq(schema.attendanceRecords.classId, classId),
+      eq(schema.attendanceRecords.sessionDate, today),
+      eq(schema.attendanceRecords.organizationId, orgId),
+    ),
     columns: { id: true },
   });
 
-  const rows = records.map(r => ({
-    organizationId: env.NEXT_PUBLIC_ORG_ID,
+  const rows = records.map((r) => ({
+    organizationId: orgId,
     classId,
     studentId: r.studentId,
     sessionDate: today,
     status: r.status,
-    arrivalTime: (r.status === 'present' || r.status === 'late') ? new Date() : null,
+    arrivalTime: r.status === 'present' || r.status === 'late' ? new Date() : null,
     notes: r.notes?.trim() || null,
     recordedBy: user.id,
   }));
 
-  await db.insert(schema.attendanceRecords).values(rows).onConflictDoUpdate({
-    target: [schema.attendanceRecords.classId, schema.attendanceRecords.studentId, schema.attendanceRecords.sessionDate],
-    set: {
-      status: sql`excluded.status`,
-      arrivalTime: sql`excluded.arrival_time`,
-      notes: sql`excluded.notes`,
-      recordedBy: sql`excluded.recorded_by`,
-    },
-  });
+  await db
+    .insert(schema.attendanceRecords)
+    .values(rows)
+    .onConflictDoUpdate({
+      target: [
+        schema.attendanceRecords.classId,
+        schema.attendanceRecords.studentId,
+        schema.attendanceRecords.sessionDate,
+      ],
+      set: {
+        status: sql`excluded.status`,
+        arrivalTime: sql`excluded.arrival_time`,
+        notes: sql`excluded.notes`,
+        recordedBy: sql`excluded.recorded_by`,
+      },
+    });
 
-  const absentStudents = records.filter(r => r.status === 'absent');
+  const absentStudents = records.filter((r) => r.status === 'absent');
   if (absentStudents.length > 0) {
     const studentRows = await db.query.students.findMany({
-      where: inArray(schema.students.id, absentStudents.map(r => r.studentId)),
+      where: inArray(
+        schema.students.id,
+        absentStudents.map((r) => r.studentId),
+      ),
       columns: { id: true, fullName: true },
     });
-    const nameById = new Map(studentRows.map(s => [s.id, s.fullName]));
-    await Promise.all(absentStudents.map(r =>
-      notifyGuardians(r.studentId, env.NEXT_PUBLIC_ORG_ID, {
-        type: 'attendance_absent',
-        title: `${nameById.get(r.studentId) ?? 'Your child'} was marked absent today`,
-        body: 'Let the school know why — tap to respond.',
-        link: `/parent/${r.studentId}`,
-      }),
-    ));
+    const nameById = new Map(studentRows.map((s) => [s.id, s.fullName]));
+    await Promise.all(
+      absentStudents.map((r) =>
+        notifyGuardians(r.studentId, orgId, {
+          type: 'attendance_absent',
+          title: `${nameById.get(r.studentId) ?? 'Your child'} was marked absent today`,
+          body: 'Let the school know why — tap to respond.',
+          link: `/parent/${r.studentId}`,
+        }),
+      ),
+    );
   }
 
-  const cls = await db.query.classes.findFirst({ where: eq(schema.classes.id, classId), columns: { name: true } });
   await logActivity({
-    organizationId: env.NEXT_PUBLIC_ORG_ID, actorUserId: user.id, actorName: await actorName(user.id),
-    action: existing ? 'attendance.updated' : 'attendance.submitted', targetType: 'class', targetId: classId,
+    organizationId: orgId,
+    actorUserId: user.id,
+    actorName: await actorName(user.id),
+    action: existing ? 'attendance.updated' : 'attendance.submitted',
+    targetType: 'class',
+    targetId: classId,
     metadata: { targetLabel: cls?.name ?? 'a class' },
   });
 
@@ -726,9 +878,18 @@ export type HifzInput = {
   mistakeType?: 'hesitation' | 'tajweed' | 'forgot_ayah' | 'repeated_correction' | null;
 };
 
-export async function submitHifz(classId: string, entries: HifzInput[]): Promise<{ uploadWarning: boolean }> {
+export async function submitHifz(
+  classId: string,
+  entries: HifzInput[],
+): Promise<{ uploadWarning: boolean }> {
   const user = await requireUser();
-  await assertTeacherOwnsClass(classId, user.id);
+  const cls = await requireTeacherOwnedClass(classId, user.id);
+  const orgId = cls.organizationId;
+  if (entries.length === 0) return { uploadWarning: false };
+  await assertStudentsEnrolledInClass(
+    classId,
+    entries.map((entry) => entry.studentId),
+  );
 
   const today = new Date().toISOString().slice(0, 10);
   const serviceClient = await createSupabaseServiceClient();
@@ -742,7 +903,7 @@ export async function submitHifz(classId: string, entries: HifzInput[]): Promise
       const base64 = entry.audioDataUrl.split(',')[1];
       if (!base64) continue;
       const buffer = Buffer.from(base64, 'base64');
-      const filename = `${env.NEXT_PUBLIC_ORG_ID}/${entry.studentId}/${today}.webm`;
+      const filename = `${orgId}/${entry.studentId}/${today}.webm`;
       const { error } = await serviceClient.storage
         .from('hifz-audio')
         .upload(filename, buffer, { contentType: 'audio/webm', upsert: true });
@@ -754,38 +915,44 @@ export async function submitHifz(classId: string, entries: HifzInput[]): Promise
       }
     }
 
-    const [hifzRow] = await db.insert(schema.hifzRecords).values({
-      organizationId: env.NEXT_PUBLIC_ORG_ID,
-      studentId: entry.studentId,
-      classId,
-      stream: entry.stream,
-      surahNumber: entry.surahNumber,
-      ayahStart: entry.ayahStart,
-      ayahEnd: entry.ayahEnd,
-      status: entry.status,
-      mistakeType: entry.mistakeType ?? null,
-      sessionDate: today,
-      audioUrl,
-      recordedBy: user.id,
-    }).returning();
+    const [hifzRow] = await db
+      .insert(schema.hifzRecords)
+      .values({
+        organizationId: orgId,
+        studentId: entry.studentId,
+        classId,
+        stream: entry.stream,
+        surahNumber: entry.surahNumber,
+        ayahStart: entry.ayahStart,
+        ayahEnd: entry.ayahEnd,
+        status: entry.status,
+        mistakeType: entry.mistakeType ?? null,
+        sessionDate: today,
+        audioUrl,
+        recordedBy: user.id,
+      })
+      .returning();
 
     if (audioUrl && hifzRow) {
-      await db.insert(schema.mediaUploads).values({
-        organizationId: env.NEXT_PUBLIC_ORG_ID,
-        uploadedBy: user.id,
-        relatedEntityType: 'hifz_record',
-        relatedEntityId: hifzRow.id,
-        storageUrl: audioUrl,
-        mimeType: 'audio/webm',
-        consentVerified: true,
-      }).onConflictDoNothing();
+      await db
+        .insert(schema.mediaUploads)
+        .values({
+          organizationId: orgId,
+          uploadedBy: user.id,
+          relatedEntityType: 'hifz_record',
+          relatedEntityId: hifzRow.id,
+          storageUrl: audioUrl,
+          mimeType: 'audio/webm',
+          consentVerified: true,
+        })
+        .onConflictDoNothing();
     }
 
     const student = await db.query.students.findFirst({
       where: eq(schema.students.id, entry.studentId),
       columns: { fullName: true },
     });
-    await notifyGuardians(entry.studentId, env.NEXT_PUBLIC_ORG_ID, {
+    await notifyGuardians(entry.studentId, orgId, {
       type: 'hifz_recorded',
       title: `Hifz recorded for ${student?.fullName ?? 'your child'}`,
       body: `${surahName(entry.surahNumber)} ${entry.ayahStart}–${entry.ayahEnd}`,
@@ -794,11 +961,16 @@ export async function submitHifz(classId: string, entries: HifzInput[]): Promise
   }
 
   if (entries.length > 0) {
-    const cls = await db.query.classes.findFirst({ where: eq(schema.classes.id, classId), columns: { name: true } });
     await logActivity({
-      organizationId: env.NEXT_PUBLIC_ORG_ID, actorUserId: user.id, actorName: await actorName(user.id),
-      action: 'hifz_record.created', targetType: 'class', targetId: classId,
-      metadata: { targetLabel: `${entries.length} record${entries.length === 1 ? '' : 's'} — ${cls?.name ?? 'a class'}` },
+      organizationId: orgId,
+      actorUserId: user.id,
+      actorName: await actorName(user.id),
+      action: 'hifz_record.created',
+      targetType: 'class',
+      targetId: classId,
+      metadata: {
+        targetLabel: `${entries.length} record${entries.length === 1 ? '' : 's'} — ${cls?.name ?? 'a class'}`,
+      },
     });
   }
 
@@ -818,12 +990,16 @@ export type NoteInput = {
 
 export async function submitNotes(classId: string, notes: NoteInput[]) {
   const user = await requireUser();
-  await assertTeacherOwnsClass(classId, user.id);
+  const { organizationId: orgId } = await requireTeacherOwnedClass(classId, user.id);
 
   if (notes.length === 0) return;
+  await assertStudentsEnrolledInClass(
+    classId,
+    notes.map((n) => n.studentId),
+  );
 
-  const rows = notes.map(n => ({
-    organizationId: env.NEXT_PUBLIC_ORG_ID,
+  const rows = notes.map((n) => ({
+    organizationId: orgId,
     studentId: n.studentId,
     classId,
     noteType: n.noteType,
@@ -847,7 +1023,7 @@ export async function submitNotes(classId: string, notes: NoteInput[]) {
       where: eq(schema.students.id, n.studentId),
       columns: { fullName: true },
     });
-    await notifyGuardians(n.studentId, env.NEXT_PUBLIC_ORG_ID, {
+    await notifyGuardians(n.studentId, orgId, {
       type: 'note_added',
       title: `${NOTE_TITLE[n.noteType]} for ${student?.fullName ?? 'your child'}`,
       body: n.content.length > 100 ? `${n.content.slice(0, 100)}…` : n.content,
@@ -856,8 +1032,12 @@ export async function submitNotes(classId: string, notes: NoteInput[]) {
 
     if (n.noteType === 'praise') {
       await logActivity({
-        organizationId: env.NEXT_PUBLIC_ORG_ID, actorUserId: user.id, actorName: await actorName(user.id),
-        action: 'adab_note.added', targetType: 'student', targetId: n.studentId,
+        organizationId: orgId,
+        actorUserId: user.id,
+        actorName: await actorName(user.id),
+        action: 'adab_note.added',
+        targetType: 'student',
+        targetId: n.studentId,
         metadata: { targetLabel: student?.fullName ?? 'a student' },
       });
     }
@@ -870,10 +1050,18 @@ export async function submitNotes(classId: string, notes: NoteInput[]) {
 // Notify parents
 // ---------------------------------------------------------------------------
 const SURAH_NAMES: Record<number, string> = {
-  1: 'Al-Fatihah', 2: 'Al-Baqarah', 3: 'Al-Imran', 4: 'An-Nisa',
-  5: 'Al-Maidah', 36: 'Ya-Sin', 67: 'Al-Mulk', 112: 'Al-Ikhlas',
+  1: 'Al-Fatihah',
+  2: 'Al-Baqarah',
+  3: 'Al-Imran',
+  4: 'An-Nisa',
+  5: 'Al-Maidah',
+  36: 'Ya-Sin',
+  67: 'Al-Mulk',
+  112: 'Al-Ikhlas',
 };
-function surahName(n: number) { return SURAH_NAMES[n] ?? `Surah ${n}`; }
+function surahName(n: number) {
+  return SURAH_NAMES[n] ?? `Surah ${n}`;
+}
 
 export async function notifyParents(classId: string, sessionDate: string) {
   const user = await requireUser();
@@ -891,15 +1079,23 @@ export async function notifyParents(classId: string, sessionDate: string) {
       with: { student: { with: { guardians: { with: { guardian: true } } } } },
     }),
     db.query.attendanceRecords.findMany({
-      where: and(eq(schema.attendanceRecords.classId, classId), eq(schema.attendanceRecords.sessionDate, sessionDate), eq(schema.attendanceRecords.organizationId, orgId)),
+      where: and(
+        eq(schema.attendanceRecords.classId, classId),
+        eq(schema.attendanceRecords.sessionDate, sessionDate),
+        eq(schema.attendanceRecords.organizationId, orgId),
+      ),
     }),
     db.query.hifzRecords.findMany({
-      where: and(eq(schema.hifzRecords.classId, classId), eq(schema.hifzRecords.sessionDate, sessionDate), eq(schema.hifzRecords.organizationId, orgId)),
+      where: and(
+        eq(schema.hifzRecords.classId, classId),
+        eq(schema.hifzRecords.sessionDate, sessionDate),
+        eq(schema.hifzRecords.organizationId, orgId),
+      ),
     }),
   ]);
 
-  const attendanceMap = new Map(attendanceRows.map(a => [a.studentId, a.status]));
-  const hifzMap = new Map(hifzRows.map(h => [h.studentId, h]));
+  const attendanceMap = new Map(attendanceRows.map((a) => [a.studentId, a.status]));
+  const hifzMap = new Map(hifzRows.map((h) => [h.studentId, h]));
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev';
@@ -915,16 +1111,18 @@ export async function notifyParents(classId: string, sessionDate: string) {
       ? `<p>📖 <strong>Hifz:</strong> ${surahName(hifz.surahNumber)} ${hifz.ayahStart}–${hifz.ayahEnd} (${hifz.stream})</p>`
       : '';
 
-    const statusEmoji = status === 'present' ? '✅' : status === 'late' ? '🕐' : status === 'absent' ? '❌' : '📋';
+    const statusEmoji =
+      status === 'present' ? '✅' : status === 'late' ? '🕐' : status === 'absent' ? '❌' : '📋';
 
     for (const link of student.guardians) {
       if (!link.receivesNotifications || !link.guardian?.email) continue;
 
-      await resend.emails.send({
-        from: fromEmail,
-        to: link.guardian.email,
-        subject: `${student.fullName}'s class summary — ${sessionDate}`,
-        html: `
+      await resend.emails
+        .send({
+          from: fromEmail,
+          to: link.guardian.email,
+          subject: `${student.fullName}'s class summary — ${sessionDate}`,
+          html: `
           <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
             <p style="font-size:16px">Assalamu alaykum, ${link.guardian.fullName ?? 'dear parent'},</p>
             <p>Here is a summary of today's session for <strong>${student.fullName}</strong>:</p>
@@ -936,7 +1134,8 @@ export async function notifyParents(classId: string, sessionDate: string) {
             <p style="font-size:13px;color:#888">JazakAllah khair for entrusting us with your child's education. — Talibly</p>
           </div>
         `,
-      }).catch(() => null);
+        })
+        .catch(() => null);
     }
   }
 
@@ -953,26 +1152,37 @@ export async function eraseClassSession(classId: string, sessionDate: string) {
   await assertTeacherOwnsClass(classId, user.id);
   const orgId = env.NEXT_PUBLIC_ORG_ID;
 
-  await db.delete(schema.attendanceRecords).where(and(
-    eq(schema.attendanceRecords.classId, classId),
-    eq(schema.attendanceRecords.sessionDate, sessionDate),
-    eq(schema.attendanceRecords.organizationId, orgId),
-  ));
-  await db.delete(schema.hifzRecords).where(and(
-    eq(schema.hifzRecords.classId, classId),
-    eq(schema.hifzRecords.sessionDate, sessionDate),
-    eq(schema.hifzRecords.organizationId, orgId),
-  ));
+  await db
+    .delete(schema.attendanceRecords)
+    .where(
+      and(
+        eq(schema.attendanceRecords.classId, classId),
+        eq(schema.attendanceRecords.sessionDate, sessionDate),
+        eq(schema.attendanceRecords.organizationId, orgId),
+      ),
+    );
+  await db
+    .delete(schema.hifzRecords)
+    .where(
+      and(
+        eq(schema.hifzRecords.classId, classId),
+        eq(schema.hifzRecords.sessionDate, sessionDate),
+        eq(schema.hifzRecords.organizationId, orgId),
+      ),
+    );
 
   // studentNotes has no sessionDate column — match the same day's notes by
   // createdAt, the same filter the confirm screen itself uses to show them.
   const classNotes = await db.query.studentNotes.findMany({
-    where: and(eq(schema.studentNotes.classId, classId), eq(schema.studentNotes.organizationId, orgId)),
+    where: and(
+      eq(schema.studentNotes.classId, classId),
+      eq(schema.studentNotes.organizationId, orgId),
+    ),
     columns: { id: true, createdAt: true },
   });
   const todayNoteIds = classNotes
-    .filter(n => n.createdAt && new Date(n.createdAt).toISOString().slice(0, 10) === sessionDate)
-    .map(n => n.id);
+    .filter((n) => n.createdAt && new Date(n.createdAt).toISOString().slice(0, 10) === sessionDate)
+    .map((n) => n.id);
   if (todayNoteIds.length > 0) {
     await db.delete(schema.studentNotes).where(inArray(schema.studentNotes.id, todayNoteIds));
   }
@@ -986,7 +1196,10 @@ export async function eraseClassSession(classId: string, sessionDate: string) {
 // ---------------------------------------------------------------------------
 export async function getTeacherTrials(teacherId: string) {
   return db.query.trialPlacements.findMany({
-    where: and(eq(schema.trialPlacements.assignedTeacherId, teacherId), eq(schema.trialPlacements.status, 'scheduled')),
+    where: and(
+      eq(schema.trialPlacements.assignedTeacherId, teacherId),
+      eq(schema.trialPlacements.status, 'scheduled'),
+    ),
     orderBy: (t, { asc }) => asc(t.scheduledDate),
   });
 }
@@ -1005,7 +1218,8 @@ export async function submitPlacementAssessment(
   const user = await requireUser();
   await assertTeacherOwnsTrial(trialId, user.id);
 
-  await db.update(schema.trialPlacements)
+  await db
+    .update(schema.trialPlacements)
     .set({
       quranReadingLevel: data.quranReadingLevel,
       hifzLevel: data.hifzLevel,
@@ -1018,11 +1232,20 @@ export async function submitPlacementAssessment(
     })
     .where(eq(schema.trialPlacements.id, trialId));
 
-  const trial = await db.query.trialPlacements.findFirst({ where: eq(schema.trialPlacements.id, trialId), columns: { studentFirstName: true, studentLastName: true, organizationId: true } });
+  const trial = await db.query.trialPlacements.findFirst({
+    where: eq(schema.trialPlacements.id, trialId),
+    columns: { studentFirstName: true, studentLastName: true, organizationId: true },
+  });
   await logActivity({
-    organizationId: trial?.organizationId ?? env.NEXT_PUBLIC_ORG_ID, actorUserId: user.id, actorName: await actorName(user.id),
-    action: 'trial_assessment.completed', targetType: 'trial_placement', targetId: trialId,
-    metadata: { targetLabel: trial ? `${trial.studentFirstName} ${trial.studentLastName}` : 'a trial student' },
+    organizationId: trial?.organizationId ?? env.NEXT_PUBLIC_ORG_ID,
+    actorUserId: user.id,
+    actorName: await actorName(user.id),
+    action: 'trial_assessment.completed',
+    targetType: 'trial_placement',
+    targetId: trialId,
+    metadata: {
+      targetLabel: trial ? `${trial.studentFirstName} ${trial.studentLastName}` : 'a trial student',
+    },
   });
 
   revalidatePath('/teacher/trials');

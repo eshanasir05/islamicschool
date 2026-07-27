@@ -1,21 +1,32 @@
-import { redirect } from 'next/navigation';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getTeacherHomeworkOverview, createHomework, archiveHomework, restoreHomework } from '../../actions';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SubmitButton } from '@/components/ui/submit-button';
-import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { ToastOnParam } from '@/components/ui/toast-on-param';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import {
+  archiveHomework,
+  createHomework,
+  getTeacherHomeworkOverview,
+  restoreHomework,
+} from '../../actions';
 
 type Props = { searchParams: Promise<{ notice?: string }> };
 
 function shortDate(dateStr: string) {
-  return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export default async function TeacherHomeworkPage({ searchParams }: Props) {
   const { notice } = await searchParams;
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
 
   const classes = await getTeacherHomeworkOverview(user.id);
@@ -23,7 +34,9 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
   return (
     <>
       <ToastOnParam notice={notice} />
-      <h1 className="text-h1" style={{ marginBottom: 4 }}>Homework</h1>
+      <h1 className="text-h1" style={{ marginBottom: 4 }}>
+        Homework
+      </h1>
       <p className="text-body" style={{ marginBottom: 24 }}>
         Assign one task with one due date. Parents are notified the moment you post it.
       </p>
@@ -36,17 +49,14 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-          {classes.map(cls => {
+          {classes.map((cls) => {
             const createAction = async (formData: FormData) => {
               'use server';
               const title = (formData.get('title') as string)?.trim();
               const description = (formData.get('description') as string)?.trim();
               const dueDate = formData.get('dueDate') as string;
               if (!title || !dueDate) return;
-              const supabase2 = await createSupabaseServerClient();
-              const { data: { user: caller } } = await supabase2.auth.getUser();
-              if (!caller) redirect('/sign-in');
-              await createHomework(cls.id, cls.organizationId, caller.id, {
+              await createHomework(cls.id, {
                 title,
                 description: description || undefined,
                 dueDate,
@@ -55,13 +65,21 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
 
             return (
               <div key={cls.id}>
-                <h2 className="text-h2" style={{ marginBottom: 12 }}>{cls.name}</h2>
+                <h2 className="text-h2" style={{ marginBottom: 12 }}>
+                  {cls.name}
+                </h2>
 
                 <form action={createAction} style={{ marginBottom: 16 }}>
-                  <div className="app-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div
+                    className="app-card"
+                    style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+                  >
                     <div className="field">
-                      <label className="text-label">Task</label>
+                      <label htmlFor={`homeworkTitle-${cls.id}`} className="text-label">
+                        Task
+                      </label>
                       <input
+                        id={`homeworkTitle-${cls.id}`}
                         type="text"
                         name="title"
                         required
@@ -70,8 +88,11 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
                       />
                     </div>
                     <div className="field">
-                      <label className="text-label">Instructions (optional)</label>
+                      <label htmlFor={`homeworkDescription-${cls.id}`} className="text-label">
+                        Instructions (optional)
+                      </label>
                       <textarea
+                        id={`homeworkDescription-${cls.id}`}
                         name="description"
                         className="form-textarea"
                         rows={2}
@@ -79,8 +100,11 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
                       />
                     </div>
                     <div className="field">
-                      <label className="text-label">Due date</label>
+                      <label htmlFor={`homeworkDueDate-${cls.id}`} className="text-label">
+                        Due date
+                      </label>
                       <input
+                        id={`homeworkDueDate-${cls.id}`}
                         type="date"
                         name="dueDate"
                         required
@@ -88,7 +112,11 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
                         style={{ maxWidth: 200 }}
                       />
                     </div>
-                    <SubmitButton className="btn btn-accent" style={{ alignSelf: 'flex-start' }} pendingLabel="Assigning…">
+                    <SubmitButton
+                      className="btn btn-accent"
+                      style={{ alignSelf: 'flex-start' }}
+                      pendingLabel="Assigning…"
+                    >
                       Assign homework
                     </SubmitButton>
                   </div>
@@ -102,19 +130,32 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
                   />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {cls.homework.map(hw => {
+                    {cls.homework.map((hw) => {
                       const archiveAction = async () => {
                         'use server';
                         await archiveHomework(hw.id);
                       };
                       return (
-                        <div key={hw.id} className="app-card" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                        <div
+                          key={hw.id}
+                          className="app-card"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                          }}
+                        >
                           <div>
                             <div style={{ fontWeight: 600, color: 'var(--fg)' }}>{hw.title}</div>
                             {hw.description && (
-                              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{hw.description}</div>
+                              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+                                {hw.description}
+                              </div>
                             )}
-                            <div style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 6 }}>Due {shortDate(hw.dueDate)}</div>
+                            <div style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 6 }}>
+                              Due {shortDate(hw.dueDate)}
+                            </div>
                           </div>
                           <form action={archiveAction}>
                             <ConfirmSubmit
@@ -124,7 +165,11 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
                               confirmLabel="Delete homework"
                               variant="danger"
                               className="btn btn-ghost"
-                              buttonStyle={{ fontSize: 12, padding: '4px 10px', color: 'var(--muted)' }}
+                              buttonStyle={{
+                                fontSize: 12,
+                                padding: '4px 10px',
+                                color: 'var(--muted)',
+                              }}
                             />
                           </form>
                         </div>
@@ -138,20 +183,46 @@ export default async function TeacherHomeworkPage({ searchParams }: Props) {
                     <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--muted)' }}>
                       Recently deleted ({cls.archivedHomework.length})
                     </summary>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                      {cls.archivedHomework.map(hw => {
+                    <div
+                      style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}
+                    >
+                      {cls.archivedHomework.map((hw) => {
                         const restoreAction = async () => {
                           'use server';
                           await restoreHomework(hw.id);
                         };
                         return (
-                          <div key={hw.id} className="app-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, opacity: 0.7 }}>
+                          <div
+                            key={hw.id}
+                            className="app-card"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              opacity: 0.7,
+                            }}
+                          >
                             <div>
-                              <div style={{ fontWeight: 600, color: 'var(--fg)', textDecoration: 'line-through' }}>{hw.title}</div>
-                              <div style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 4 }}>Due {shortDate(hw.dueDate)}</div>
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  color: 'var(--fg)',
+                                  textDecoration: 'line-through',
+                                }}
+                              >
+                                {hw.title}
+                              </div>
+                              <div style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 4 }}>
+                                Due {shortDate(hw.dueDate)}
+                              </div>
                             </div>
                             <form action={restoreAction}>
-                              <button type="submit" className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }}>
+                              <button
+                                type="submit"
+                                className="btn btn-ghost"
+                                style={{ fontSize: 12, padding: '4px 10px' }}
+                              >
                                 Restore
                               </button>
                             </form>
