@@ -65,7 +65,7 @@ export function SiteNav() {
           })}
         </div>
         <div className="nav-cta">
-          <ThemeToggle compact className="hide-sm" />
+          <ThemeToggle compact />
           <Link className="btn btn-ghost btn-login" href="/sign-in">
             Login
           </Link>
