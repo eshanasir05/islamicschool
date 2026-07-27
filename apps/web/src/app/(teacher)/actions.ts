@@ -36,6 +36,12 @@ async function requireUser() {
   return user;
 }
 
+async function requireTeacherSelf(teacherId: string) {
+  const user = await requireUser();
+  if (user.id !== teacherId) redirect('/teacher');
+  return user;
+}
+
 async function assertTeacherOwnsClass(classId: string, userId: string) {
   await requireTeacherOwnedClass(classId, userId);
 }
@@ -85,16 +91,20 @@ async function assertTeacherOwnsTrial(trialId: string, userId: string) {
     where: and(
       eq(schema.trialPlacements.id, trialId),
       eq(schema.trialPlacements.assignedTeacherId, userId),
+      eq(schema.trialPlacements.organizationId, env.NEXT_PUBLIC_ORG_ID),
     ),
-    columns: { id: true },
+    columns: { id: true, organizationId: true, studentFirstName: true, studentLastName: true },
   });
   if (!trial) redirect('/teacher/trials');
+  return trial;
 }
 
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 export async function getTeacherClasses(teacherId: string) {
+  await requireTeacherSelf(teacherId);
+
   const classes = await db.query.classes.findMany({
     where: and(
       eq(schema.classes.primaryTeacherId, teacherId),
@@ -226,6 +236,8 @@ export async function getTeacherRecentActivity(
   teacherId: string,
   limit = 5,
 ): Promise<TeacherActivity[]> {
+  await requireTeacherSelf(teacherId);
+
   const teacherClasses = await db.query.classes.findMany({
     where: and(
       eq(schema.classes.primaryTeacherId, teacherId),
@@ -374,6 +386,7 @@ function ageFromDob(dateOfBirth: string): number {
 // pool of active org students not yet in this class, for the "add student"
 // picker.
 export async function getTeacherClassRoster(classId: string, teacherId: string) {
+  await requireTeacherSelf(teacherId);
   await assertTeacherOwnsClass(classId, teacherId);
 
   const [cls, enrollments, allStudents] = await Promise.all([
@@ -412,8 +425,9 @@ export async function getTeacherStudentDetail(
   studentId: string,
   teacherId: string,
 ) {
+  await requireTeacherSelf(teacherId);
   await assertTeacherOwnsClass(classId, teacherId);
-  await assertTeacherOwnsStudent(studentId, teacherId);
+  await assertStudentsEnrolledInClass(classId, [studentId]);
 
   const [student, cls, hifz, notes, deletedNotes, parentThreads] = await Promise.all([
     db.query.students.findFirst({ where: eq(schema.students.id, studentId) }),
@@ -583,6 +597,8 @@ export async function teacherUnenrollStudent(classId: string, studentId: string)
 // Homework
 // ---------------------------------------------------------------------------
 export async function getTeacherHomeworkOverview(teacherId: string) {
+  await requireTeacherSelf(teacherId);
+
   const classes = await db.query.classes.findMany({
     where: and(
       eq(schema.classes.primaryTeacherId, teacherId),
@@ -690,6 +706,8 @@ const MILESTONE_LABEL: Record<'surah_completed' | 'juz_completed' | 'revision_co
   };
 
 export async function getTeacherMilestonesOverview(teacherId: string) {
+  await requireTeacherSelf(teacherId);
+
   const classes = await db.query.classes.findMany({
     where: and(
       eq(schema.classes.primaryTeacherId, teacherId),
@@ -1201,9 +1219,12 @@ export async function eraseClassSession(classId: string, sessionDate: string) {
 // Trial Class / Placement Assessment
 // ---------------------------------------------------------------------------
 export async function getTeacherTrials(teacherId: string) {
+  await requireTeacherSelf(teacherId);
+
   return db.query.trialPlacements.findMany({
     where: and(
       eq(schema.trialPlacements.assignedTeacherId, teacherId),
+      eq(schema.trialPlacements.organizationId, env.NEXT_PUBLIC_ORG_ID),
       eq(schema.trialPlacements.status, 'scheduled'),
     ),
     orderBy: (t, { asc }) => asc(t.scheduledDate),
@@ -1222,7 +1243,8 @@ export async function submitPlacementAssessment(
   },
 ) {
   const user = await requireUser();
-  await assertTeacherOwnsTrial(trialId, user.id);
+  const trial = await assertTeacherOwnsTrial(trialId, user.id);
+  if (data.recommendedClassId) await requireTeacherOwnedClass(data.recommendedClassId, user.id);
 
   await db
     .update(schema.trialPlacements)
@@ -1236,21 +1258,22 @@ export async function submitPlacementAssessment(
       status: 'assessed',
       assessedAt: new Date(),
     })
-    .where(eq(schema.trialPlacements.id, trialId));
-
-  const trial = await db.query.trialPlacements.findFirst({
-    where: eq(schema.trialPlacements.id, trialId),
-    columns: { studentFirstName: true, studentLastName: true, organizationId: true },
-  });
+    .where(
+      and(
+        eq(schema.trialPlacements.id, trialId),
+        eq(schema.trialPlacements.assignedTeacherId, user.id),
+        eq(schema.trialPlacements.organizationId, trial.organizationId),
+      ),
+    );
   await logActivity({
-    organizationId: trial?.organizationId ?? env.NEXT_PUBLIC_ORG_ID,
+    organizationId: trial.organizationId,
     actorUserId: user.id,
     actorName: await actorName(user.id),
     action: 'trial_assessment.completed',
     targetType: 'trial_placement',
     targetId: trialId,
     metadata: {
-      targetLabel: trial ? `${trial.studentFirstName} ${trial.studentLastName}` : 'a trial student',
+      targetLabel: `${trial.studentFirstName} ${trial.studentLastName}`,
     },
   });
 
