@@ -14,6 +14,8 @@ import { redirect } from 'next/navigation';
 import { Resend } from 'resend';
 
 export async function getAdminStats(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const weekStart = sevenDaysAgo.toISOString().slice(0, 10);
@@ -91,6 +93,8 @@ export async function getAdminStats(orgId: string) {
 }
 
 export async function getAdminStudents(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   return db.query.students.findMany({
     where: eq(schema.students.organizationId, orgId),
     with: {
@@ -102,6 +106,8 @@ export async function getAdminStudents(orgId: string) {
 }
 
 export async function getAdminStudent(studentId: string, orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const [student, attendance, hifz, milestones, noteCount] = await Promise.all([
     db.query.students.findFirst({
       where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
@@ -130,6 +136,8 @@ export async function getAdminStudent(studentId: string, orgId: string) {
 }
 
 export async function getAdminClasses(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const classes = await db.query.classes.findMany({
     where: eq(schema.classes.organizationId, orgId),
     with: { primaryTeacher: true, enrollments: true },
@@ -152,6 +160,8 @@ export async function getAdminClasses(orgId: string) {
 }
 
 export async function getAdminTeachers(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const memberships = await db.query.memberships.findMany({
     where: and(eq(schema.memberships.organizationId, orgId), eq(schema.memberships.role, 'teacher')),
     with: { user: true },
@@ -194,6 +204,8 @@ export async function getAdminTeachers(orgId: string) {
 // Announcements
 // ---------------------------------------------------------------------------
 export async function getAnnouncements(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const rows = await db
     .select({
       threadId: schema.messageThreads.id,
@@ -455,6 +467,8 @@ export async function restoreClass(classId: string, orgId: string) {
 // Class detail + enrollment
 // ---------------------------------------------------------------------------
 export async function getAdminClassDetail(classId: string, orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const cls = await db.query.classes.findFirst({
     where: and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)),
     with: {
@@ -697,6 +711,8 @@ export async function unlinkGuardian(linkId: string, studentId: string) {
 }
 
 export async function getAdminParents(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const rows = await db
     .select({
       userId: schema.memberships.userId,
@@ -736,6 +752,8 @@ export async function getAdminParents(orgId: string) {
 // Adab Growth Journal — school-wide highlights
 // ---------------------------------------------------------------------------
 export async function getAdminAdabHighlights(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   return db.query.studentNotes.findMany({
     where: and(
       eq(schema.studentNotes.organizationId, orgId),
@@ -755,6 +773,8 @@ export async function getAdminAdabHighlights(orgId: string) {
 // Attendance Follow-Up — absence risk flags
 // ---------------------------------------------------------------------------
 export async function getAttendanceFollowUp(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const since = new Date();
   since.setDate(since.getDate() - 60);
   const sinceStr = since.toISOString().slice(0, 10);
@@ -821,6 +841,8 @@ export async function getAttendanceFollowUp(orgId: string) {
 // Family Household View — derived from guardian links, no dedicated table
 // ---------------------------------------------------------------------------
 export async function getFamilyProfile(guardianUserId: string, orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const guardian = await db.query.users.findFirst({
     where: eq(schema.users.id, guardianUserId),
   });
@@ -912,6 +934,8 @@ export async function getFamilyProfile(guardianUserId: string, orgId: string) {
 // ---------------------------------------------------------------------------
 
 export async function getAdminTuition(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const students = await db.query.students.findMany({
     where: and(eq(schema.students.organizationId, orgId), eq(schema.students.status, 'active')),
     with: {
@@ -1027,6 +1051,8 @@ export async function sendTuitionRemindersThrottled(orgId: string, throttleDays 
 }
 
 export async function getAdminStudentTuition(studentId: string, orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const [student, plans] = await Promise.all([
     db.query.students.findFirst({
       where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
@@ -1043,6 +1069,8 @@ export async function getAdminStudentTuition(studentId: string, orgId: string) {
 // Other active students sharing at least one guardian with this student —
 // used to offer a sibling discount when creating a tuition plan.
 export async function getSiblingStudents(studentId: string, orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const guardianLinks = await db.query.studentGuardians.findMany({
     where: eq(schema.studentGuardians.studentId, studentId),
     columns: { guardianUserId: true },
@@ -1190,6 +1218,8 @@ export async function createTuitionPlan(
 // Admin Insights Dashboard
 // ---------------------------------------------------------------------------
 export async function getAdminInsights(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   const monthStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1344,6 +1374,8 @@ export async function getAdminInsights(orgId: string) {
 // Board Meeting Pack — consolidated report for principals/board members
 // ---------------------------------------------------------------------------
 export async function getBoardPack(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   const [insights, activeClassesRow, attendanceFollowUp, adabHighlights, recentLeads, notificationStats, failedPastDuePayments] = await Promise.all([
     getAdminInsights(orgId),
     db.select({ cnt: count() }).from(schema.classes)
@@ -1405,6 +1437,8 @@ export async function cancelTuitionPlan(planId: string, orgId: string, studentId
 // Trial Class / Placement Assessment
 // ---------------------------------------------------------------------------
 export async function getAdminTrials(orgId: string) {
+  await requireAdminForOrg(orgId);
+
   return db.query.trialPlacements.findMany({
     where: eq(schema.trialPlacements.organizationId, orgId),
     with: {
@@ -1416,6 +1450,8 @@ export async function getAdminTrials(orgId: string) {
 }
 
 export async function getTrialDetail(trialId: string, orgId: string) {
+  await requireAdminForOrg(orgId);
+
   return db.query.trialPlacements.findFirst({
     where: and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)),
     with: {
@@ -1427,6 +1463,8 @@ export async function getTrialDetail(trialId: string, orgId: string) {
 }
 
 export async function getRecentLeadsForTrial() {
+  await requireAdminForOrg(env.NEXT_PUBLIC_ORG_ID);
+
   return db.select().from(schema.contactSubmissions)
     .orderBy(desc(schema.contactSubmissions.createdAt))
     .limit(20);
@@ -1575,6 +1613,8 @@ export type OnboardingItem = {
 };
 
 export async function getOnboardingChecklist(orgId: string): Promise<OnboardingItem[]> {
+  await requireAdminForOrg(orgId);
+
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   const boardPackViewed = cookieStore.get('onboarding_board_pack_viewed')?.value === 'true';
@@ -1668,12 +1708,16 @@ export async function getOnboardingChecklist(orgId: string): Promise<OnboardingI
 }
 
 export async function markBoardPackViewed() {
+  await requireAdminForOrg(env.NEXT_PUBLIC_ORG_ID);
+
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   cookieStore.set('onboarding_board_pack_viewed', 'true', { maxAge: 60 * 60 * 24 * 365, path: '/' });
 }
 
 export async function dismissOnboardingChecklist() {
+  await requireAdminForOrg(env.NEXT_PUBLIC_ORG_ID);
+
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   cookieStore.set('onboarding_dismissed', 'true', { maxAge: 60 * 60 * 24 * 365, path: '/' });
@@ -1681,6 +1725,8 @@ export async function dismissOnboardingChecklist() {
 }
 
 export async function restoreOnboardingChecklist() {
+  await requireAdminForOrg(env.NEXT_PUBLIC_ORG_ID);
+
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   cookieStore.delete('onboarding_dismissed');
