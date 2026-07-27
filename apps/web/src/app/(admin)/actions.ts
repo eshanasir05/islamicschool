@@ -5,13 +5,35 @@ import { logActivity } from '@/lib/activity-log';
 import { requireAdminForOrg } from '@/lib/admin-auth';
 import { db, schema } from '@/lib/db';
 import { getHifzRetentionFlags } from '@/lib/hifz-retention';
-import { createNotification, notifyAllGuardiansInOrg, notifyAllTeachersIfEnabled, notifyTeacherIfEnabled } from '@/lib/notifications';
+import {
+  createNotification,
+  notifyAllGuardiansInOrg,
+  notifyAllTeachersIfEnabled,
+  notifyTeacherIfEnabled,
+} from '@/lib/notifications';
 import { stripe } from '@/lib/stripe';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { and, count, desc, eq, gte, inArray, isNull, max, ne, sql, sum } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { Resend } from 'resend';
+
+async function requireOptionalTeacherInOrg(orgId: string, teacherId?: string | null) {
+  if (!teacherId) return null;
+
+  const membership = await db.query.memberships.findFirst({
+    where: and(
+      eq(schema.memberships.userId, teacherId),
+      eq(schema.memberships.organizationId, orgId),
+      eq(schema.memberships.role, 'teacher'),
+      eq(schema.memberships.status, 'active'),
+    ),
+    columns: { id: true },
+  });
+
+  if (!membership) throw new Error('Forbidden');
+  return teacherId;
+}
 
 export async function getAdminStats(orgId: string) {
   await requireAdminForOrg(orgId);
@@ -69,21 +91,21 @@ export async function getAdminStats(orgId: string) {
         eq(schema.attendanceRecords.sessionDate, today),
       ),
     );
-  const wrappedSet = new Set(todayAttendanceClassIds.map(r => r.classId));
+  const wrappedSet = new Set(todayAttendanceClassIds.map((r) => r.classId));
 
-  const presentCount = attendanceRows.find(r => r.status === 'present')?.cnt ?? 0;
+  const presentCount = attendanceRows.find((r) => r.status === 'present')?.cnt ?? 0;
   const totalCount = attendanceRows.reduce((s, r) => s + Number(r.cnt), 0);
   const attendancePct = totalCount > 0 ? Math.round((Number(presentCount) / totalCount) * 100) : 0;
   const hifzWins = Number(hifzCount[0]?.cnt ?? 0);
-  const classesWrapped = classes.filter(c => wrappedSet.has(c.id)).length;
-  const activeTuition = Number(tuitionPlans.find(t => t.status === 'active')?.cnt ?? 0);
+  const classesWrapped = classes.filter((c) => wrappedSet.has(c.id)).length;
+  const activeTuition = Number(tuitionPlans.find((t) => t.status === 'active')?.cnt ?? 0);
 
   return {
     attendancePct,
     hifzWins,
     classesWrapped,
     activeTuition,
-    classes: classes.map(c => ({
+    classes: classes.map((c) => ({
       id: c.id,
       name: c.name,
       teacherName: c.primaryTeacher?.fullName ?? 'Unassigned',
@@ -117,22 +139,46 @@ export async function getAdminStudent(studentId: string, orgId: string) {
       },
     }),
     db.query.attendanceRecords.findMany({
-      where: and(eq(schema.attendanceRecords.studentId, studentId), eq(schema.attendanceRecords.organizationId, orgId)),
+      where: and(
+        eq(schema.attendanceRecords.studentId, studentId),
+        eq(schema.attendanceRecords.organizationId, orgId),
+      ),
       orderBy: (a, { desc }) => desc(a.sessionDate),
     }),
     db.query.hifzRecords.findMany({
-      where: and(eq(schema.hifzRecords.studentId, studentId), eq(schema.hifzRecords.organizationId, orgId)),
+      where: and(
+        eq(schema.hifzRecords.studentId, studentId),
+        eq(schema.hifzRecords.organizationId, orgId),
+      ),
       orderBy: (h, { desc }) => desc(h.sessionDate),
     }),
     db.query.hifzMilestones.findMany({
-      where: and(eq(schema.hifzMilestones.studentId, studentId), eq(schema.hifzMilestones.organizationId, orgId)),
+      where: and(
+        eq(schema.hifzMilestones.studentId, studentId),
+        eq(schema.hifzMilestones.organizationId, orgId),
+      ),
       orderBy: (m, { desc }) => desc(m.achievedDate),
     }),
-    db.select({ cnt: count() }).from(schema.studentNotes)
-      .where(and(eq(schema.studentNotes.studentId, studentId), eq(schema.studentNotes.organizationId, orgId), isNull(schema.studentNotes.deletedAt))),
+    db
+      .select({ cnt: count() })
+      .from(schema.studentNotes)
+      .where(
+        and(
+          eq(schema.studentNotes.studentId, studentId),
+          eq(schema.studentNotes.organizationId, orgId),
+          isNull(schema.studentNotes.deletedAt),
+        ),
+      ),
   ]);
   const retentionFlags = getHifzRetentionFlags(hifz);
-  return { student, attendance, hifz, milestones, noteCount: Number(noteCount[0]?.cnt ?? 0), retentionFlags };
+  return {
+    student,
+    attendance,
+    hifz,
+    milestones,
+    noteCount: Number(noteCount[0]?.cnt ?? 0),
+    retentionFlags,
+  };
 }
 
 export async function getAdminClasses(orgId: string) {
@@ -146,9 +192,14 @@ export async function getAdminClasses(orgId: string) {
   const todayWrapped = await db
     .selectDistinct({ classId: schema.attendanceRecords.classId })
     .from(schema.attendanceRecords)
-    .where(and(eq(schema.attendanceRecords.organizationId, orgId), eq(schema.attendanceRecords.sessionDate, today)));
-  const wrappedSet = new Set(todayWrapped.map(r => r.classId));
-  return classes.map(c => ({
+    .where(
+      and(
+        eq(schema.attendanceRecords.organizationId, orgId),
+        eq(schema.attendanceRecords.sessionDate, today),
+      ),
+    );
+  const wrappedSet = new Set(todayWrapped.map((r) => r.classId));
+  return classes.map((c) => ({
     id: c.id,
     name: c.name,
     teacherName: c.primaryTeacher?.fullName ?? 'Unassigned',
@@ -163,10 +214,13 @@ export async function getAdminTeachers(orgId: string) {
   await requireAdminForOrg(orgId);
 
   const memberships = await db.query.memberships.findMany({
-    where: and(eq(schema.memberships.organizationId, orgId), eq(schema.memberships.role, 'teacher')),
+    where: and(
+      eq(schema.memberships.organizationId, orgId),
+      eq(schema.memberships.role, 'teacher'),
+    ),
     with: { user: true },
   });
-  const teacherIds = memberships.map(m => m.userId);
+  const teacherIds = memberships.map((m) => m.userId);
 
   const [classRows, lastSessionRows] = await Promise.all([
     db.query.classes.findMany({
@@ -174,14 +228,18 @@ export async function getAdminTeachers(orgId: string) {
       with: { primaryTeacher: true },
     }),
     teacherIds.length > 0
-      ? db.select({ teacherId: schema.attendanceRecords.recordedBy, lastDate: max(schema.attendanceRecords.sessionDate) })
+      ? db
+          .select({
+            teacherId: schema.attendanceRecords.recordedBy,
+            lastDate: max(schema.attendanceRecords.sessionDate),
+          })
           .from(schema.attendanceRecords)
           .where(eq(schema.attendanceRecords.organizationId, orgId))
           .groupBy(schema.attendanceRecords.recordedBy)
       : Promise.resolve([]),
   ]);
 
-  const lastSessionMap = new Map(lastSessionRows.map(r => [r.teacherId, r.lastDate]));
+  const lastSessionMap = new Map(lastSessionRows.map((r) => [r.teacherId, r.lastDate]));
   const classesByTeacher = new Map<string, string[]>();
   for (const cls of classRows) {
     if (cls.primaryTeacherId) {
@@ -191,7 +249,7 @@ export async function getAdminTeachers(orgId: string) {
     }
   }
 
-  return memberships.map(m => ({
+  return memberships.map((m) => ({
     id: m.userId,
     name: m.user?.fullName ?? '—',
     email: m.user?.email ?? '—',
@@ -224,13 +282,14 @@ export async function getAnnouncements(orgId: string) {
     .orderBy(desc(schema.messages.createdAt))
     .limit(20);
 
-  const senderIds = [...new Set(rows.map(r => r.senderUserId))];
-  const senders = senderIds.length > 0
-    ? await db.query.users.findMany({ where: (u, { inArray }) => inArray(u.id, senderIds) })
-    : [];
-  const senderMap = new Map(senders.map(s => [s.id, s.fullName ?? s.email ?? '—']));
+  const senderIds = [...new Set(rows.map((r) => r.senderUserId))];
+  const senders =
+    senderIds.length > 0
+      ? await db.query.users.findMany({ where: (u, { inArray }) => inArray(u.id, senderIds) })
+      : [];
+  const senderMap = new Map(senders.map((s) => [s.id, s.fullName ?? s.email ?? '—']));
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     id: r.threadId,
     content: r.content,
     createdAt: r.createdAt,
@@ -238,14 +297,17 @@ export async function getAnnouncements(orgId: string) {
   }));
 }
 
-export async function createAnnouncement(orgId: string, _userId: string, content: string) {
+export async function createAnnouncement(orgId: string, content: string) {
   const actor = await requireAdminForOrg(orgId);
 
-  const [thread] = await db.insert(schema.messageThreads).values({
-    organizationId: orgId,
-    scope: 'school_wide',
-    createdBy: actor.userId,
-  }).returning({ id: schema.messageThreads.id });
+  const [thread] = await db
+    .insert(schema.messageThreads)
+    .values({
+      organizationId: orgId,
+      scope: 'school_wide',
+      createdBy: actor.userId,
+    })
+    .returning({ id: schema.messageThreads.id });
 
   if (!thread) throw new Error('Failed to create thread');
 
@@ -270,8 +332,12 @@ export async function createAnnouncement(orgId: string, _userId: string, content
   });
 
   await logActivity({
-    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
-    action: 'announcement.posted', targetType: 'announcement', targetId: thread.id,
+    organizationId: orgId,
+    actorUserId: actor.userId,
+    actorName: actor.name,
+    action: 'announcement.posted',
+    targetType: 'announcement',
+    targetId: thread.id,
     metadata: { targetLabel: content.length > 60 ? `${content.slice(0, 60)}…` : content },
   });
 
@@ -288,8 +354,14 @@ export async function deleteAnnouncement(threadId: string) {
   await requireAdminForOrg(thread.organizationId);
 
   await db.delete(schema.messages).where(eq(schema.messages.threadId, threadId));
-  await db.delete(schema.messageThreads)
-    .where(and(eq(schema.messageThreads.id, threadId), eq(schema.messageThreads.organizationId, thread.organizationId)));
+  await db
+    .delete(schema.messageThreads)
+    .where(
+      and(
+        eq(schema.messageThreads.id, threadId),
+        eq(schema.messageThreads.organizationId, thread.organizationId),
+      ),
+    );
   revalidatePath('/admin/announcements');
   revalidatePath('/parent');
 }
@@ -316,8 +388,12 @@ export async function createStudent(
   if (!row) throw new Error('Insert failed');
 
   await logActivity({
-    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
-    action: 'student.created', targetType: 'student', targetId: row.id,
+    organizationId: orgId,
+    actorUserId: actor.userId,
+    actorName: actor.name,
+    action: 'student.created',
+    targetType: 'student',
+    targetId: row.id,
     metadata: { targetLabel: data.fullName },
   });
 
@@ -343,8 +419,12 @@ export async function updateStudent(
     .where(and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)));
 
   await logActivity({
-    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
-    action: 'student.updated', targetType: 'student', targetId: studentId,
+    organizationId: orgId,
+    actorUserId: actor.userId,
+    actorName: actor.name,
+    action: 'student.updated',
+    targetType: 'student',
+    targetId: studentId,
     metadata: { targetLabel: data.fullName },
   });
 
@@ -365,16 +445,25 @@ export async function setStudentStatus(
     .set({ status })
     .where(and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)));
 
-  const student = await db.query.students.findFirst({ where: eq(schema.students.id, studentId), columns: { fullName: true } });
+  const student = await db.query.students.findFirst({
+    where: eq(schema.students.id, studentId),
+    columns: { fullName: true },
+  });
   await logActivity({
-    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
-    action: status === 'active' ? 'student.restored' : 'student.archived', targetType: 'student', targetId: studentId,
+    organizationId: orgId,
+    actorUserId: actor.userId,
+    actorName: actor.name,
+    action: status === 'active' ? 'student.restored' : 'student.archived',
+    targetType: 'student',
+    targetId: studentId,
     metadata: { targetLabel: student?.fullName ?? studentId },
   });
 
   revalidatePath(`/admin/students/${studentId}`);
   revalidatePath('/admin/students');
-  redirect(`/admin/students/${studentId}?notice=${status === 'active' ? 'student_restored' : 'student_archived'}`);
+  redirect(
+    `/admin/students/${studentId}?notice=${status === 'active' ? 'student_restored' : 'student_archived'}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -382,9 +471,16 @@ export async function setStudentStatus(
 // ---------------------------------------------------------------------------
 export async function createClass(
   orgId: string,
-  data: { name: string; gradeLevel?: string; academicYear?: string; capacity?: number; primaryTeacherId?: string },
+  data: {
+    name: string;
+    gradeLevel?: string;
+    academicYear?: string;
+    capacity?: number;
+    primaryTeacherId?: string;
+  },
 ) {
   const actor = await requireAdminForOrg(orgId);
+  const primaryTeacherId = await requireOptionalTeacherInOrg(orgId, data.primaryTeacherId);
 
   const [row] = await db
     .insert(schema.classes)
@@ -394,14 +490,18 @@ export async function createClass(
       gradeLevel: data.gradeLevel ?? null,
       academicYear: data.academicYear ?? null,
       capacity: data.capacity ?? null,
-      primaryTeacherId: data.primaryTeacherId || null,
+      primaryTeacherId,
     })
     .returning({ id: schema.classes.id });
   if (!row) throw new Error('Insert failed');
 
   await logActivity({
-    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
-    action: 'class.created', targetType: 'class', targetId: row.id,
+    organizationId: orgId,
+    actorUserId: actor.userId,
+    actorName: actor.name,
+    action: 'class.created',
+    targetType: 'class',
+    targetId: row.id,
     metadata: { targetLabel: data.name },
   });
 
@@ -413,9 +513,16 @@ export async function createClass(
 export async function updateClass(
   classId: string,
   orgId: string,
-  data: { name: string; gradeLevel?: string; academicYear?: string; capacity?: string; primaryTeacherId?: string },
+  data: {
+    name: string;
+    gradeLevel?: string;
+    academicYear?: string;
+    capacity?: string;
+    primaryTeacherId?: string;
+  },
 ) {
   const actor = await requireAdminForOrg(orgId);
+  const primaryTeacherId = await requireOptionalTeacherInOrg(orgId, data.primaryTeacherId);
 
   await db
     .update(schema.classes)
@@ -424,13 +531,17 @@ export async function updateClass(
       gradeLevel: data.gradeLevel || null,
       academicYear: data.academicYear || null,
       capacity: data.capacity ? Number(data.capacity) : null,
-      primaryTeacherId: data.primaryTeacherId || null,
+      primaryTeacherId,
     })
     .where(and(eq(schema.classes.id, classId), eq(schema.classes.organizationId, orgId)));
 
   await logActivity({
-    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
-    action: 'class.updated', targetType: 'class', targetId: classId,
+    organizationId: orgId,
+    actorUserId: actor.userId,
+    actorName: actor.name,
+    action: 'class.updated',
+    targetType: 'class',
+    targetId: classId,
     metadata: { targetLabel: data.name },
   });
 
@@ -477,7 +588,7 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
     },
   });
 
-  const enrolledStudentIds = cls?.enrollments.map(e => e.studentId) ?? [];
+  const enrolledStudentIds = cls?.enrollments.map((e) => e.studentId) ?? [];
 
   const [sessionRows, homework, milestones, classHifzRecords] = await Promise.all([
     db
@@ -528,7 +639,10 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
   ]);
 
   // Pivot attendance counts by session date
-  const sessionMap = new Map<string, { present: number; absent: number; late: number; excused: number }>();
+  const sessionMap = new Map<
+    string,
+    { present: number; absent: number; late: number; excused: number }
+  >();
   for (const row of sessionRows) {
     const entry = sessionMap.get(row.sessionDate) ?? { present: 0, absent: 0, late: 0, excused: 0 };
     const key = row.status as keyof typeof entry;
@@ -546,7 +660,7 @@ export async function getAdminClassDetail(classId: string, orgId: string) {
     list.push(rec);
     hifzByStudent.set(rec.studentId, list);
   }
-  const hifzProgress = (cls?.enrollments ?? []).map(e => {
+  const hifzProgress = (cls?.enrollments ?? []).map((e) => {
     const records = hifzByStudent.get(e.studentId) ?? [];
     return {
       studentId: e.studentId,
@@ -676,8 +790,12 @@ export async function linkGuardian(
     });
 
     await logActivity({
-      organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
-      action: 'guardian.linked', targetType: 'guardian', targetId: guardianUserId,
+      organizationId: orgId,
+      actorUserId: actor.userId,
+      actorName: actor.name,
+      action: 'guardian.linked',
+      targetType: 'guardian',
+      targetId: guardianUserId,
       metadata: { targetLabel: `${email} → ${studentForOrg.fullName}` },
     });
   }
@@ -688,7 +806,10 @@ export async function linkGuardian(
 
 export async function unlinkGuardian(linkId: string, studentId: string) {
   const link = await db.query.studentGuardians.findFirst({
-    where: and(eq(schema.studentGuardians.id, linkId), eq(schema.studentGuardians.studentId, studentId)),
+    where: and(
+      eq(schema.studentGuardians.id, linkId),
+      eq(schema.studentGuardians.studentId, studentId),
+    ),
     with: {
       guardian: { columns: { fullName: true } },
       student: { columns: { organizationId: true } },
@@ -697,12 +818,19 @@ export async function unlinkGuardian(linkId: string, studentId: string) {
   if (!link?.student) throw new Error('Forbidden');
 
   const actor = await requireAdminForOrg(link.student.organizationId);
-  await db.delete(schema.studentGuardians)
-    .where(and(eq(schema.studentGuardians.id, linkId), eq(schema.studentGuardians.studentId, studentId)));
+  await db
+    .delete(schema.studentGuardians)
+    .where(
+      and(eq(schema.studentGuardians.id, linkId), eq(schema.studentGuardians.studentId, studentId)),
+    );
 
   await logActivity({
-    organizationId: link.student.organizationId, actorUserId: actor.userId, actorName: actor.name,
-    action: 'guardian.unlinked', targetType: 'guardian', targetId: link?.guardianUserId ?? null,
+    organizationId: link.student.organizationId,
+    actorUserId: actor.userId,
+    actorName: actor.name,
+    action: 'guardian.unlinked',
+    targetType: 'guardian',
+    targetId: link?.guardianUserId ?? null,
     metadata: { targetLabel: link?.guardian?.fullName ?? 'a guardian' },
   });
 
@@ -724,7 +852,10 @@ export async function getAdminParents(orgId: string) {
     })
     .from(schema.memberships)
     .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
-    .leftJoin(schema.studentGuardians, eq(schema.studentGuardians.guardianUserId, schema.memberships.userId))
+    .leftJoin(
+      schema.studentGuardians,
+      eq(schema.studentGuardians.guardianUserId, schema.memberships.userId),
+    )
     .leftJoin(schema.students, eq(schema.students.id, schema.studentGuardians.studentId))
     .where(
       and(
@@ -736,13 +867,30 @@ export async function getAdminParents(orgId: string) {
     .orderBy(schema.users.fullName);
 
   // Group rows by parent
-  const map = new Map<string, { userId: string; name: string; email: string | null; students: { id: string; name: string; relationship: string | null }[] }>();
+  const map = new Map<
+    string,
+    {
+      userId: string;
+      name: string;
+      email: string | null;
+      students: { id: string; name: string; relationship: string | null }[];
+    }
+  >();
   for (const row of rows) {
     if (!map.has(row.userId)) {
-      map.set(row.userId, { userId: row.userId, name: row.parentName, email: row.parentEmail, students: [] });
+      map.set(row.userId, {
+        userId: row.userId,
+        name: row.parentName,
+        email: row.parentEmail,
+        students: [],
+      });
     }
     if (row.studentId && row.studentName) {
-      map.get(row.userId)!.students.push({ id: row.studentId, name: row.studentName, relationship: row.relationship });
+      map.get(row.userId)!.students.push({
+        id: row.studentId,
+        name: row.studentName,
+        relationship: row.relationship,
+      });
     }
   }
   return [...map.values()];
@@ -808,14 +956,15 @@ export async function getAttendanceFollowUp(orgId: string) {
 
   const followUps = [];
   for (const [studentId, studentRecords] of byStudent) {
-    const absences = studentRecords.filter(r => r.status === 'absent');
+    const absences = studentRecords.filter((r) => r.status === 'absent');
     if (absences.length === 0) continue;
 
-    const twoInARow = studentRecords.length >= 2
-      && studentRecords[0]!.status === 'absent'
-      && studentRecords[1]!.status === 'absent';
-    const threeIn30Days = absences.filter(a => a.sessionDate >= thirtyDaysAgoStr).length >= 3;
-    const noResponse = absences.some(a => !a.guardianReason && a.sessionDate <= yesterdayStr);
+    const twoInARow =
+      studentRecords.length >= 2 &&
+      studentRecords[0]!.status === 'absent' &&
+      studentRecords[1]!.status === 'absent';
+    const threeIn30Days = absences.filter((a) => a.sessionDate >= thirtyDaysAgoStr).length >= 3;
+    const noResponse = absences.some((a) => !a.guardianReason && a.sessionDate <= yesterdayStr);
 
     if (!twoInARow && !threeIn30Days && !noResponse) continue;
 
@@ -825,7 +974,7 @@ export async function getAttendanceFollowUp(orgId: string) {
       twoInARow,
       threeIn30Days,
       noResponse,
-      recentAbsences: absences.slice(0, 5).map(a => ({
+      recentAbsences: absences.slice(0, 5).map((a) => ({
         id: a.id,
         sessionDate: a.sessionDate,
         guardianReason: a.guardianReason,
@@ -861,7 +1010,7 @@ export async function getFamilyProfile(guardianUserId: string, orgId: string) {
   });
 
   const students = guardianLinks
-    .map(l => l.student)
+    .map((l) => l.student)
     .filter((s): s is NonNullable<typeof s> => !!s && s.organizationId === orgId);
 
   // Co-guardians — everyone else linked to any of this family's students.
@@ -878,44 +1027,66 @@ export async function getFamilyProfile(guardianUserId: string, orgId: string) {
     }
   }
 
-  const studentIds = students.map(s => s.id);
+  const studentIds = students.map((s) => s.id);
 
-  const [tuitionPlans, recentNotes, recentHomework, recentHifz, attendanceFollowUp] = await Promise.all([
-    studentIds.length === 0 ? Promise.resolve([]) : db.query.tuitionPlans.findMany({
-      where: and(inArray(schema.tuitionPlans.studentId, studentIds), ne(schema.tuitionPlans.status, 'cancelled')),
-      with: { student: { columns: { fullName: true } } },
-      orderBy: (t, { desc }) => desc(t.createdAt),
-    }),
-    studentIds.length === 0 ? Promise.resolve([]) : db.query.studentNotes.findMany({
-      where: and(inArray(schema.studentNotes.studentId, studentIds), isNull(schema.studentNotes.deletedAt)),
-      with: { student: { columns: { fullName: true } } },
-      orderBy: (n, { desc }) => desc(n.createdAt),
-      limit: 5,
-    }),
-    studentIds.length === 0 ? Promise.resolve([]) : (async () => {
-      const classIds = [...new Set(students.flatMap(s => s.enrollments.map(e => e.classId)))];
-      if (classIds.length === 0) return [];
-      return db.query.homeworkAssignments.findMany({
-        where: and(inArray(schema.homeworkAssignments.classId, classIds), eq(schema.homeworkAssignments.archived, false)),
-        orderBy: (h, { desc }) => desc(h.dueDate),
-        limit: 5,
-      });
-    })(),
-    studentIds.length === 0 ? Promise.resolve([]) : db.query.hifzRecords.findMany({
-      where: inArray(schema.hifzRecords.studentId, studentIds),
-      with: { student: { columns: { fullName: true } } },
-      orderBy: (h, { desc }) => desc(h.sessionDate),
-      limit: 5,
-    }),
-    getAttendanceFollowUp(orgId),
-  ]);
+  const [tuitionPlans, recentNotes, recentHomework, recentHifz, attendanceFollowUp] =
+    await Promise.all([
+      studentIds.length === 0
+        ? Promise.resolve([])
+        : db.query.tuitionPlans.findMany({
+            where: and(
+              inArray(schema.tuitionPlans.studentId, studentIds),
+              ne(schema.tuitionPlans.status, 'cancelled'),
+            ),
+            with: { student: { columns: { fullName: true } } },
+            orderBy: (t, { desc }) => desc(t.createdAt),
+          }),
+      studentIds.length === 0
+        ? Promise.resolve([])
+        : db.query.studentNotes.findMany({
+            where: and(
+              inArray(schema.studentNotes.studentId, studentIds),
+              isNull(schema.studentNotes.deletedAt),
+            ),
+            with: { student: { columns: { fullName: true } } },
+            orderBy: (n, { desc }) => desc(n.createdAt),
+            limit: 5,
+          }),
+      studentIds.length === 0
+        ? Promise.resolve([])
+        : (async () => {
+            const classIds = [
+              ...new Set(students.flatMap((s) => s.enrollments.map((e) => e.classId))),
+            ];
+            if (classIds.length === 0) return [];
+            return db.query.homeworkAssignments.findMany({
+              where: and(
+                inArray(schema.homeworkAssignments.classId, classIds),
+                eq(schema.homeworkAssignments.archived, false),
+              ),
+              orderBy: (h, { desc }) => desc(h.dueDate),
+              limit: 5,
+            });
+          })(),
+      studentIds.length === 0
+        ? Promise.resolve([])
+        : db.query.hifzRecords.findMany({
+            where: inArray(schema.hifzRecords.studentId, studentIds),
+            with: { student: { columns: { fullName: true } } },
+            orderBy: (h, { desc }) => desc(h.sessionDate),
+            limit: 5,
+          }),
+      getAttendanceFollowUp(orgId),
+    ]);
 
-  const familyAttendanceConcerns = attendanceFollowUp.filter(f => studentIds.includes(f.studentId));
+  const familyAttendanceConcerns = attendanceFollowUp.filter((f) =>
+    studentIds.includes(f.studentId),
+  );
 
   return {
     guardian,
     coGuardians: [...coGuardianMap.values()],
-    students: students.map(s => ({
+    students: students.map((s) => ({
       id: s.id,
       fullName: s.fullName,
       status: s.status,
@@ -950,11 +1121,11 @@ export async function getAdminTuition(orgId: string) {
     orderBy: (s, { asc }) => asc(s.fullName),
   });
   // Prefer the most recent non-cancelled plan for the ledger summary row.
-  return students.map(s => ({
+  return students.map((s) => ({
     ...s,
     tuitionPlans: [
-      ...s.tuitionPlans.filter(p => p.status !== 'cancelled'),
-      ...s.tuitionPlans.filter(p => p.status === 'cancelled'),
+      ...s.tuitionPlans.filter((p) => p.status !== 'cancelled'),
+      ...s.tuitionPlans.filter((p) => p.status === 'cancelled'),
     ],
   }));
 }
@@ -963,13 +1134,25 @@ export async function getAdminTuition(orgId: string) {
 // daily cron job. `throttleDays` (cron only) skips plans reminded recently so
 // the same family isn't emailed every day; the admin-triggered path passes no
 // throttle since a human is deciding to send right now.
-async function runTuitionReminders(orgId: string, opts: { planId?: string; throttleDays?: number } = {}) {
-  const cutoff = opts.throttleDays ? new Date(Date.now() - opts.throttleDays * 24 * 60 * 60 * 1000) : null;
+async function runTuitionReminders(
+  orgId: string,
+  opts: { planId?: string; throttleDays?: number } = {},
+) {
+  const cutoff = opts.throttleDays
+    ? new Date(Date.now() - opts.throttleDays * 24 * 60 * 60 * 1000)
+    : null;
 
   const plans = await db.query.tuitionPlans.findMany({
     where: opts.planId
-      ? and(eq(schema.tuitionPlans.id, opts.planId), eq(schema.tuitionPlans.organizationId, orgId), eq(schema.tuitionPlans.status, 'past_due'))
-      : and(eq(schema.tuitionPlans.organizationId, orgId), eq(schema.tuitionPlans.status, 'past_due')),
+      ? and(
+          eq(schema.tuitionPlans.id, opts.planId),
+          eq(schema.tuitionPlans.organizationId, orgId),
+          eq(schema.tuitionPlans.status, 'past_due'),
+        )
+      : and(
+          eq(schema.tuitionPlans.organizationId, orgId),
+          eq(schema.tuitionPlans.status, 'past_due'),
+        ),
     with: {
       student: { columns: { fullName: true } },
       guardian: { columns: { fullName: true, email: true } },
@@ -977,7 +1160,7 @@ async function runTuitionReminders(orgId: string, opts: { planId?: string; throt
   });
 
   const eligible = cutoff
-    ? plans.filter(p => !p.lastReminderSentAt || new Date(p.lastReminderSentAt) < cutoff)
+    ? plans.filter((p) => !p.lastReminderSentAt || new Date(p.lastReminderSentAt) < cutoff)
     : plans;
   if (eligible.length === 0) return { sent: 0 };
 
@@ -990,7 +1173,10 @@ async function runTuitionReminders(orgId: string, opts: { planId?: string; throt
   for (const plan of eligible) {
     if (!plan.guardianUserId) continue;
     const studentName = plan.student?.fullName ?? 'your child';
-    const amount = new Intl.NumberFormat('en-US', { style: 'currency', currency: plan.currency }).format(plan.amountCents / 100);
+    const amount = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: plan.currency,
+    }).format(plan.amountCents / 100);
 
     await createNotification({
       organizationId: orgId,
@@ -1019,7 +1205,10 @@ async function runTuitionReminders(orgId: string, opts: { planId?: string; throt
       });
     }
 
-    await db.update(schema.tuitionPlans).set({ lastReminderSentAt: new Date() }).where(eq(schema.tuitionPlans.id, plan.id));
+    await db
+      .update(schema.tuitionPlans)
+      .set({ lastReminderSentAt: new Date() })
+      .where(eq(schema.tuitionPlans.id, plan.id));
     sent++;
   }
 
@@ -1058,7 +1247,10 @@ export async function getAdminStudentTuition(studentId: string, orgId: string) {
       where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
     }),
     db.query.tuitionPlans.findMany({
-      where: and(eq(schema.tuitionPlans.studentId, studentId), eq(schema.tuitionPlans.organizationId, orgId)),
+      where: and(
+        eq(schema.tuitionPlans.studentId, studentId),
+        eq(schema.tuitionPlans.organizationId, orgId),
+      ),
       with: { payments: { orderBy: (p, { desc }) => desc(p.paidAt) }, guardian: true },
       orderBy: (t, { desc }) => desc(t.createdAt),
     }),
@@ -1075,12 +1267,14 @@ export async function getSiblingStudents(studentId: string, orgId: string) {
     where: eq(schema.studentGuardians.studentId, studentId),
     columns: { guardianUserId: true },
   });
-  const guardianIds = guardianLinks.map(g => g.guardianUserId);
+  const guardianIds = guardianLinks.map((g) => g.guardianUserId);
   if (guardianIds.length === 0) return [];
 
   const siblingLinks = await db.query.studentGuardians.findMany({
     where: inArray(schema.studentGuardians.guardianUserId, guardianIds),
-    with: { student: { columns: { id: true, fullName: true, status: true, organizationId: true } } },
+    with: {
+      student: { columns: { id: true, fullName: true, status: true, organizationId: true } },
+    },
   });
 
   const seen = new Set<string>([studentId]);
@@ -1157,9 +1351,7 @@ export async function createTuitionPlan(
   const price = await stripe.prices.create({
     unit_amount: finalAmountCents,
     currency: 'usd',
-    ...(isRecurring
-      ? { recurring: { interval } }
-      : {}),
+    ...(isRecurring ? { recurring: { interval } } : {}),
     product_data: { name: `Tuition — ${data.studentName}` },
   });
 
@@ -1184,7 +1376,7 @@ export async function createTuitionPlan(
       baseAmountCents: hasDiscount ? data.amountCents : null,
       discountType: hasDiscount ? data.discountType : null,
       discountValue: hasDiscount ? data.discountValue : null,
-      discountReason: hasDiscount ? (data.discountReason?.trim() || 'Sibling discount') : null,
+      discountReason: hasDiscount ? data.discountReason?.trim() || 'Sibling discount' : null,
       currency: 'USD',
       frequency: data.frequency,
       startDate: data.startDate ?? null,
@@ -1201,11 +1393,19 @@ export async function createTuitionPlan(
     metadata: { planId: plan.id },
   });
 
-  const isSiblingDiscount = hasDiscount && /sibling/i.test(data.discountReason ?? 'Sibling discount');
+  const isSiblingDiscount =
+    hasDiscount && /sibling/i.test(data.discountReason ?? 'Sibling discount');
   await logActivity({
-    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
-    action: hasDiscount ? (isSiblingDiscount ? 'sibling_discount.applied' : 'tuition_assistance.applied') : 'tuition_plan.created',
-    targetType: 'tuition_plan', targetId: plan.id,
+    organizationId: orgId,
+    actorUserId: actor.userId,
+    actorName: actor.name,
+    action: hasDiscount
+      ? isSiblingDiscount
+        ? 'sibling_discount.applied'
+        : 'tuition_assistance.applied'
+      : 'tuition_plan.created',
+    targetType: 'tuition_plan',
+    targetId: plan.id,
     metadata: { targetLabel: data.studentName },
   });
 
@@ -1236,110 +1436,148 @@ export async function getAdminInsights(orgId: string) {
     attendanceByClass,
     milestonesThisMonth,
   ] = await Promise.all([
-    db.select({ cnt: count() }).from(schema.students)
+    db
+      .select({ cnt: count() })
+      .from(schema.students)
       .where(and(eq(schema.students.organizationId, orgId), eq(schema.students.status, 'active'))),
 
-    db.select({ cnt: count() }).from(schema.memberships)
-      .where(and(
-        eq(schema.memberships.organizationId, orgId),
-        eq(schema.memberships.role, 'teacher'),
-        eq(schema.memberships.status, 'active'),
-      )),
+    db
+      .select({ cnt: count() })
+      .from(schema.memberships)
+      .where(
+        and(
+          eq(schema.memberships.organizationId, orgId),
+          eq(schema.memberships.role, 'teacher'),
+          eq(schema.memberships.status, 'active'),
+        ),
+      ),
 
-    db.select({ cnt: count() }).from(schema.memberships)
-      .where(and(
-        eq(schema.memberships.organizationId, orgId),
-        eq(schema.memberships.role, 'parent'),
-        eq(schema.memberships.status, 'active'),
-      )),
+    db
+      .select({ cnt: count() })
+      .from(schema.memberships)
+      .where(
+        and(
+          eq(schema.memberships.organizationId, orgId),
+          eq(schema.memberships.role, 'parent'),
+          eq(schema.memberships.status, 'active'),
+        ),
+      ),
 
-    db.select({ status: schema.attendanceRecords.status, cnt: count() })
+    db
+      .select({ status: schema.attendanceRecords.status, cnt: count() })
       .from(schema.attendanceRecords)
-      .where(and(
-        eq(schema.attendanceRecords.organizationId, orgId),
-        gte(schema.attendanceRecords.sessionDate, monthStart),
-      ))
+      .where(
+        and(
+          eq(schema.attendanceRecords.organizationId, orgId),
+          gte(schema.attendanceRecords.sessionDate, monthStart),
+        ),
+      )
       .groupBy(schema.attendanceRecords.status),
 
-    db.select({ total: sum(schema.payments.amountCents) })
+    db
+      .select({ total: sum(schema.payments.amountCents) })
       .from(schema.payments)
-      .where(and(
-        eq(schema.payments.organizationId, orgId),
-        eq(schema.payments.status, 'succeeded'),
-        gte(schema.payments.paidAt, monthStartDate),
-      )),
+      .where(
+        and(
+          eq(schema.payments.organizationId, orgId),
+          eq(schema.payments.status, 'succeeded'),
+          gte(schema.payments.paidAt, monthStartDate),
+        ),
+      ),
 
-    db.select({ total: sum(schema.payments.amountCents) })
+    db
+      .select({ total: sum(schema.payments.amountCents) })
       .from(schema.payments)
-      .where(and(
-        eq(schema.payments.organizationId, orgId),
-        eq(schema.payments.status, 'succeeded'),
-      )),
+      .where(
+        and(eq(schema.payments.organizationId, orgId), eq(schema.payments.status, 'succeeded')),
+      ),
 
-    db.select({
-      status: schema.tuitionPlans.status,
-      cnt: count(),
-      totalCents: sum(schema.tuitionPlans.amountCents),
-    })
+    db
+      .select({
+        status: schema.tuitionPlans.status,
+        cnt: count(),
+        totalCents: sum(schema.tuitionPlans.amountCents),
+      })
       .from(schema.tuitionPlans)
       .where(eq(schema.tuitionPlans.organizationId, orgId))
       .groupBy(schema.tuitionPlans.status),
 
-    db.select({
-      paymentId: schema.payments.id,
-      amountCents: schema.payments.amountCents,
-      currency: schema.payments.currency,
-      paidAt: schema.payments.paidAt,
-      receiptUrl: schema.payments.receiptUrl,
-      studentName: schema.students.fullName,
-      payerName: schema.users.fullName,
-    })
+    db
+      .select({
+        paymentId: schema.payments.id,
+        amountCents: schema.payments.amountCents,
+        currency: schema.payments.currency,
+        paidAt: schema.payments.paidAt,
+        receiptUrl: schema.payments.receiptUrl,
+        studentName: schema.students.fullName,
+        payerName: schema.users.fullName,
+      })
       .from(schema.payments)
       .innerJoin(schema.tuitionPlans, eq(schema.tuitionPlans.id, schema.payments.tuitionPlanId))
       .innerJoin(schema.students, eq(schema.students.id, schema.tuitionPlans.studentId))
       .innerJoin(schema.users, eq(schema.users.id, schema.payments.payerUserId))
-      .where(and(
-        eq(schema.payments.organizationId, orgId),
-        eq(schema.payments.status, 'succeeded'),
-      ))
+      .where(
+        and(eq(schema.payments.organizationId, orgId), eq(schema.payments.status, 'succeeded')),
+      )
       .orderBy(desc(schema.payments.paidAt))
       .limit(5),
 
-    db.select({
-      classId: schema.attendanceRecords.classId,
-      className: schema.classes.name,
-      status: schema.attendanceRecords.status,
-      cnt: count(),
-    })
+    db
+      .select({
+        classId: schema.attendanceRecords.classId,
+        className: schema.classes.name,
+        status: schema.attendanceRecords.status,
+        cnt: count(),
+      })
       .from(schema.attendanceRecords)
       .innerJoin(schema.classes, eq(schema.classes.id, schema.attendanceRecords.classId))
-      .where(and(
-        eq(schema.attendanceRecords.organizationId, orgId),
-        gte(schema.attendanceRecords.sessionDate, monthStart),
-      ))
-      .groupBy(schema.attendanceRecords.classId, schema.classes.name, schema.attendanceRecords.status),
+      .where(
+        and(
+          eq(schema.attendanceRecords.organizationId, orgId),
+          gte(schema.attendanceRecords.sessionDate, monthStart),
+        ),
+      )
+      .groupBy(
+        schema.attendanceRecords.classId,
+        schema.classes.name,
+        schema.attendanceRecords.status,
+      ),
 
-    db.select({ cnt: count() })
+    db
+      .select({ cnt: count() })
       .from(schema.hifzMilestones)
-      .where(and(
-        eq(schema.hifzMilestones.organizationId, orgId),
-        gte(schema.hifzMilestones.achievedDate, monthStart),
-      )),
+      .where(
+        and(
+          eq(schema.hifzMilestones.organizationId, orgId),
+          gte(schema.hifzMilestones.achievedDate, monthStart),
+        ),
+      ),
   ]);
 
-  const presentCnt = Number(monthAttendance.find(r => r.status === 'present')?.cnt ?? 0);
+  const presentCnt = Number(monthAttendance.find((r) => r.status === 'present')?.cnt ?? 0);
   const totalAtt = monthAttendance.reduce((s, r) => s + Number(r.cnt), 0);
   const attendanceRatePct = totalAtt > 0 ? Math.round((presentCnt / totalAtt) * 100) : 0;
 
-  const pendingCount = Number(planStatusBreakdown.find(p => p.status === 'pending_payment')?.cnt ?? 0);
+  const pendingCount = Number(
+    planStatusBreakdown.find((p) => p.status === 'pending_payment')?.cnt ?? 0,
+  );
   const outstandingCents = planStatusBreakdown
-    .filter(p => p.status === 'pending_payment' || p.status === 'past_due')
+    .filter((p) => p.status === 'pending_payment' || p.status === 'past_due')
     .reduce((s, p) => s + Number(p.totalCents ?? 0), 0);
 
-  const classSummaryMap = new Map<string, { className: string; present: number; late: number; absent: number; excused: number }>();
+  const classSummaryMap = new Map<
+    string,
+    { className: string; present: number; late: number; absent: number; excused: number }
+  >();
   for (const row of attendanceByClass) {
     if (!classSummaryMap.has(row.classId)) {
-      classSummaryMap.set(row.classId, { className: row.className, present: 0, late: 0, absent: 0, excused: 0 });
+      classSummaryMap.set(row.classId, {
+        className: row.className,
+        present: 0,
+        late: 0,
+        absent: 0,
+        excused: 0,
+      });
     }
     const entry = classSummaryMap.get(row.classId)!;
     if (row.status === 'present') entry.present += Number(row.cnt);
@@ -1358,7 +1596,7 @@ export async function getAdminInsights(orgId: string) {
     collectedAllTimeCents: Number(collectedAllTime[0]?.total ?? 0),
     outstandingCents,
     pendingCount,
-    planStatusBreakdown: planStatusBreakdown.map(p => ({
+    planStatusBreakdown: planStatusBreakdown.map((p) => ({
       status: p.status,
       count: Number(p.cnt),
       totalCents: Number(p.totalCents ?? 0),
@@ -1376,28 +1614,48 @@ export async function getAdminInsights(orgId: string) {
 export async function getBoardPack(orgId: string) {
   await requireAdminForOrg(orgId);
 
-  const [insights, activeClassesRow, attendanceFollowUp, adabHighlights, recentLeads, notificationStats, failedPastDuePayments] = await Promise.all([
+  const [
+    insights,
+    activeClassesRow,
+    attendanceFollowUp,
+    adabHighlights,
+    recentLeads,
+    notificationStats,
+    failedPastDuePayments,
+  ] = await Promise.all([
     getAdminInsights(orgId),
-    db.select({ cnt: count() }).from(schema.classes)
-      .where(and(eq(schema.classes.organizationId, orgId), sql`${schema.classes.deletedAt} IS NULL`)),
+    db
+      .select({ cnt: count() })
+      .from(schema.classes)
+      .where(
+        and(eq(schema.classes.organizationId, orgId), sql`${schema.classes.deletedAt} IS NULL`),
+      ),
     getAttendanceFollowUp(orgId),
     getAdminAdabHighlights(orgId),
-    db.select().from(schema.contactSubmissions)
+    db
+      .select()
+      .from(schema.contactSubmissions)
       .orderBy(desc(schema.contactSubmissions.createdAt))
       .limit(5),
-    db.select({
-      total: count(),
-      read: sum(sql`case when ${schema.notifications.readAt} is not null then 1 else 0 end`),
-    }).from(schema.notifications).where(eq(schema.notifications.organizationId, orgId)),
-    db.select({ cnt: count() }).from(schema.payments)
+    db
+      .select({
+        total: count(),
+        read: sum(sql`case when ${schema.notifications.readAt} is not null then 1 else 0 end`),
+      })
+      .from(schema.notifications)
+      .where(eq(schema.notifications.organizationId, orgId)),
+    db
+      .select({ cnt: count() })
+      .from(schema.payments)
       .where(and(eq(schema.payments.organizationId, orgId), eq(schema.payments.status, 'failed'))),
   ]);
 
-  const repeatedAbsenceStudents = attendanceFollowUp.filter(f => f.twoInARow || f.threeIn30Days);
+  const repeatedAbsenceStudents = attendanceFollowUp.filter((f) => f.twoInARow || f.threeIn30Days);
 
   const totalNotifications = Number(notificationStats[0]?.total ?? 0);
   const readNotifications = Number(notificationStats[0]?.read ?? 0);
-  const notificationReadRatePct = totalNotifications > 0 ? Math.round((readNotifications / totalNotifications) * 100) : null;
+  const notificationReadRatePct =
+    totalNotifications > 0 ? Math.round((readNotifications / totalNotifications) * 100) : null;
 
   return {
     ...insights,
@@ -1406,8 +1664,9 @@ export async function getBoardPack(orgId: string) {
     adabHighlights: adabHighlights.slice(0, 5),
     recentLeads,
     notificationReadRatePct,
-    failedPastDuePaymentsCount: Number(failedPastDuePayments[0]?.cnt ?? 0)
-      + (insights.planStatusBreakdown.find(p => p.status === 'past_due')?.count ?? 0),
+    failedPastDuePaymentsCount:
+      Number(failedPastDuePayments[0]?.cnt ?? 0) +
+      (insights.planStatusBreakdown.find((p) => p.status === 'past_due')?.count ?? 0),
   };
 }
 
@@ -1453,7 +1712,10 @@ export async function getTrialDetail(trialId: string, orgId: string) {
   await requireAdminForOrg(orgId);
 
   return db.query.trialPlacements.findFirst({
-    where: and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)),
+    where: and(
+      eq(schema.trialPlacements.id, trialId),
+      eq(schema.trialPlacements.organizationId, orgId),
+    ),
     with: {
       assignedTeacher: { columns: { fullName: true } },
       recommendedClass: { columns: { name: true } },
@@ -1465,14 +1727,15 @@ export async function getTrialDetail(trialId: string, orgId: string) {
 export async function getRecentLeadsForTrial() {
   await requireAdminForOrg(env.NEXT_PUBLIC_ORG_ID);
 
-  return db.select().from(schema.contactSubmissions)
+  return db
+    .select()
+    .from(schema.contactSubmissions)
     .orderBy(desc(schema.contactSubmissions.createdAt))
     .limit(20);
 }
 
 export async function createTrialPlacement(
   orgId: string,
-  _createdBy: string,
   data: {
     studentFirstName: string;
     studentLastName: string;
@@ -1485,6 +1748,7 @@ export async function createTrialPlacement(
   },
 ) {
   const actor = await requireAdminForOrg(orgId);
+  const assignedTeacherId = await requireOptionalTeacherInOrg(orgId, data.assignedTeacherId);
 
   const [row] = await db
     .insert(schema.trialPlacements)
@@ -1496,15 +1760,15 @@ export async function createTrialPlacement(
       guardianEmail: data.guardianEmail,
       guardianPhone: data.guardianPhone || null,
       scheduledDate: data.scheduledDate || null,
-      assignedTeacherId: data.assignedTeacherId || null,
+      assignedTeacherId,
       contactSubmissionId: data.contactSubmissionId || null,
       createdBy: actor.userId,
     })
     .returning({ id: schema.trialPlacements.id });
   if (!row) throw new Error('Insert failed');
 
-  if (data.assignedTeacherId) {
-    await notifyTeacherIfEnabled(data.assignedTeacherId, orgId, 'trialAssigned', {
+  if (assignedTeacherId) {
+    await notifyTeacherIfEnabled(assignedTeacherId, orgId, 'trialAssigned', {
       type: 'trial_assigned',
       title: `New trial assigned: ${data.studentFirstName} ${data.studentLastName}`,
       body: 'Assess this trial student and recommend a class.',
@@ -1519,9 +1783,12 @@ export async function createTrialPlacement(
 export async function cancelTrialPlacement(trialId: string, orgId: string) {
   await requireAdminForOrg(orgId);
 
-  await db.update(schema.trialPlacements)
+  await db
+    .update(schema.trialPlacements)
     .set({ status: 'cancelled' })
-    .where(and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)));
+    .where(
+      and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)),
+    );
   revalidatePath(`/admin/trials/${trialId}`);
   revalidatePath('/admin/trials');
   redirect(`/admin/trials/${trialId}?notice=trial_cancelled`);
@@ -1535,7 +1802,10 @@ export async function convertTrialToStudent(
   const actor = await requireAdminForOrg(orgId);
 
   const trial = await db.query.trialPlacements.findFirst({
-    where: and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)),
+    where: and(
+      eq(schema.trialPlacements.id, trialId),
+      eq(schema.trialPlacements.organizationId, orgId),
+    ),
   });
   if (!trial) redirect('/admin/trials');
 
@@ -1547,23 +1817,32 @@ export async function convertTrialToStudent(
 
   // Resolve guardian: link existing by email or create silently (no invite email)
   let guardianUserId: string;
-  const existingUser = await db.query.users.findFirst({ where: eq(schema.users.email, trial.guardianEmail) });
+  const existingUser = await db.query.users.findFirst({
+    where: eq(schema.users.email, trial.guardianEmail),
+  });
   if (existingUser) {
     guardianUserId = existingUser.id;
   } else {
     const serviceClient = await createSupabaseServiceClient();
-    const result = await serviceClient.auth.admin.createUser({ email: trial.guardianEmail, email_confirm: true });
-    if (result.error || !result.data.user) redirect(`/admin/trials/${trialId}?notice=trial_convert_error`);
+    const result = await serviceClient.auth.admin.createUser({
+      email: trial.guardianEmail,
+      email_confirm: true,
+    });
+    if (result.error || !result.data.user)
+      redirect(`/admin/trials/${trialId}?notice=trial_convert_error`);
     guardianUserId = result.data.user.id;
-    await db.insert(schema.users)
+    await db
+      .insert(schema.users)
       .values({ id: guardianUserId, email: trial.guardianEmail, fullName: trial.guardianName })
       .onConflictDoNothing();
   }
-  await db.insert(schema.memberships)
+  await db
+    .insert(schema.memberships)
     .values({ userId: guardianUserId, organizationId: orgId, role: 'parent', status: 'active' })
     .onConflictDoNothing();
 
-  const [student] = await db.insert(schema.students)
+  const [student] = await db
+    .insert(schema.students)
     .values({
       organizationId: orgId,
       fullName: `${trial.studentFirstName} ${trial.studentLastName}`,
@@ -1574,22 +1853,35 @@ export async function convertTrialToStudent(
     .returning({ id: schema.students.id });
   if (!student) throw new Error('Failed to create student');
 
-  await db.insert(schema.classEnrollments).values({ classId: data.classId, studentId: student.id }).onConflictDoNothing();
-  await db.insert(schema.studentGuardians).values({
-    studentId: student.id,
-    guardianUserId,
-    relationship: null,
-    isPrimary: true,
-    receivesNotifications: true,
-  }).onConflictDoNothing();
+  await db
+    .insert(schema.classEnrollments)
+    .values({ classId: data.classId, studentId: student.id })
+    .onConflictDoNothing();
+  await db
+    .insert(schema.studentGuardians)
+    .values({
+      studentId: student.id,
+      guardianUserId,
+      relationship: null,
+      isPrimary: true,
+      receivesNotifications: true,
+    })
+    .onConflictDoNothing();
 
-  await db.update(schema.trialPlacements)
+  await db
+    .update(schema.trialPlacements)
     .set({ status: 'converted', convertedStudentId: student.id, convertedAt: new Date() })
-    .where(eq(schema.trialPlacements.id, trialId));
+    .where(
+      and(eq(schema.trialPlacements.id, trialId), eq(schema.trialPlacements.organizationId, orgId)),
+    );
 
   await logActivity({
-    organizationId: orgId, actorUserId: actor.userId, actorName: actor.name,
-    action: 'inquiry.converted', targetType: 'student', targetId: student.id,
+    organizationId: orgId,
+    actorUserId: actor.userId,
+    actorName: actor.name,
+    action: 'inquiry.converted',
+    targetType: 'student',
+    targetId: student.id,
     metadata: { targetLabel: `${trial.studentFirstName} ${trial.studentLastName}` },
   });
 
@@ -1631,76 +1923,133 @@ export async function getOnboardingChecklist(orgId: string): Promise<OnboardingI
     parentCount,
   ] = await Promise.all([
     db.query.organizations.findFirst({ where: eq(schema.organizations.id, orgId) }),
-    db.select({ cnt: count() }).from(schema.classes)
-      .where(and(eq(schema.classes.organizationId, orgId), sql`${schema.classes.deletedAt} IS NULL`)),
-    db.select({ cnt: count() }).from(schema.memberships)
-      .where(and(eq(schema.memberships.organizationId, orgId), eq(schema.memberships.role, 'teacher'), eq(schema.memberships.status, 'active'))),
-    db.select({ cnt: count() }).from(schema.students)
+    db
+      .select({ cnt: count() })
+      .from(schema.classes)
+      .where(
+        and(eq(schema.classes.organizationId, orgId), sql`${schema.classes.deletedAt} IS NULL`),
+      ),
+    db
+      .select({ cnt: count() })
+      .from(schema.memberships)
+      .where(
+        and(
+          eq(schema.memberships.organizationId, orgId),
+          eq(schema.memberships.role, 'teacher'),
+          eq(schema.memberships.status, 'active'),
+        ),
+      ),
+    db
+      .select({ cnt: count() })
+      .from(schema.students)
       .where(and(eq(schema.students.organizationId, orgId), eq(schema.students.status, 'active'))),
-    db.select({ cnt: count() }).from(schema.studentGuardians)
+    db
+      .select({ cnt: count() })
+      .from(schema.studentGuardians)
       .innerJoin(schema.students, eq(schema.students.id, schema.studentGuardians.studentId))
       .where(eq(schema.students.organizationId, orgId)),
-    db.select({ cnt: count() }).from(schema.tuitionPlans)
+    db
+      .select({ cnt: count() })
+      .from(schema.tuitionPlans)
       .where(eq(schema.tuitionPlans.organizationId, orgId)),
-    db.select({ cnt: count() }).from(schema.messageThreads)
-      .where(and(eq(schema.messageThreads.organizationId, orgId), eq(schema.messageThreads.scope, 'school_wide'))),
-    db.select({ cnt: count() }).from(schema.homeworkAssignments)
+    db
+      .select({ cnt: count() })
+      .from(schema.messageThreads)
+      .where(
+        and(
+          eq(schema.messageThreads.organizationId, orgId),
+          eq(schema.messageThreads.scope, 'school_wide'),
+        ),
+      ),
+    db
+      .select({ cnt: count() })
+      .from(schema.homeworkAssignments)
       .innerJoin(schema.classes, eq(schema.classes.id, schema.homeworkAssignments.classId))
       .where(eq(schema.classes.organizationId, orgId)),
-    db.select({ cnt: count() }).from(schema.memberships)
-      .where(and(eq(schema.memberships.organizationId, orgId), eq(schema.memberships.role, 'parent'), eq(schema.memberships.status, 'active'))),
+    db
+      .select({ cnt: count() })
+      .from(schema.memberships)
+      .where(
+        and(
+          eq(schema.memberships.organizationId, orgId),
+          eq(schema.memberships.role, 'parent'),
+          eq(schema.memberships.status, 'active'),
+        ),
+      ),
   ]);
 
-  const hasAddress = !!(org?.address && Object.values(org.address as Record<string, string>).some(v => v?.trim()));
+  const hasAddress = !!(
+    org?.address && Object.values(org.address as Record<string, string>).some((v) => v?.trim())
+  );
 
   return [
     {
-      key: 'profile', label: 'Add school profile', href: '/admin/settings',
+      key: 'profile',
+      label: 'Add school profile',
+      href: '/admin/settings',
       sub: 'Confirm your school name and address',
       done: !!org && !!org.name && hasAddress,
     },
     {
-      key: 'classes', label: 'Add classes', href: '/admin/classes/new',
+      key: 'classes',
+      label: 'Add classes',
+      href: '/admin/classes/new',
       sub: 'Create the classes your school runs',
       done: Number(classCount[0]?.cnt ?? 0) > 0,
     },
     {
-      key: 'teachers', label: 'Add teachers', href: '/admin/teachers/invite',
+      key: 'teachers',
+      label: 'Add teachers',
+      href: '/admin/teachers/invite',
       sub: 'Invite teachers so they can log in',
       done: Number(teacherCount[0]?.cnt ?? 0) > 0,
     },
     {
-      key: 'students', label: 'Import students', href: '/admin/import',
+      key: 'students',
+      label: 'Import students',
+      href: '/admin/import',
       sub: 'Bring in your roster via CSV, or add students one by one',
       done: Number(studentCount[0]?.cnt ?? 0) > 0,
     },
     {
-      key: 'guardians', label: 'Link guardians', href: '/admin/students',
+      key: 'guardians',
+      label: 'Link guardians',
+      href: '/admin/students',
       sub: 'Connect each student to their parent(s)',
       done: Number(guardianLinkCount[0]?.cnt ?? 0) > 0,
     },
     {
-      key: 'tuition', label: 'Create tuition plans', href: '/admin/tuition',
+      key: 'tuition',
+      label: 'Create tuition plans',
+      href: '/admin/tuition',
       sub: 'Set up billing for enrolled students',
       done: Number(tuitionPlanCount[0]?.cnt ?? 0) > 0,
     },
     {
-      key: 'announcement', label: 'Post first announcement', href: '/admin/announcements',
+      key: 'announcement',
+      label: 'Post first announcement',
+      href: '/admin/announcements',
       sub: 'Send a school-wide message to all parents',
       done: Number(announcementCount[0]?.cnt ?? 0) > 0,
     },
     {
-      key: 'homework', label: 'Assign first homework', href: '/admin/classes',
+      key: 'homework',
+      label: 'Assign first homework',
+      href: '/admin/classes',
       sub: 'Homework is assigned by teachers — check a class to see it appear here',
       done: Number(homeworkCount[0]?.cnt ?? 0) > 0,
     },
     {
-      key: 'board_pack', label: 'Review Board Pack', href: '/admin/board-pack',
+      key: 'board_pack',
+      label: 'Review Board Pack',
+      href: '/admin/board-pack',
       sub: 'See the snapshot your board or principal would see',
       done: boardPackViewed,
     },
     {
-      key: 'parents', label: 'Invite parents', href: '/admin/parents/invite',
+      key: 'parents',
+      label: 'Invite parents',
+      href: '/admin/parents/invite',
       sub: 'Give parents access to their child’s daily feed',
       done: Number(parentCount[0]?.cnt ?? 0) > 0,
     },
@@ -1712,7 +2061,10 @@ export async function markBoardPackViewed() {
 
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
-  cookieStore.set('onboarding_board_pack_viewed', 'true', { maxAge: 60 * 60 * 24 * 365, path: '/' });
+  cookieStore.set('onboarding_board_pack_viewed', 'true', {
+    maxAge: 60 * 60 * 24 * 365,
+    path: '/',
+  });
 }
 
 export async function dismissOnboardingChecklist() {

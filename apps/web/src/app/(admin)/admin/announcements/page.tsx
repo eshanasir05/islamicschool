@@ -1,17 +1,19 @@
-import { redirect } from 'next/navigation';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { env } from '@/env';
-import { getAnnouncements, createAnnouncement, deleteAnnouncement } from '../../actions';
-import { EmptyState } from '@/components/ui/empty-state';
 import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { EmptyState } from '@/components/ui/empty-state';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { ToastOnParam } from '@/components/ui/toast-on-param';
+import { env } from '@/env';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import { createAnnouncement, deleteAnnouncement, getAnnouncements } from '../../actions';
 
 type Props = { searchParams: Promise<{ notice?: string }> };
 
 export default async function AnnouncementsPage({ searchParams }: Props) {
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
 
   const { notice } = await searchParams;
@@ -22,10 +24,7 @@ export default async function AnnouncementsPage({ searchParams }: Props) {
     'use server';
     const content = (formData.get('content') as string | null)?.trim();
     if (!content) return;
-    const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await createAnnouncement(env.NEXT_PUBLIC_ORG_ID, user.id, content);
+    await createAnnouncement(env.NEXT_PUBLIC_ORG_ID, content);
     redirect('/admin/announcements?notice=announcement_posted');
   };
 
@@ -49,10 +48,22 @@ export default async function AnnouncementsPage({ searchParams }: Props) {
 
       <form action={postAction} style={{ marginBottom: 32 }}>
         <div className="app-card">
-          <label style={{ display: 'block', fontSize: 12, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 8 }}>
+          <label
+            htmlFor="announcement-content"
+            style={{
+              display: 'block',
+              fontSize: 12,
+              fontFamily: 'var(--font-mono)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: 'var(--muted)',
+              marginBottom: 8,
+            }}
+          >
             New announcement
           </label>
           <textarea
+            id="announcement-content"
             name="content"
             className="note-textarea"
             placeholder="Assalamu alaykum! This Sunday's class will…"
@@ -60,7 +71,11 @@ export default async function AnnouncementsPage({ searchParams }: Props) {
             required
             style={{ marginBottom: 12 }}
           />
-          <SubmitButton className="btn btn-accent" style={{ width: '100%' }} pendingLabel="Posting…">
+          <SubmitButton
+            className="btn btn-accent"
+            style={{ width: '100%' }}
+            pendingLabel="Posting…"
+          >
             Post to all parents
           </SubmitButton>
         </div>
@@ -74,12 +89,30 @@ export default async function AnnouncementsPage({ searchParams }: Props) {
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {announcements.map(a => (
+          {announcements.map((a) => (
             <div key={a.id} className="app-card">
-              <p style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: '0 0 10px' }}>{a.content}</p>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <p
+                style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.55, margin: '0 0 10px' }}
+              >
+                {a.content}
+              </p>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                }}
+              >
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  {a.senderName} · {a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                  {a.senderName} ·{' '}
+                  {a.createdAt
+                    ? new Date(a.createdAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                    : ''}
                 </div>
                 <form action={deleteAction}>
                   <input type="hidden" name="threadId" value={a.id} />
@@ -90,7 +123,12 @@ export default async function AnnouncementsPage({ searchParams }: Props) {
                     confirmLabel="Delete announcement"
                     variant="danger"
                     className="btn btn-ghost"
-                    buttonStyle={{ fontSize: 12, padding: '3px 10px', color: 'var(--muted)', height: 'auto' }}
+                    buttonStyle={{
+                      fontSize: 12,
+                      padding: '3px 10px',
+                      color: 'var(--muted)',
+                      height: 'auto',
+                    }}
                   />
                 </form>
               </div>
