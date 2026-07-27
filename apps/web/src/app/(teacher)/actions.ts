@@ -4,6 +4,7 @@ import { env } from '@/env';
 import { logActivity } from '@/lib/activity-log';
 import { db, schema } from '@/lib/db';
 import { getHifzRetentionFlags } from '@/lib/hifz-retention';
+import { escapeHtml } from '@/lib/html';
 import { notifyClassGuardians, notifyGuardians } from '@/lib/notifications';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { parseClassPrefs } from '@/lib/teacher-prefs';
@@ -1106,9 +1107,13 @@ export async function notifyParents(classId: string, sessionDate: string) {
     if (!student) continue;
 
     const status = attendanceMap.get(student.id) ?? 'no record';
+    const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+    const safeStatusLabel = escapeHtml(statusLabel);
+    const safeStudentName = escapeHtml(student.fullName);
+    const subjectStudentName = student.fullName.replace(/[\r\n]+/g, ' ');
     const hifz = hifzMap.get(student.id);
     const hifzLine = hifz
-      ? `<p>📖 <strong>Hifz:</strong> ${surahName(hifz.surahNumber)} ${hifz.ayahStart}–${hifz.ayahEnd} (${hifz.stream})</p>`
+      ? `<p>📖 <strong>Hifz:</strong> ${escapeHtml(surahName(hifz.surahNumber))} ${hifz.ayahStart}–${hifz.ayahEnd} (${escapeHtml(hifz.stream)})</p>`
       : '';
 
     const statusEmoji =
@@ -1116,20 +1121,21 @@ export async function notifyParents(classId: string, sessionDate: string) {
 
     for (const link of student.guardians) {
       if (!link.receivesNotifications || !link.guardian?.email) continue;
+      const safeGuardianName = escapeHtml(link.guardian.fullName ?? 'dear parent');
 
       await resend.emails
         .send({
           from: fromEmail,
           to: link.guardian.email,
-          subject: `${student.fullName}'s class summary — ${sessionDate}`,
+          subject: `${subjectStudentName}'s class summary — ${sessionDate}`,
           html: `
           <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
-            <p style="font-size:16px">Assalamu alaykum, ${link.guardian.fullName ?? 'dear parent'},</p>
-            <p>Here is a summary of today's session for <strong>${student.fullName}</strong>:</p>
-            <p>${statusEmoji} <strong>Attendance:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>
+            <p style="font-size:16px">Assalamu alaykum, ${safeGuardianName},</p>
+            <p>Here is a summary of today's session for <strong>${safeStudentName}</strong>:</p>
+            <p>${statusEmoji} <strong>Attendance:</strong> ${safeStatusLabel}</p>
             ${hifzLine}
             <p>You can view the full details — including teacher notes and hifz audio — in the parent portal:</p>
-            <p><a href="${appUrl}/parent/${student.id}" style="color:#7c5cbf">View ${student.fullName}'s day →</a></p>
+            <p><a href="${appUrl}/parent/${student.id}" style="color:#7c5cbf">View ${safeStudentName}'s day →</a></p>
             <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
             <p style="font-size:13px;color:#888">JazakAllah khair for entrusting us with your child's education. — Talibly</p>
           </div>

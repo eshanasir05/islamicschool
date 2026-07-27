@@ -5,6 +5,7 @@ import { logActivity } from '@/lib/activity-log';
 import { requireAdminForOrg } from '@/lib/admin-auth';
 import { db, schema } from '@/lib/db';
 import { getHifzRetentionFlags } from '@/lib/hifz-retention';
+import { escapeHtml } from '@/lib/html';
 import {
   createNotification,
   notifyAllGuardiansInOrg,
@@ -1199,6 +1200,9 @@ async function runTuitionReminders(
   for (const plan of eligible) {
     if (!plan.guardianUserId) continue;
     const studentName = plan.student?.fullName ?? 'your child';
+    const safeStudentName = escapeHtml(studentName);
+    const safeGuardianName = escapeHtml(plan.guardian?.fullName ?? 'dear parent');
+    const subjectStudentName = studentName.replace(/[\r\n]+/g, ' ');
     const amount = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: plan.currency,
@@ -1217,11 +1221,11 @@ async function runTuitionReminders(
       await resend.emails.send({
         from: fromEmail,
         to: plan.guardian.email,
-        subject: `Tuition payment reminder — ${studentName}`,
+        subject: `Tuition payment reminder — ${subjectStudentName}`,
         html: `
           <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
-            <p style="font-size:16px">Assalamu alaykum, ${plan.guardian.fullName ?? 'dear parent'},</p>
-            <p>This is a friendly reminder that <strong>${studentName}</strong>'s tuition payment of <strong>${amount}</strong> is past due.</p>
+            <p style="font-size:16px">Assalamu alaykum, ${safeGuardianName},</p>
+            <p>This is a friendly reminder that <strong>${safeStudentName}</strong>'s tuition payment of <strong>${amount}</strong> is past due.</p>
             <p>Please update your payment method to keep billing active:</p>
             <p><a href="${appUrl}/parent/${plan.studentId}" style="color:#7c5cbf">Update billing →</a></p>
             <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
