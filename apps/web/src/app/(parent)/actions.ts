@@ -1,16 +1,82 @@
 'use server';
 
+import { env } from '@/env';
+import { logActivity } from '@/lib/activity-log';
+import { db, schema } from '@/lib/db';
+import { createNotification, notifyTeacherIfEnabled } from '@/lib/notifications';
+import { stripe } from '@/lib/stripe';
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
 import { and, desc, eq, gte, inArray, isNull, lte, ne } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { db, schema } from '@/lib/db';
-import { env } from '@/env';
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server';
-import { stripe } from '@/lib/stripe';
-import { logActivity } from '@/lib/activity-log';
-import { notifyTeacherIfEnabled, createNotification } from '@/lib/notifications';
 
-export async function getAnnouncements(orgId: string) {
+type ParentContext = {
+  userId: string;
+  orgId: string;
+  name: string;
+};
+
+async function requireParentContext(): Promise<ParentContext> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+
+  const orgId = env.NEXT_PUBLIC_ORG_ID;
+  const membership = await db.query.memberships.findFirst({
+    where: and(
+      eq(schema.memberships.userId, user.id),
+      eq(schema.memberships.organizationId, orgId),
+      eq(schema.memberships.role, 'parent'),
+      eq(schema.memberships.status, 'active'),
+    ),
+    with: { user: { columns: { fullName: true, email: true } } },
+  });
+
+  if (!membership) throw new Error('Forbidden');
+
+  return {
+    userId: user.id,
+    orgId,
+    name: membership.user?.fullName ?? membership.user?.email ?? 'Parent',
+  };
+}
+
+async function requireGuardianOf(studentId: string): Promise<ParentContext> {
+  const parent = await requireParentContext();
+  const link = await db.query.studentGuardians.findFirst({
+    where: and(
+      eq(schema.studentGuardians.studentId, studentId),
+      eq(schema.studentGuardians.guardianUserId, parent.userId),
+    ),
+    with: { student: { columns: { organizationId: true } } },
+  });
+
+  if (!link?.student || link.student.organizationId !== parent.orgId) redirect('/parent');
+
+  return parent;
+}
+
+async function getGuardianStudentsForParent(parent: ParentContext) {
+  const links = await db.query.studentGuardians.findMany({
+    where: eq(schema.studentGuardians.guardianUserId, parent.userId),
+    with: { student: true },
+  });
+  const seen = new Set<string>();
+  return links
+    .map((l) => l.student)
+    .filter((s): s is NonNullable<typeof s> => {
+      if (!s || s.organizationId !== parent.orgId || seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+}
+
+export async function getAnnouncements(orgId?: string) {
+  const parent = await requireParentContext();
+  if (orgId && orgId !== parent.orgId) throw new Error('Forbidden');
+
   const rows = await db
     .select({
       threadId: schema.messageThreads.id,
@@ -21,7 +87,7 @@ export async function getAnnouncements(orgId: string) {
     .innerJoin(schema.messages, eq(schema.messages.threadId, schema.messageThreads.id))
     .where(
       and(
-        eq(schema.messageThreads.organizationId, orgId),
+        eq(schema.messageThreads.organizationId, parent.orgId),
         eq(schema.messageThreads.scope, 'school_wide'),
       ),
     )
@@ -30,41 +96,16 @@ export async function getAnnouncements(orgId: string) {
   return rows;
 }
 
-// Defense-in-depth: every function below that takes a raw studentId is
-// currently only ever called from Server Components that already verify
-// the caller is a linked guardian — but 'use server' exports are callable
-// directly, so we re-verify here too in case a future change (e.g. a
-// client component importing one of these for a refresh button) skips
-// that page-level check.
-async function assertGuardianOf(studentId: string): Promise<void> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
-  const link = await db.query.studentGuardians.findFirst({
-    where: and(
-      eq(schema.studentGuardians.studentId, studentId),
-      eq(schema.studentGuardians.guardianUserId, user.id),
-    ),
-  });
-  if (!link) redirect('/parent');
-}
-
-export async function getGuardianStudents(guardianUserId: string) {
-  const links = await db.query.studentGuardians.findMany({
-    where: eq(schema.studentGuardians.guardianUserId, guardianUserId),
-    with: { student: true },
-  });
-  const seen = new Set<string>();
-  return links.map(l => l.student).filter((s): s is NonNullable<typeof s> => {
-    if (!s || seen.has(s.id)) return false;
-    seen.add(s.id);
-    return true;
-  });
+// Exported server actions derive the parent from the current session and
+// re-check guardian access before reading or mutating child-specific data.
+export async function getGuardianStudents(guardianUserId?: string) {
+  const parent = await requireParentContext();
+  if (guardianUserId && guardianUserId !== parent.userId) throw new Error('Forbidden');
+  return getGuardianStudentsForParent(parent);
 }
 
 export async function getStudentFeed(studentId: string, date: string) {
-  await assertGuardianOf(studentId);
-  const orgId = env.NEXT_PUBLIC_ORG_ID;
+  const { orgId } = await requireGuardianOf(studentId);
 
   const [attendance, hifz, notes] = await Promise.all([
     db.query.attendanceRecords.findFirst({
@@ -105,9 +146,7 @@ export async function getStudentFeed(studentId: string, date: string) {
       const url = new URL(hifz.audioUrl);
       const path = url.pathname.split('/hifz-audio/')[1];
       if (path) {
-        const { data } = await serviceClient.storage
-          .from('hifz-audio')
-          .createSignedUrl(path, 3600);
+        const { data } = await serviceClient.storage.from('hifz-audio').createSignedUrl(path, 3600);
         audioSignedUrl = data?.signedUrl ?? null;
       }
     } catch {
@@ -122,11 +161,12 @@ export async function getStudentFeed(studentId: string, date: string) {
 // homework, shown on the "Message the teacher" page alongside the direct
 // message thread.
 export async function getGeneralNotesForStudent(studentId: string) {
-  await assertGuardianOf(studentId);
+  const { orgId } = await requireGuardianOf(studentId);
   return db.query.studentNotes.findMany({
     where: and(
       eq(schema.studentNotes.studentId, studentId),
       eq(schema.studentNotes.visibleToParent, true),
+      eq(schema.studentNotes.organizationId, orgId),
       inArray(schema.studentNotes.noteType, ['general', 'concern']),
       isNull(schema.studentNotes.deletedAt),
     ),
@@ -139,11 +179,12 @@ export async function getGeneralNotesForStudent(studentId: string) {
 // the formal homeworkAssignments table) — shown alongside real assignments
 // on the Homework page.
 export async function getHomeworkNotesForStudent(studentId: string) {
-  await assertGuardianOf(studentId);
+  const { orgId } = await requireGuardianOf(studentId);
   return db.query.studentNotes.findMany({
     where: and(
       eq(schema.studentNotes.studentId, studentId),
       eq(schema.studentNotes.visibleToParent, true),
+      eq(schema.studentNotes.organizationId, orgId),
       eq(schema.studentNotes.noteType, 'homework'),
       isNull(schema.studentNotes.deletedAt),
     ),
@@ -153,18 +194,21 @@ export async function getHomeworkNotesForStudent(studentId: string) {
 }
 
 export async function getStudentHomework(studentId: string) {
-  await assertGuardianOf(studentId);
+  const { orgId } = await requireGuardianOf(studentId);
   const enrollments = await db.query.classEnrollments.findMany({
     where: eq(schema.classEnrollments.studentId, studentId),
-    columns: { classId: true },
+    with: { class: { columns: { organizationId: true } } },
   });
-  if (enrollments.length === 0) return [];
-  const classIds = enrollments.map(e => e.classId);
+  const classIds = enrollments
+    .filter((e) => e.class?.organizationId === orgId)
+    .map((e) => e.classId);
+  if (classIds.length === 0) return [];
 
   const [assignments, completions] = await Promise.all([
     db.query.homeworkAssignments.findMany({
       where: and(
         eq(schema.homeworkAssignments.archived, false),
+        eq(schema.homeworkAssignments.organizationId, orgId),
         inArray(schema.homeworkAssignments.classId, classIds),
       ),
       with: { class: { columns: { name: true } } },
@@ -172,46 +216,76 @@ export async function getStudentHomework(studentId: string) {
       limit: 30,
     }),
     db.query.homeworkCompletions.findMany({
-      where: eq(schema.homeworkCompletions.studentId, studentId),
+      where: and(
+        eq(schema.homeworkCompletions.studentId, studentId),
+        eq(schema.homeworkCompletions.organizationId, orgId),
+      ),
       columns: { homeworkAssignmentId: true },
     }),
   ]);
-  const doneIds = new Set(completions.map(c => c.homeworkAssignmentId));
-  return assignments.map(hw => ({ ...hw, done: doneIds.has(hw.id) }));
+  const doneIds = new Set(completions.map((c) => c.homeworkAssignmentId));
+  return assignments.map((hw) => ({ ...hw, done: doneIds.has(hw.id) }));
 }
 
 // Parent marks (or unmarks) homework as done for their child. Completion is
 // per-child, not per-assignment, since siblings in the same class finish
 // at different times.
-export async function setHomeworkDone(homeworkAssignmentId: string, studentId: string, done: boolean) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
-  await assertGuardianOf(studentId);
+export async function setHomeworkDone(
+  homeworkAssignmentId: string,
+  studentId: string,
+  done: boolean,
+) {
+  const { userId, orgId } = await requireGuardianOf(studentId);
+  const homework = await db.query.homeworkAssignments.findFirst({
+    where: and(
+      eq(schema.homeworkAssignments.id, homeworkAssignmentId),
+      eq(schema.homeworkAssignments.organizationId, orgId),
+      eq(schema.homeworkAssignments.archived, false),
+    ),
+    columns: { classId: true },
+  });
+  const enrollment = homework
+    ? await db.query.classEnrollments.findFirst({
+        where: and(
+          eq(schema.classEnrollments.classId, homework.classId),
+          eq(schema.classEnrollments.studentId, studentId),
+        ),
+        columns: { classId: true },
+      })
+    : null;
+  if (!homework || !enrollment) redirect(`/parent/${studentId}/homework`);
 
   if (done) {
-    await db.insert(schema.homeworkCompletions)
+    await db
+      .insert(schema.homeworkCompletions)
       .values({
-        organizationId: env.NEXT_PUBLIC_ORG_ID,
+        organizationId: orgId,
         homeworkAssignmentId,
         studentId,
-        completedBy: user.id,
+        completedBy: userId,
       })
       .onConflictDoNothing();
   } else {
-    await db.delete(schema.homeworkCompletions)
-      .where(and(
-        eq(schema.homeworkCompletions.homeworkAssignmentId, homeworkAssignmentId),
-        eq(schema.homeworkCompletions.studentId, studentId),
-      ));
+    await db
+      .delete(schema.homeworkCompletions)
+      .where(
+        and(
+          eq(schema.homeworkCompletions.homeworkAssignmentId, homeworkAssignmentId),
+          eq(schema.homeworkCompletions.studentId, studentId),
+          eq(schema.homeworkCompletions.organizationId, orgId),
+        ),
+      );
   }
   revalidatePath(`/parent/${studentId}`);
 }
 
 export async function getStudentMilestones(studentId: string) {
-  await assertGuardianOf(studentId);
+  const { orgId } = await requireGuardianOf(studentId);
   return db.query.hifzMilestones.findMany({
-    where: eq(schema.hifzMilestones.studentId, studentId),
+    where: and(
+      eq(schema.hifzMilestones.studentId, studentId),
+      eq(schema.hifzMilestones.organizationId, orgId),
+    ),
     orderBy: (m, { desc }) => desc(m.achievedDate),
     limit: 30,
   });
@@ -219,19 +293,20 @@ export async function getStudentMilestones(studentId: string) {
 
 // Full adab/praise timeline for a child — the "Adab Growth Journal".
 export async function getAdabJournal(studentId: string) {
-  await assertGuardianOf(studentId);
+  const { orgId } = await requireGuardianOf(studentId);
   const notes = await db.query.studentNotes.findMany({
     where: and(
       eq(schema.studentNotes.studentId, studentId),
       eq(schema.studentNotes.noteType, 'praise'),
       eq(schema.studentNotes.visibleToParent, true),
+      eq(schema.studentNotes.organizationId, orgId),
       isNull(schema.studentNotes.deletedAt),
     ),
     with: { class: { columns: { name: true } } },
     orderBy: (n, { desc }) => desc(n.createdAt),
   });
   const seen = new Set<string>();
-  return notes.filter(n => {
+  return notes.filter((n) => {
     if (seen.has(n.id)) return false;
     seen.add(n.id);
     return true;
@@ -242,8 +317,7 @@ export async function getAdabJournal(studentId: string) {
 // praise/general notes for a student over a given calendar month. Powers the
 // printable "here's what your child learned this month" export.
 export async function getStudentReportCard(studentId: string, month: string) {
-  await assertGuardianOf(studentId);
-  const orgId = env.NEXT_PUBLIC_ORG_ID;
+  const { orgId } = await requireGuardianOf(studentId);
 
   const [year, mon] = month.split('-').map(Number);
   const monthStart = `${month}-01`;
@@ -253,10 +327,12 @@ export async function getStudentReportCard(studentId: string, month: string) {
   const rangeEnd = new Date(`${monthEnd}T23:59:59Z`);
 
   const [student, enrollments, attendance, hifz, milestones, notes] = await Promise.all([
-    db.query.students.findFirst({ where: eq(schema.students.id, studentId) }),
+    db.query.students.findFirst({
+      where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
+    }),
     db.query.classEnrollments.findMany({
       where: eq(schema.classEnrollments.studentId, studentId),
-      with: { class: { columns: { name: true } } },
+      with: { class: { columns: { name: true, organizationId: true } } },
     }),
     db.query.attendanceRecords.findMany({
       where: and(
@@ -299,16 +375,20 @@ export async function getStudentReportCard(studentId: string, month: string) {
   ]);
 
   const attendanceSummary = {
-    present: attendance.filter(a => a.status === 'present').length,
-    late: attendance.filter(a => a.status === 'late').length,
-    absent: attendance.filter(a => a.status === 'absent').length,
-    excused: attendance.filter(a => a.status === 'excused').length,
+    present: attendance.filter((a) => a.status === 'present').length,
+    late: attendance.filter((a) => a.status === 'late').length,
+    absent: attendance.filter((a) => a.status === 'absent').length,
+    excused: attendance.filter((a) => a.status === 'excused').length,
     total: attendance.length,
   };
 
   return {
     student,
-    className: enrollments.map(e => e.class?.name).filter(Boolean).join(', ') || null,
+    className:
+      enrollments
+        .map((e) => (e.class?.organizationId === orgId ? e.class.name : null))
+        .filter(Boolean)
+        .join(', ') || null,
     monthStart,
     monthEnd,
     attendanceSummary,
@@ -324,53 +404,50 @@ export async function submitAbsenceReason(
   reason: 'sick' | 'travel' | 'family_emergency' | 'forgot' | 'other',
   note?: string,
 ) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
+  const { userId, orgId, name } = await requireGuardianOf(studentId);
 
-  const guardianLink = await db.query.studentGuardians.findFirst({
-    where: and(
-      eq(schema.studentGuardians.studentId, studentId),
-      eq(schema.studentGuardians.guardianUserId, user.id),
-    ),
-  });
-  if (!guardianLink) redirect(`/parent/${studentId}`);
-
-  const [record] = await db.update(schema.attendanceRecords)
+  const [record] = await db
+    .update(schema.attendanceRecords)
     .set({
       guardianReason: reason,
       guardianReasonNote: note?.trim() || null,
       guardianReasonSubmittedAt: new Date(),
     })
-    .where(and(
-      eq(schema.attendanceRecords.id, attendanceId),
-      eq(schema.attendanceRecords.studentId, studentId),
-    ))
+    .where(
+      and(
+        eq(schema.attendanceRecords.id, attendanceId),
+        eq(schema.attendanceRecords.studentId, studentId),
+        eq(schema.attendanceRecords.organizationId, orgId),
+      ),
+    )
     .returning({ classId: schema.attendanceRecords.classId });
+  if (!record) redirect(`/parent/${studentId}`);
 
-  const [student, actorRow] = await Promise.all([
-    db.query.students.findFirst({ where: eq(schema.students.id, studentId), columns: { fullName: true } }),
-    db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { fullName: true } }),
-  ]);
+  const student = await db.query.students.findFirst({
+    where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
+    columns: { fullName: true },
+  });
   await logActivity({
-    organizationId: env.NEXT_PUBLIC_ORG_ID, actorUserId: user.id, actorName: actorRow?.fullName ?? 'Unknown',
-    action: 'absence_reason.submitted', targetType: 'student', targetId: studentId,
+    organizationId: orgId,
+    actorUserId: userId,
+    actorName: name,
+    action: 'absence_reason.submitted',
+    targetType: 'student',
+    targetId: studentId,
     metadata: { targetLabel: student?.fullName ?? 'a student' },
   });
 
-  if (record) {
-    const cls = await db.query.classes.findFirst({
-      where: eq(schema.classes.id, record.classId),
-      columns: { primaryTeacherId: true },
+  const cls = await db.query.classes.findFirst({
+    where: and(eq(schema.classes.id, record.classId), eq(schema.classes.organizationId, orgId)),
+    columns: { primaryTeacherId: true },
+  });
+  if (cls?.primaryTeacherId) {
+    await notifyTeacherIfEnabled(cls.primaryTeacherId, orgId, 'absenceResponses', {
+      type: 'absence_reason',
+      title: `${student?.fullName ?? 'A parent'} responded about an absence`,
+      body: `Reason: ${reason.replace('_', ' ')}${note ? ` — ${note}` : ''}`,
+      link: '/teacher',
     });
-    if (cls?.primaryTeacherId) {
-      await notifyTeacherIfEnabled(cls.primaryTeacherId, env.NEXT_PUBLIC_ORG_ID, 'absenceResponses', {
-        type: 'absence_reason',
-        title: `${student?.fullName ?? 'A parent'} responded about an absence`,
-        body: `Reason: ${reason.replace('_', ' ')}${note ? ` — ${note}` : ''}`,
-        link: `/teacher`,
-      });
-    }
   }
 
   revalidatePath(`/parent/${studentId}`);
@@ -381,10 +458,11 @@ export async function submitAbsenceReason(
 // reuses the existing message_threads/messages tables (scope: 'direct'),
 // which already supported this but had no UI writing to it yet.
 export async function getNotesToTeacher(studentId: string) {
-  await assertGuardianOf(studentId);
+  const { orgId } = await requireGuardianOf(studentId);
   const threads = await db.query.messageThreads.findMany({
     where: and(
       eq(schema.messageThreads.studentId, studentId),
+      eq(schema.messageThreads.organizationId, orgId),
       eq(schema.messageThreads.scope, 'direct'),
     ),
     with: {
@@ -396,27 +474,38 @@ export async function getNotesToTeacher(studentId: string) {
     orderBy: (t, { desc }) => desc(t.createdAt),
     limit: 30,
   });
-  return threads.flatMap(t => t.messages).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  return threads
+    .flatMap((t) => t.messages)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 // Shared by sendNoteToTeacher (one child) and sendNoteToAllTeachers (every
 // linked child) — creates the thread/message and notifies that child's
 // teacher, without redirecting, so callers can loop or redirect once.
-async function sendNoteToTeacherInternal(userId: string, studentId: string, trimmed: string) {
+async function sendNoteToTeacherInternal(
+  userId: string,
+  orgId: string,
+  studentId: string,
+  trimmed: string,
+) {
   const enrollment = await db.query.classEnrollments.findFirst({
     where: eq(schema.classEnrollments.studentId, studentId),
-    with: { class: { columns: { id: true, primaryTeacherId: true } } },
+    with: { class: { columns: { id: true, organizationId: true, primaryTeacherId: true } } },
   });
-  const classId = enrollment?.class?.id;
-  const teacherId = enrollment?.class?.primaryTeacherId;
+  const cls = enrollment?.class?.organizationId === orgId ? enrollment.class : null;
+  const classId = cls?.id;
+  const teacherId = cls?.primaryTeacherId;
 
-  const [thread] = await db.insert(schema.messageThreads).values({
-    organizationId: env.NEXT_PUBLIC_ORG_ID,
-    scope: 'direct',
-    studentId,
-    classId: classId ?? null,
-    createdBy: userId,
-  }).returning({ id: schema.messageThreads.id });
+  const [thread] = await db
+    .insert(schema.messageThreads)
+    .values({
+      organizationId: orgId,
+      scope: 'direct',
+      studentId,
+      classId: classId ?? null,
+      createdBy: userId,
+    })
+    .returning({ id: schema.messageThreads.id });
   if (!thread) return;
 
   await db.insert(schema.messages).values({
@@ -427,11 +516,14 @@ async function sendNoteToTeacherInternal(userId: string, studentId: string, trim
 
   if (teacherId) {
     const [student, parentRow] = await Promise.all([
-      db.query.students.findFirst({ where: eq(schema.students.id, studentId), columns: { fullName: true } }),
+      db.query.students.findFirst({
+        where: and(eq(schema.students.id, studentId), eq(schema.students.organizationId, orgId)),
+        columns: { fullName: true },
+      }),
       db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { fullName: true } }),
     ]);
     await createNotification({
-      organizationId: env.NEXT_PUBLIC_ORG_ID,
+      organizationId: orgId,
       userId: teacherId,
       type: 'note_added',
       title: `Note from ${parentRow?.fullName ?? 'a parent'} about ${student?.fullName ?? 'a student'}`,
@@ -442,15 +534,12 @@ async function sendNoteToTeacherInternal(userId: string, studentId: string, trim
 }
 
 export async function sendNoteToTeacher(studentId: string, content: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
-  await assertGuardianOf(studentId);
+  const { userId, orgId } = await requireGuardianOf(studentId);
 
   const trimmed = content.trim();
   if (!trimmed) redirect(`/parent/${studentId}/message`);
 
-  await sendNoteToTeacherInternal(user.id, studentId, trimmed);
+  await sendNoteToTeacherInternal(userId, orgId, studentId, trimmed);
 
   revalidatePath(`/parent/${studentId}/message`);
   redirect(`/parent/${studentId}/message?notice=note_sent_to_teacher`);
@@ -459,16 +548,14 @@ export async function sendNoteToTeacher(studentId: string, content: string) {
 // Sends the same note to every linked child's teacher — one thread per
 // child, so it shows up correctly in each child's own message history.
 export async function sendNoteToAllTeachers(content: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
+  const parent = await requireParentContext();
 
   const trimmed = content.trim();
   if (!trimmed) redirect('/parent/message');
 
-  const students = await getGuardianStudents(user.id);
+  const students = await getGuardianStudentsForParent(parent);
   for (const student of students) {
-    await sendNoteToTeacherInternal(user.id, student.id, trimmed);
+    await sendNoteToTeacherInternal(parent.userId, parent.orgId, student.id, trimmed);
   }
 
   revalidatePath('/parent');
@@ -478,16 +565,21 @@ export async function sendNoteToAllTeachers(content: string) {
 // "Unsend" — only the sender can remove their own message. Hard delete
 // (unlike homework/notes, unsending isn't meant to be recoverable).
 export async function unsendMessage(messageId: string, studentId: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
-  await assertGuardianOf(studentId);
+  const { userId, orgId } = await requireGuardianOf(studentId);
 
   const message = await db.query.messages.findFirst({
     where: eq(schema.messages.id, messageId),
     columns: { senderUserId: true },
+    with: {
+      thread: { columns: { organizationId: true, scope: true, studentId: true } },
+    },
   });
-  if (message?.senderUserId === user.id) {
+  if (
+    message?.senderUserId === userId &&
+    message.thread?.organizationId === orgId &&
+    message.thread.scope === 'direct' &&
+    message.thread.studentId === studentId
+  ) {
     await db.delete(schema.messages).where(eq(schema.messages.id, messageId));
   }
 
@@ -496,24 +588,18 @@ export async function unsendMessage(messageId: string, studentId: string) {
 }
 
 export async function createParentPaymentSession(planId: string, studentId: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
+  const { orgId } = await requireGuardianOf(studentId);
 
   const plan = await db.query.tuitionPlans.findFirst({
-    where: eq(schema.tuitionPlans.id, planId),
+    where: and(
+      eq(schema.tuitionPlans.id, planId),
+      eq(schema.tuitionPlans.studentId, studentId),
+      eq(schema.tuitionPlans.organizationId, orgId),
+      ne(schema.tuitionPlans.status, 'cancelled'),
+    ),
     with: { student: true },
   });
   if (!plan) redirect(`/parent/${studentId}`);
-
-  // Verify caller is a guardian of this student
-  const guardianLink = await db.query.studentGuardians.findFirst({
-    where: and(
-      eq(schema.studentGuardians.studentId, plan.studentId),
-      eq(schema.studentGuardians.guardianUserId, user.id),
-    ),
-  });
-  if (!guardianLink) redirect(`/parent/${studentId}`);
 
   const appUrl = env.NEXT_PUBLIC_APP_URL;
 
@@ -531,7 +617,9 @@ export async function createParentPaymentSession(planId: string, studentId: stri
   const price = await stripe.prices.create({
     unit_amount: plan.amountCents,
     currency: plan.currency.toLowerCase(),
-    ...(isRecurring ? { recurring: { interval: plan.frequency === 'annual' ? 'year' : 'month' } } : {}),
+    ...(isRecurring
+      ? { recurring: { interval: plan.frequency === 'annual' ? 'year' : 'month' } }
+      : {}),
     product_data: { name: `Tuition — ${plan.student?.fullName ?? 'Student'}` },
   });
 
@@ -549,10 +637,11 @@ export async function createParentPaymentSession(planId: string, studentId: stri
 }
 
 export async function getParentTuition(studentId: string) {
-  await assertGuardianOf(studentId);
+  const { orgId } = await requireGuardianOf(studentId);
   const plan = await db.query.tuitionPlans.findFirst({
     where: and(
       eq(schema.tuitionPlans.studentId, studentId),
+      eq(schema.tuitionPlans.organizationId, orgId),
       ne(schema.tuitionPlans.status, 'cancelled'),
     ),
     with: {
@@ -568,20 +657,25 @@ export async function getParentTuition(studentId: string) {
 
 // Full billing page: every linked child's tuition plan with complete payment
 // history (no limit), for the dedicated /parent/billing page.
-export async function getAllParentTuition(guardianUserId: string) {
-  const students = await getGuardianStudents(guardianUserId);
-  const rows = await Promise.all(students.map(async student => {
-    const plan = await db.query.tuitionPlans.findFirst({
-      where: and(
-        eq(schema.tuitionPlans.studentId, student.id),
-        ne(schema.tuitionPlans.status, 'cancelled'),
-      ),
-      with: {
-        payments: { orderBy: (p, { desc }) => desc(p.paidAt) },
-      },
-      orderBy: (t, { desc }) => desc(t.createdAt),
-    });
-    return { student, plan: plan ?? null };
-  }));
+export async function getAllParentTuition(guardianUserId?: string) {
+  const parent = await requireParentContext();
+  if (guardianUserId && guardianUserId !== parent.userId) throw new Error('Forbidden');
+  const students = await getGuardianStudentsForParent(parent);
+  const rows = await Promise.all(
+    students.map(async (student) => {
+      const plan = await db.query.tuitionPlans.findFirst({
+        where: and(
+          eq(schema.tuitionPlans.studentId, student.id),
+          eq(schema.tuitionPlans.organizationId, parent.orgId),
+          ne(schema.tuitionPlans.status, 'cancelled'),
+        ),
+        with: {
+          payments: { orderBy: (p, { desc }) => desc(p.paidAt) },
+        },
+        orderBy: (t, { desc }) => desc(t.createdAt),
+      });
+      return { student, plan: plan ?? null };
+    }),
+  );
   return rows;
 }
