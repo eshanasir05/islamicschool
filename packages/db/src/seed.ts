@@ -275,10 +275,10 @@ async function seedHistoricalRecords() {
 
   for (let weekIndex = 0; weekIndex < 4; weekIndex++) {
     const sessionDate = pastSunday(4 - weekIndex); // oldest first
-    const [surahNum, ayahStart, ayahEnd] = hifzProgression[weekIndex];
+    const [surahNum, ayahStart, ayahEnd] = hifzProgression[weekIndex]!;
 
     for (let studentIndex = 0; studentIndex < allStudents.length; studentIndex++) {
-      const { id: studentId, classId, teacherId } = allStudents[studentIndex];
+      const { id: studentId, classId, teacherId } = allStudents[studentIndex]!;
       const status = attendanceStatus(studentIndex, weekIndex);
 
       attendanceRows.push({
@@ -723,11 +723,12 @@ async function seedTuition() {
 
   const paymentRows = [];
   for (let i = 0; i < planRows.length; i++) {
+    const plan = planRows[i]!;
     for (let month = 1; month <= 3; month++) {
       const paidDate = new Date(2024, 8 + month, 1); // Sep, Oct, Nov 2024
       paymentRows.push({
         organizationId: ORG_ID,
-        tuitionPlanId: planRows[i].id,
+        tuitionPlanId: plan.id,
         payerUserId: i < 2 ? USER_IDS.sarah : USER_IDS.omar,
         amountCents: 5000,
         currency: 'usd',
