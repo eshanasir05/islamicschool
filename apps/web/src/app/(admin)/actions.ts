@@ -856,7 +856,13 @@ export async function getAdminParents(orgId: string) {
       schema.studentGuardians,
       eq(schema.studentGuardians.guardianUserId, schema.memberships.userId),
     )
-    .leftJoin(schema.students, eq(schema.students.id, schema.studentGuardians.studentId))
+    .leftJoin(
+      schema.students,
+      and(
+        eq(schema.students.id, schema.studentGuardians.studentId),
+        eq(schema.students.organizationId, orgId),
+      ),
+    )
     .where(
       and(
         eq(schema.memberships.organizationId, orgId),
@@ -992,9 +998,16 @@ export async function getAttendanceFollowUp(orgId: string) {
 export async function getFamilyProfile(guardianUserId: string, orgId: string) {
   await requireAdminForOrg(orgId);
 
-  const guardian = await db.query.users.findFirst({
-    where: eq(schema.users.id, guardianUserId),
+  const guardianMembership = await db.query.memberships.findFirst({
+    where: and(
+      eq(schema.memberships.userId, guardianUserId),
+      eq(schema.memberships.organizationId, orgId),
+      eq(schema.memberships.role, 'parent'),
+      eq(schema.memberships.status, 'active'),
+    ),
+    with: { user: true },
   });
+  const guardian = guardianMembership?.user ?? null;
   if (!guardian) return null;
 
   const guardianLinks = await db.query.studentGuardians.findMany({
@@ -1036,6 +1049,7 @@ export async function getFamilyProfile(guardianUserId: string, orgId: string) {
         : db.query.tuitionPlans.findMany({
             where: and(
               inArray(schema.tuitionPlans.studentId, studentIds),
+              eq(schema.tuitionPlans.organizationId, orgId),
               ne(schema.tuitionPlans.status, 'cancelled'),
             ),
             with: { student: { columns: { fullName: true } } },
@@ -1046,6 +1060,7 @@ export async function getFamilyProfile(guardianUserId: string, orgId: string) {
         : db.query.studentNotes.findMany({
             where: and(
               inArray(schema.studentNotes.studentId, studentIds),
+              eq(schema.studentNotes.organizationId, orgId),
               isNull(schema.studentNotes.deletedAt),
             ),
             with: { student: { columns: { fullName: true } } },
@@ -1056,12 +1071,19 @@ export async function getFamilyProfile(guardianUserId: string, orgId: string) {
         ? Promise.resolve([])
         : (async () => {
             const classIds = [
-              ...new Set(students.flatMap((s) => s.enrollments.map((e) => e.classId))),
+              ...new Set(
+                students.flatMap((s) =>
+                  s.enrollments
+                    .filter((e) => e.class?.organizationId === orgId)
+                    .map((e) => e.classId),
+                ),
+              ),
             ];
             if (classIds.length === 0) return [];
             return db.query.homeworkAssignments.findMany({
               where: and(
                 inArray(schema.homeworkAssignments.classId, classIds),
+                eq(schema.homeworkAssignments.organizationId, orgId),
                 eq(schema.homeworkAssignments.archived, false),
               ),
               orderBy: (h, { desc }) => desc(h.dueDate),
@@ -1071,7 +1093,10 @@ export async function getFamilyProfile(guardianUserId: string, orgId: string) {
       studentIds.length === 0
         ? Promise.resolve([])
         : db.query.hifzRecords.findMany({
-            where: inArray(schema.hifzRecords.studentId, studentIds),
+            where: and(
+              inArray(schema.hifzRecords.studentId, studentIds),
+              eq(schema.hifzRecords.organizationId, orgId),
+            ),
             with: { student: { columns: { fullName: true } } },
             orderBy: (h, { desc }) => desc(h.sessionDate),
             limit: 5,
@@ -1090,7 +1115,8 @@ export async function getFamilyProfile(guardianUserId: string, orgId: string) {
       id: s.id,
       fullName: s.fullName,
       status: s.status,
-      className: s.enrollments[0]?.class?.name ?? 'Not enrolled',
+      className:
+        s.enrollments.find((e) => e.class?.organizationId === orgId)?.class?.name ?? 'Not enrolled',
     })),
     tuitionPlans,
     recentNotes,
