@@ -1779,19 +1779,38 @@ export async function createTrialPlacement(
 ) {
   const actor = await requireAdminForOrg(orgId);
   const assignedTeacherId = await requireOptionalTeacherInOrg(orgId, data.assignedTeacherId);
+  const studentFirstName = data.studentFirstName.trim();
+  const studentLastName = data.studentLastName.trim();
+  const guardianName = data.guardianName.trim();
+  const guardianEmail = data.guardianEmail.trim().toLowerCase();
+  const guardianPhone = data.guardianPhone?.trim() || null;
+  const scheduledDate = data.scheduledDate?.trim() || null;
+  const contactSubmissionId = data.contactSubmissionId?.trim() || null;
+
+  if (!studentFirstName || !studentLastName || !guardianName || !guardianEmail) {
+    throw new Error('Missing required trial details');
+  }
+
+  if (contactSubmissionId) {
+    const contactSubmission = await db.query.contactSubmissions.findFirst({
+      where: eq(schema.contactSubmissions.id, contactSubmissionId),
+      columns: { id: true },
+    });
+    if (!contactSubmission) throw new Error('Invalid contact submission');
+  }
 
   const [row] = await db
     .insert(schema.trialPlacements)
     .values({
       organizationId: orgId,
-      studentFirstName: data.studentFirstName,
-      studentLastName: data.studentLastName,
-      guardianName: data.guardianName,
-      guardianEmail: data.guardianEmail,
-      guardianPhone: data.guardianPhone || null,
-      scheduledDate: data.scheduledDate || null,
+      studentFirstName,
+      studentLastName,
+      guardianName,
+      guardianEmail,
+      guardianPhone,
+      scheduledDate,
       assignedTeacherId,
-      contactSubmissionId: data.contactSubmissionId || null,
+      contactSubmissionId,
       createdBy: actor.userId,
     })
     .returning({ id: schema.trialPlacements.id });
@@ -1800,7 +1819,7 @@ export async function createTrialPlacement(
   if (assignedTeacherId) {
     await notifyTeacherIfEnabled(assignedTeacherId, orgId, 'trialAssigned', {
       type: 'trial_assigned',
-      title: `New trial assigned: ${data.studentFirstName} ${data.studentLastName}`,
+      title: `New trial assigned: ${studentFirstName} ${studentLastName}`,
       body: 'Assess this trial student and recommend a class.',
       link: '/teacher/trials',
     });
