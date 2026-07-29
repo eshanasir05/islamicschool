@@ -1,5 +1,5 @@
-import { sendTuitionRemindersThrottled } from '@/app/(admin)/actions';
 import { env } from '@/env';
+import { runTuitionReminders } from '@/lib/tuition-reminders';
 import { type NextRequest, NextResponse } from 'next/server';
 
 // Vercel Cron hits this daily (see vercel.json). Reminds past-due families
@@ -12,6 +12,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { sent } = await sendTuitionRemindersThrottled(env.NEXT_PUBLIC_ORG_ID, 7);
+  const { sent } = await runTuitionReminders(env.NEXT_PUBLIC_ORG_ID, { throttleDays: 7 });
   return NextResponse.json({ ok: true, sent });
 }
