@@ -9,17 +9,24 @@ import { PricingHeroAndTiers } from './pricing-tiers';
 export const metadata: Metadata = {
   title: 'Talibly · Pricing',
   description:
-    'Flat monthly fee. Per-student pricing. No setup, no contracts, no per-feature gotchas.',
+    'Flat-rate Talibly plans selected by school size, with no per-student fees and two months free on annual billing.',
 };
 
-const SECTIONS: { heading: string; rows: [string, boolean, boolean, boolean][] }[] = [
+type Availability = boolean | 'planned';
+
+const SECTIONS: {
+  heading: string;
+  rows: [string, Availability, Availability, Availability][];
+}[] = [
   {
     heading: 'For parents',
     rows: [
       ['Multi-child feed', true, true, true],
       ['Hifz audio replay', true, true, true],
       ['Parent feed updates', true, true, true],
-      ['Autopay tuition', true, true, true],
+      ['Tuition tracking', true, true, true],
+      ['SMS notifications (planned)', 'planned', 'planned', 'planned'],
+      ['Native iOS & Android apps (planned)', 'planned', 'planned', 'planned'],
     ],
   },
   {
@@ -28,7 +35,7 @@ const SECTIONS: { heading: string; rows: [string, boolean, boolean, boolean][] }
       ['60-second class wrap', true, true, true],
       ['Voice hifz recording', true, true, true],
       ['Praise & homework', true, true, true],
-      ['Offline class wrap (coming soon)', false, false, false],
+      ['Offline class wrap (planned)', 'planned', 'planned', 'planned'],
     ],
   },
   {
@@ -36,16 +43,20 @@ const SECTIONS: { heading: string; rows: [string, boolean, boolean, boolean][] }
     rows: [
       ['Daily dashboard', false, true, true],
       ['Tuition pipeline', false, true, true],
-      ['Enrollment funnel (coming soon)', false, false, false],
+      ['Self-service roster import', false, true, true],
       ['Board CSV exports', false, true, true],
-      ['SSO (Google / Microsoft) (coming soon)', false, false, false],
-      ['Dedicated onboarding manager', false, false, true],
+      ['Full enrollment workflow (planned)', 'planned', 'planned', 'planned'],
+      ['SSO with Google or Microsoft (planned)', 'planned', 'planned', 'planned'],
     ],
   },
 ];
 
-function cell(v: boolean) {
-  return v ? (
+function cell(value: Availability) {
+  if (value === 'planned') {
+    return <span className="badge-coming-soon">Planned</span>;
+  }
+
+  return value ? (
     <span style={{ color: 'var(--accent-700)' }}>
       <Icon name="check" size={16} />
     </span>
@@ -70,10 +81,10 @@ function ComparisonTable() {
             <span className="dot" />
             What&apos;s included
           </span>
-          <h2>Every tier ships with every feature your parents and teachers need.</h2>
+          <h2>Clear capabilities for every stage of your school.</h2>
           <p>
-            The only differences are at the principal level. That&apos;s where larger schools
-            justify the larger tier.
+            Plans are selected by active student count. Current capabilities are shown separately
+            from planned additions so you can evaluate Talibly clearly.
           </p>
         </div>
 
@@ -84,8 +95,8 @@ function ComparisonTable() {
             <div className="compare-cell head center">Weekend School</div>
             <div className="compare-cell head center">Full-time Academy</div>
           </div>
-          {SECTIONS.map((s) => (
-            <Fragment key={s.heading}>
+          {SECTIONS.map((section) => (
+            <Fragment key={section.heading}>
               <div className="compare-row">
                 <div
                   className="compare-cell"
@@ -99,18 +110,18 @@ function ComparisonTable() {
                     fontWeight: 600,
                   }}
                 >
-                  {s.heading}
+                  {section.heading}
                 </div>
                 <div className="compare-cell" style={{ background: 'var(--bg-warm)' }} />
                 <div className="compare-cell" style={{ background: 'var(--bg-warm)' }} />
                 <div className="compare-cell" style={{ background: 'var(--bg-warm)' }} />
               </div>
-              {s.rows.map((r) => (
-                <div className="compare-row" key={r[0]}>
-                  <div className="compare-cell feature">{r[0]}</div>
-                  <div className="compare-cell center">{cell(r[1])}</div>
-                  <div className="compare-cell center">{cell(r[2])}</div>
-                  <div className="compare-cell center">{cell(r[3])}</div>
+              {section.rows.map((row) => (
+                <div className="compare-row" key={row[0]}>
+                  <div className="compare-cell feature">{row[0]}</div>
+                  <div className="compare-cell center">{cell(row[1])}</div>
+                  <div className="compare-cell center">{cell(row[2])}</div>
+                  <div className="compare-cell center">{cell(row[3])}</div>
                 </div>
               ))}
             </Fragment>
@@ -124,30 +135,31 @@ function ComparisonTable() {
 function FAQ() {
   const items = [
     {
-      q: 'Do you charge per parent or per student?',
-      a: 'Per student. Parents are free. You want as many parents in the feed as possible. A student with two parents and two grandparents still counts as one student.',
+      q: 'Do you charge per student?',
+      a: "No. Each plan is a flat rate selected by the school's active student count. There are no per-student fees or overage charges.",
     },
     {
-      q: 'What about Stripe fees on tuition?',
-      a: "Standard Stripe processing fees apply and pass through directly. Talibly itself takes nothing on top of that. See Stripe's website for current rates.",
+      q: 'Does Talibly take a percentage of school tuition?',
+      a: 'No. Talibly takes 0% of school tuition and charges only the SaaS subscription fee. Schools will eventually connect their own Stripe account for tuition processing; standard Stripe processing fees will apply separately.',
     },
     {
       q: 'Can I import students from my existing spreadsheet?',
-      a: 'We handle roster import as part of onboarding — usually a weekend turnaround. Self-service CSV import is on the roadmap.',
+      a: 'Yes. Self-service CSV roster import is currently available, and guided onboarding can help your school prepare and review its data.',
     },
     {
-      q: 'Is there a setup fee?',
-      a: 'No. No setup, no onboarding fee, no contract. If Talibly is not the right fit, you cancel from settings and your data exports as CSV.',
+      q: 'Can our school subscribe online today?',
+      a: 'Not yet. Talibly is being finalized for a future public SaaS launch. Pricing inquiries and planned trials are handled through a sales conversation rather than an online Stripe subscription checkout.',
     },
     {
-      q: 'What if our school is between tiers? Say 30 weekend students plus a few tutors.',
-      a: "Most schools at that size start on the Weekend School tier. Tell us the breakdown when you book a demo and we'll be honest about which tier fits.",
+      q: 'What if our school is between tiers?',
+      a: 'Plans are selected by total active student count. A school with 30 active students fits the Weekend School plan; schools with 751+ students or multiple campuses should contact us about Enterprise.',
     },
     {
-      q: 'Do you support Arabic / Urdu / French interfaces?',
-      a: 'Arabic and Urdu UI for the parent app are on the roadmap and not in v1. The app and content support Arabic text and RTL surahs today, but the buttons are English-only for now.',
+      q: 'What unfinished features are planned?',
+      a: 'Full enrollment, SSO, offline support, SMS, native mobile apps, and additional language interfaces are planned or coming later. The current product is a responsive English-language web app.',
     },
   ];
+
   return (
     <section className="section">
       <div className="container">
@@ -159,10 +171,10 @@ function FAQ() {
           <h2>Questions principals always ask.</h2>
         </div>
         <div className="faq">
-          {items.map((it) => (
-            <div className="faq-item" key={it.q}>
-              <h5>{it.q}</h5>
-              <p>{it.a}</p>
+          {items.map((item) => (
+            <div className="faq-item" key={item.q}>
+              <h5>{item.q}</h5>
+              <p>{item.a}</p>
             </div>
           ))}
         </div>
@@ -179,9 +191,9 @@ export default function PricingPage() {
       <ComparisonTable />
       <FAQ />
       <SiteCTA
-        title="Try Talibly with your school for free, for a month."
-        body="No card on file. We'll onboard, import your roster, and train your teachers. If it's not better than your current setup, walk away. Your data exports as CSV."
-        cta="Book a demo"
+        title="A 30-day, no-card trial is planned."
+        body="Trials will be sales-approved while Talibly is being finalized for public SaaS launch. Request a conversation to see the current product and discuss fit for your school."
+        cta="Request a conversation"
       />
       <SiteFooter />
     </>
