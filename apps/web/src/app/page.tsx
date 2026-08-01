@@ -39,8 +39,8 @@ function Hero() {
               Book a demo
               <Icon name="arrow" size={14} />
             </Link>
-            <Link className="btn btn-ghost" href="/for-parents">
-              See the parent app
+            <Link className="btn btn-ghost" href="/demo">
+              View product tour
             </Link>
           </div>
           <div className="hero-meta">
@@ -141,7 +141,8 @@ function ParentSection() {
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Attendance updates.</strong> Know shortly after they&apos;re marked present, late, or absent.
+                  <strong>Attendance updates.</strong> Know shortly after they&apos;re marked
+                  present, late, or absent.
                 </span>
               </li>
               <li>
@@ -316,13 +317,15 @@ function PrincipalSection() {
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Insights dashboard.</strong> Monthly attendance rates, tuition collected, and hifz milestones.
+                  <strong>Insights dashboard.</strong> Monthly attendance rates, tuition collected,
+                  and hifz milestones.
                 </span>
               </li>
               <li>
                 <Icon name="check" size={16} />
                 <span>
-                  <strong>Board-ready CSV exports.</strong> Attendance and payments. Trustees won&apos;t have to ask twice.
+                  <strong>Board-ready CSV exports.</strong> Attendance and payments. Trustees
+                  won&apos;t have to ask twice.
                 </span>
               </li>
             </ul>
@@ -362,8 +365,9 @@ function Tuition() {
             </span>
             <h3>No more Zelle screenshots. No more &ldquo;did the check clear?&rdquo;</h3>
             <p className="body">
-              Talibly bills parents directly. Stripe-powered autopay and a
-              ledger your bookkeeper will actually open. Set it up once and the money arrives — the reconciliation isn&apos;t your job.
+              Talibly bills parents directly. Stripe-powered autopay and a ledger your bookkeeper
+              will actually open. Set it up once and the money arrives — the reconciliation
+              isn&apos;t your job.
             </p>
             <ul className="feature-bullets">
               <li>
@@ -411,12 +415,7 @@ function Roles() {
       title: 'Parents',
       blurb:
         'Daily highlights, hifz audio, one-tap tuition. A quiet feed per child, instead of a class chat with 47 unread.',
-      bullets: [
-        'Multi-child switcher',
-        'Hifz audio replay',
-        'Autopay tuition',
-        'Feed updates',
-      ],
+      bullets: ['Multi-child switcher', 'Hifz audio replay', 'Autopay tuition', 'Feed updates'],
       href: '/for-parents',
     },
     {
@@ -488,7 +487,8 @@ function Availability() {
           <h2>Mobile-friendly web — phone, tablet, or masjid laptop.</h2>
           <p>
             Parents and teachers reach for a phone. Principals reach for the laptop in the office.
-            Talibly works on all of them — same data, same flows, no installs required. Native iOS and Android apps are on the roadmap.
+            Talibly works on all of them — same data, same flows, no installs required. Native iOS
+            and Android apps are on the roadmap.
           </p>
           <div className="platforms">
             <span className="platform-pill">

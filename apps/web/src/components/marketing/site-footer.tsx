@@ -1,5 +1,5 @@
+import { LogoTagline, TaliblyLogo } from '@/components/ui/logo';
 import Link from 'next/link';
-import { TaliblyLogo, LogoTagline } from '@/components/ui/logo';
 
 export function SiteFooter() {
   return (
@@ -30,7 +30,7 @@ export function SiteFooter() {
           </div>
           <div className="footer-col">
             <h5>Resources</h5>
-            <Link href="/demo">Try the demo</Link>
+            <Link href="/demo">Product tour</Link>
             <Link href="/quick-start">Quick start</Link>
             <Link href="/known-limitations">Known limitations</Link>
           </div>
@@ -42,7 +42,9 @@ export function SiteFooter() {
         </div>
         <div className="footer-base">
           <span>© 2026 Talibly · Made for the ummah</span>
-          <a href="mailto:info@talibly.com" style={{ color: 'inherit', textDecoration: 'none' }}>info@talibly.com</a>
+          <a href="mailto:info@talibly.com" style={{ color: 'inherit', textDecoration: 'none' }}>
+            info@talibly.com
+          </a>
         </div>
       </div>
     </footer>
