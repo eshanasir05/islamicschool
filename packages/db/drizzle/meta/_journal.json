@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1785645716569,
+      "tag": "0000_awesome_edwin_jarvis",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785645728221,
+      "tag": "0001_enable_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785646048841,
+      "tag": "0002_handy_grim_reaper",
+      "breakpoints": true
+    }
+  ]
+}

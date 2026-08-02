@@ -2,7 +2,7 @@
 
 Islamic Sunday school management platform — replacing WhatsApp groups, paper attendance, and Zelle screenshots with a purpose-built tool for teachers, parents, and principals.
 
-Live demo: https://islamicschool-web.vercel.app
+Public product tour: https://taliblyapp.vercel.app/demo
 
 ---
 
@@ -38,52 +38,18 @@ The **Insights dashboard** (`/admin/insights`) provides a monthly business-intel
 
 ---
 
-## Demo credentials
+## Safe product tour and guided demo
 
-All demo accounts use password `demo1234`.
+Talibly does not publish reusable usernames or passwords. The former shared demo accounts have been retired. `/demo` is a public visual tour built entirely from fictional sample information; guided access is arranged privately through `/contact` when needed.
 
-| Email | Role | Access |
-|---|---|---|
-| amina@talibly.dev | Teacher | Beginners class (Aisha + Yusuf) |
-| idris@talibly.dev | Teacher | Advanced class (Bilal + Khadijah) |
-| sarah@talibly.dev | Parent | Aisha Hassan, Yusuf Hassan |
-| omar@talibly.dev | Parent | Bilal Yusuf, Khadijah Nasir |
-| khalid@talibly.dev | Principal | Full admin dashboard |
+The focused guided-demo story is:
 
-Sign in at `/sign-in` — credentials are shown on the sign-in page.
+1. A principal enrolls a fictional student, assigns a class, and links a fictional guardian.
+2. The assigned teacher marks attendance and records a text-only Hifz session.
+3. The linked parent sees the attendance and Quran update in the child feed.
+4. A past-due fictional tuition plan creates an in-app reminder; email delivery is shown only when Resend is configured and succeeds.
 
----
-
-## Demo walkthrough
-
-A suggested path for reviewers (5–10 minutes):
-
-### As admin — `khalid@talibly.dev`
-1. Sign in → lands on `/admin` dashboard (weekly stats, class wrap status)
-2. **Students** → view roster, click a student to see their profile and guardian links
-3. **Classes** → view class detail with enrolled students and session history
-4. **Teachers** → "+ Invite teacher" to send a real invite email via Supabase
-5. **Parents** → "+ Invite parent", select a student, set relationship → invite email sent
-6. **Tuition** → click a student → "Set up plan" → choose monthly amount and guardian → copy the Stripe Checkout link → open it in a new tab → use test card `4242 4242 4242 4242` to pay → return to `/admin/tuition/[studentId]` to see the payment recorded
-7. **Insights** → monthly analytics: headcount KPIs, attendance rate, tuition collected vs. outstanding, payment status breakdown, recent payments, per-class attendance table
-8. **Exports** → download Student Roster, Payment History, and Attendance Records as CSV
-9. **Settings** → edit school name
-10. **Announcements** → post a school-wide message
-11. Click your name in the header → Account → update display name or change password
-
-### As teacher — `amina@talibly.dev`
-1. Sign in → lands on `/teacher` with class list
-2. Select "Hifz Circle — Beginners"
-3. **Attendance** → tap each student card to mark present / late / absent
-4. **Hifz** → log surah, ayah range, optional audio recording
-5. **Notes** → add praise (category chip) and homework note
-6. **Confirm** → review summary → "Send to parents" to email all guardians
-
-### As parent — `sarah@talibly.dev`
-1. Sign in → lands on `/parent` → tab bar shows Aisha + Yusuf
-2. Switch between children — each has their own feed
-3. See today's attendance, hifz record, teacher notes, Billing section, and announcements
-4. Billing shows payment history with receipt links (if Stripe plan is active)
+No real student, parent, payment, email, address, or audio information belongs in the guided-demo dataset.
 
 ---
 
@@ -126,8 +92,8 @@ pnpm install
 # 2. Copy env template and fill in values
 cp apps/web/.env.example apps/web/.env.local
 
-# 3. Push schema to your Supabase project
-pnpm --filter @skooly/db db:push
+# 3. Apply versioned migrations to your Supabase project
+pnpm --filter @skooly/db db:migrate
 
 # 4. Seed demo data
 pnpm --filter @skooly/db db:seed
@@ -188,7 +154,7 @@ pnpm dev                                    # Start all apps
 pnpm build                                  # Build all packages and apps
 pnpm --filter @skooly/web typecheck         # TypeScript check
 pnpm --filter @skooly/web lint              # Biome lint
-pnpm --filter @skooly/db db:push            # Push schema changes
+pnpm --filter @skooly/db db:migrate         # Apply versioned schema/RLS changes
 pnpm --filter @skooly/db db:seed            # Seed demo data
 pnpm --filter @skooly/db db:reset-demo      # Wipe + reseed the demo org only (see below)
 ```
@@ -197,7 +163,7 @@ pnpm --filter @skooly/db db:reset-demo      # Wipe + reseed the demo org only (s
 
 ## Resetting demo data
 
-Before a pilot call or demo video, you can wipe the demo org back to a clean, fully-seeded state with one command. This is safe to run repeatedly — it never touches any organization other than the fixed demo org, and it never deletes Supabase Auth accounts (those are idempotently upserted by the seed script, not recreated).
+Before a guided walkthrough or demo video, you can wipe the fictional organization back to a clean, fully-seeded state with one command. The reset never touches any other organization or any Supabase Auth account. The seed script creates fictional application profiles and records only; it does not create login accounts.
 
 ```bash
 cd packages/db
@@ -210,7 +176,7 @@ Both environment variables are required and checked before anything is deleted:
 
 Missing or incorrect values cause the script to refuse to run and exit immediately with no changes made.
 
-What it does, in FK-safe order: deletes all messages/threads, notifications, trial placements, hifz milestones/records, student notes, homework, attendance, payments, tuition plans, consents, guardian links, and enrollments scoped to the demo org, then deletes the demo org's students and classes, then re-runs `db:seed` to restore the full demo dataset (admin/teacher/parent accounts, 4 students across 2 classes with siblings, historical attendance/hifz/notes, homework, hifz milestones, Tonight's Practice data, absence follow-ups, trial placements, tuition plans + payments, sibling discounts).
+What it does, in FK-safe order: deletes all messages/threads, notifications, trial placements, hifz milestones/records, student notes, homework, attendance, payments, tuition plans, consents, guardian links, and enrollments scoped to the fictional org, then deletes that org's students and classes, and re-runs `db:seed` to restore fictional profiles and operational records. It does not provision authentication access.
 
 Not touched by the reset: `contact_submissions` (inbound leads) — this table has no organization scoping in the schema, so it is intentionally left alone rather than risk deleting real inbound inquiries in a shared environment. Clear it manually via the Supabase dashboard if needed.
 
@@ -245,12 +211,12 @@ The same list, written for a non-technical audience, is public at `/known-limita
 
 ## Recommended pilot setup
 
-For running a real (small, single-school) pilot rather than just a demo walkthrough:
+Before running a real single-school pilot rather than a fictional guided walkthrough:
 
-1. **Start from a clean org.** Either use a fresh Supabase project seeded once via `pnpm --filter @skooly/db db:seed`, or reset the existing demo org first (see "Resetting demo data" above) so the pilot school isn't mixed in with sample data.
+1. **Use a separate clean organization and database state.** Do not mix a pilot school's records with the fictional guided-demo dataset.
 2. **Set the school's real profile** in Admin → Settings (name, address) before inviting anyone — this is also the first item on the in-app Getting Started checklist.
 3. **Invite one admin/principal account first**, have them work through the Getting Started checklist end to end (classes → teachers → students → guardians → tuition → announcement → homework → Board Pack → parent invites) before inviting teachers or parents, so the first real users don't land on an empty dashboard.
-4. **Invite teachers next**, and have each one run attendance + hifz + notes for a real class session before the pilot goes live, so any Supabase Storage / email deliverability issues surface early.
+4. **Invite teachers next**, and validate attendance, text-only Hifz progress, notes, and email delivery with fictional records before entering any real student information. Do not enable real student audio until the consent workflow and school agreement are complete.
 5. **Invite parents last**, once there's already real data (attendance, hifz, an announcement) for them to see on first login.
 6. **Set expectations against the [known limitations](/known-limitations) page** — no SMS, no native app, single school per deployment — before the school commits further.
 7. **Check the Activity Log** (Admin → Activity Log) periodically during the pilot — it's the fastest way to confirm real usage is happening without asking each user directly.

@@ -2,6 +2,7 @@ export * from './organizations';
 export * from './users';
 export * from './memberships';
 export * from './students';
+export * from './stripe-webhook-events';
 export * from './student-guardians';
 export * from './classes';
 export * from './attendance';

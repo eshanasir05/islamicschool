@@ -1,16 +1,16 @@
+import { execSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { eq, inArray } from 'drizzle-orm';
-import { execSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
 import * as schema from './schema/index.js';
 
 // ---------------------------------------------------------------------------
 // SAFETY: this script only ever deletes rows scoped to the one hardcoded
 // demo organization id below — the same id seed.ts always uses. It never
-// touches Supabase Auth users/accounts (those are idempotently upserted by
-// seed.ts, not recreated here), and it refuses to run at all unless both
+// touches Supabase Auth users/accounts (seed.ts only creates fictional public
+// profiles and application data), and it refuses to run at all unless both
 // safeguards below are satisfied. There is no code path that can reach any
 // organization other than this one.
 // ---------------------------------------------------------------------------
@@ -23,22 +23,21 @@ function assertSafeToRun() {
   if (process.env.ALLOW_DEMO_RESET !== 'true') {
     console.error(
       '\n❌ Refusing to run: set ALLOW_DEMO_RESET=true to confirm this is a demo environment.\n' +
-      '   This script permanently deletes operational data. Do not run it against production.\n',
+        '   This script permanently deletes operational data. Do not run it against production.\n',
     );
     process.exit(1);
   }
   const providedOrgId = process.env.DEMO_ORG_ID;
   if (!providedOrgId) {
     console.error(
-      '\n❌ Refusing to run: set DEMO_ORG_ID to the known demo organization id, as an explicit\n' +
-      `   confirmation of what you're about to wipe. Expected: ${DEMO_ORG_ID}\n`,
+      `\n❌ Refusing to run: set DEMO_ORG_ID to the known demo organization id, as an explicit\n   confirmation of what you're about to wipe. Expected: ${DEMO_ORG_ID}\n`,
     );
     process.exit(1);
   }
   if (providedOrgId !== DEMO_ORG_ID) {
     console.error(
       `\n❌ Refusing to run: DEMO_ORG_ID (${providedOrgId}) does not match the known demo\n` +
-      `   organization id (${DEMO_ORG_ID}). This script can only ever target that one org.\n`,
+        `   organization id (${DEMO_ORG_ID}). This script can only ever target that one org.\n`,
     );
     process.exit(1);
   }
@@ -52,35 +51,50 @@ async function main() {
 
   console.log(`\n🧹 Resetting demo org ${DEMO_ORG_ID}...\n`);
   console.log('This only deletes operational/demo data scoped to this org.');
-  console.log('User accounts and Supabase Auth logins are left untouched.\n');
+  console.log('Supabase Auth accounts are left untouched.\n');
 
   try {
-    const studentRows = await db.select({ id: schema.students.id }).from(schema.students)
+    const studentRows = await db
+      .select({ id: schema.students.id })
+      .from(schema.students)
       .where(eq(schema.students.organizationId, DEMO_ORG_ID));
-    const studentIds = studentRows.map(r => r.id);
+    const studentIds = studentRows.map((r) => r.id);
 
-    const threadRows = await db.select({ id: schema.messageThreads.id }).from(schema.messageThreads)
+    const threadRows = await db
+      .select({ id: schema.messageThreads.id })
+      .from(schema.messageThreads)
       .where(eq(schema.messageThreads.organizationId, DEMO_ORG_ID));
-    const threadIds = threadRows.map(r => r.id);
+    const threadIds = threadRows.map((r) => r.id);
 
     let messageIds: string[] = [];
     if (threadIds.length > 0) {
-      const messageRows = await db.select({ id: schema.messages.id }).from(schema.messages)
+      const messageRows = await db
+        .select({ id: schema.messages.id })
+        .from(schema.messages)
         .where(inArray(schema.messages.threadId, threadIds));
-      messageIds = messageRows.map(r => r.id);
+      messageIds = messageRows.map((r) => r.id);
     }
 
     // Delete children before parents.
     if (messageIds.length > 0) {
-      const r = await db.delete(schema.messageReads).where(inArray(schema.messageReads.messageId, messageIds)).returning();
+      const r = await db
+        .delete(schema.messageReads)
+        .where(inArray(schema.messageReads.messageId, messageIds))
+        .returning();
       console.log(`  ✓ message_reads: ${r.length} rows deleted`);
     }
     if (threadIds.length > 0) {
-      const r = await db.delete(schema.messages).where(inArray(schema.messages.threadId, threadIds)).returning();
+      const r = await db
+        .delete(schema.messages)
+        .where(inArray(schema.messages.threadId, threadIds))
+        .returning();
       console.log(`  ✓ messages: ${r.length} rows deleted`);
     }
     {
-      const r = await db.delete(schema.messageThreads).where(eq(schema.messageThreads.organizationId, DEMO_ORG_ID)).returning();
+      const r = await db
+        .delete(schema.messageThreads)
+        .where(eq(schema.messageThreads.organizationId, DEMO_ORG_ID))
+        .returning();
       console.log(`  ✓ message_threads: ${r.length} rows deleted`);
     }
 
@@ -106,18 +120,30 @@ async function main() {
     // so they must be deleted before students/classes using the student ids
     // gathered above.
     if (studentIds.length > 0) {
-      const r1 = await db.delete(schema.studentGuardians).where(inArray(schema.studentGuardians.studentId, studentIds)).returning();
+      const r1 = await db
+        .delete(schema.studentGuardians)
+        .where(inArray(schema.studentGuardians.studentId, studentIds))
+        .returning();
       console.log(`  ✓ student_guardians: ${r1.length} rows deleted`);
-      const r2 = await db.delete(schema.classEnrollments).where(inArray(schema.classEnrollments.studentId, studentIds)).returning();
+      const r2 = await db
+        .delete(schema.classEnrollments)
+        .where(inArray(schema.classEnrollments.studentId, studentIds))
+        .returning();
       console.log(`  ✓ class_enrollments: ${r2.length} rows deleted`);
     }
 
     {
-      const r = await db.delete(schema.students).where(eq(schema.students.organizationId, DEMO_ORG_ID)).returning();
+      const r = await db
+        .delete(schema.students)
+        .where(eq(schema.students.organizationId, DEMO_ORG_ID))
+        .returning();
       console.log(`  ✓ students: ${r.length} rows deleted`);
     }
     {
-      const r = await db.delete(schema.classes).where(eq(schema.classes.organizationId, DEMO_ORG_ID)).returning();
+      const r = await db
+        .delete(schema.classes)
+        .where(eq(schema.classes.organizationId, DEMO_ORG_ID))
+        .returning();
       console.log(`  ✓ classes: ${r.length} rows deleted`);
     }
 

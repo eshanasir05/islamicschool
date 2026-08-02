@@ -38,21 +38,28 @@ const WORKFLOW: Array<{
   description: string;
 }> = [
   {
-    icon: 'teacher',
-    title: 'Teacher records the class',
+    icon: 'principal',
+    title: 'Admin enrolls a student',
     description:
-      'Attendance, Quran progress, praise, notes, and homework are captured in one wrap-up.',
+      'A principal creates one fictional student profile, assigns a class, and links a fictional guardian.',
+  },
+  {
+    icon: 'teacher',
+    title: 'Teacher records the session',
+    description:
+      'The assigned teacher marks attendance and records a text-only Hifz update for the class.',
   },
   {
     icon: 'parent',
-    title: 'Parents receive the update',
-    description: 'Families get a clear view of what happened and what to continue at home.',
+    title: 'Parent sees the class update',
+    description:
+      'The linked parent sees the student’s attendance and Quran progress in the family feed.',
   },
   {
-    icon: 'principal',
-    title: 'Leaders monitor operations',
+    icon: 'money',
+    title: 'Tuition follow-up arrives',
     description:
-      'School leaders review attendance, follow-ups, tuition, and reporting from one place.',
+      'A past-due fictional plan creates an in-app reminder. Email is additional and depends on configured delivery.',
   },
 ];
 
@@ -155,10 +162,11 @@ function QuranProgressPreview() {
 
 function OperationsPreview() {
   const items = [
-    ['Attendance', 'Recorded'],
+    ['Enrollment', 'Fictional student linked'],
+    ['Attendance', 'Present'],
+    ['Hifz session', 'Surah Al-Fatihah · 1–7'],
     ['Family follow-ups', 'Review queue ready'],
-    ['Tuition tracking', 'Overview available'],
-    ['Board Pack', 'Ready to generate'],
+    ['Tuition reminder', 'Delivered in app'],
   ];
 
   return (
@@ -183,6 +191,25 @@ function OperationsPreview() {
             <strong style={{ textAlign: 'right' }}>{value}</strong>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function TuitionReminderPreview() {
+  return (
+    <div className="ui-card">
+      <div className="ui-card-head">
+        <span className="dot" style={{ background: '#d97706' }} aria-hidden="true" />
+        <span className="label">Tuition follow-up</span>
+      </div>
+      <div className="ui-card-body">
+        <p className="hifz-title">Payment reminder</p>
+        <p className="hifz-sub">Fictional plan · Delivered in app</p>
+        <p className="hifz-recorder">
+          Scheduled reminders are limited to once every seven days. Email delivery is shown only
+          when configured and accepted by the email provider.
+        </p>
       </div>
     </div>
   );
@@ -295,7 +322,7 @@ export default function ProductTourPage() {
                 className="marketing-h2"
                 style={{ marginTop: 8, maxWidth: 720 }}
               >
-                From the classroom to the family to school leadership.
+                From enrollment to the classroom to the family follow-up.
               </h2>
             </div>
             <div style={responsiveGridStyle}>
@@ -389,6 +416,7 @@ export default function ProductTourPage() {
                   title="Continue the assigned Quran practice at home"
                   due="Before next class"
                 />
+                <TuitionReminderPreview />
               </PreviewPanel>
             </div>
           </div>
@@ -415,6 +443,7 @@ export default function ProductTourPage() {
                   'Attendance and class wrap-up',
                   'Text-based Quran progress and milestones',
                   'Praise, notes, homework, and parent updates',
+                  'In-app tuition reminders with a seven-day scheduled throttle',
                   'Leadership dashboard and roster import',
                   'Tuition tracking, Board Pack, and CSV exports',
                 ]}

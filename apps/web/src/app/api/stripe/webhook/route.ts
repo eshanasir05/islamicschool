@@ -1,7 +1,5 @@
 import { env } from '@/env';
-import { logActivity } from '@/lib/activity-log';
 import { db, schema } from '@/lib/db';
-import { createNotification } from '@/lib/notifications';
 import { stripe } from '@/lib/stripe';
 import { and, eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -29,147 +27,158 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object;
-      const planId = session.metadata?.planId;
-      if (!planId) break;
-      const checkoutSessionId = typeof session.id === 'string' ? session.id : null;
-      if (!checkoutSessionId) break;
+  const processed = await db.transaction(async (transaction) => {
+    const [claim] = await transaction
+      .insert(schema.stripeWebhookEvents)
+      .values({ stripeEventId: event.id, eventType: event.type })
+      .onConflictDoNothing()
+      .returning({ stripeEventId: schema.stripeWebhookEvents.stripeEventId });
 
-      await db
-        .update(schema.tuitionPlans)
-        .set({
-          stripeSubscriptionId:
-            typeof session.subscription === 'string' ? session.subscription : null,
-          status: 'active',
-        })
-        .where(
-          and(
-            eq(schema.tuitionPlans.id, planId),
-            eq(schema.tuitionPlans.stripeCheckoutSessionId, checkoutSessionId),
-          ),
-        );
-      break;
-    }
+    if (!claim) return false;
 
-    case 'invoice.payment_succeeded': {
-      // Use unknown cast — Invoice shape varies by API version
-      const invoice = event.data.object as unknown as {
-        subscription?: string | null;
-        amount_paid: number;
-        currency: string;
-        payment_intent?: string | null;
-        hosted_invoice_url?: string | null;
-        status_transitions?: { paid_at?: number | null };
-      };
-      const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : null;
-      if (!subscriptionId) break;
-      const stripePaymentIntentId =
-        typeof invoice.payment_intent === 'string' ? invoice.payment_intent : null;
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        const planId = session.metadata?.planId;
+        const checkoutSessionId = typeof session.id === 'string' ? session.id : null;
+        if (!planId || !checkoutSessionId) break;
 
-      const plan = await db.query.tuitionPlans.findFirst({
-        where: eq(schema.tuitionPlans.stripeSubscriptionId, subscriptionId),
-        with: { student: { columns: { fullName: true } } },
-      });
-      if (!plan || !plan.guardianUserId) break;
-      if (stripePaymentIntentId) {
-        const existingPayment = await db.query.payments.findFirst({
-          where: eq(schema.payments.stripePaymentIntentId, stripePaymentIntentId),
-          columns: { id: true },
-        });
-        if (existingPayment) break;
+        await transaction
+          .update(schema.tuitionPlans)
+          .set({
+            stripeSubscriptionId:
+              typeof session.subscription === 'string' ? session.subscription : null,
+            status: 'active',
+          })
+          .where(
+            and(
+              eq(schema.tuitionPlans.id, planId),
+              eq(schema.tuitionPlans.stripeCheckoutSessionId, checkoutSessionId),
+            ),
+          );
+        break;
       }
 
-      await db.insert(schema.payments).values({
-        organizationId: plan.organizationId,
-        tuitionPlanId: plan.id,
-        payerUserId: plan.guardianUserId,
-        amountCents: invoice.amount_paid,
-        currency: invoice.currency.toUpperCase(),
-        paymentMethod: 'card',
-        stripePaymentIntentId,
-        status: 'succeeded',
-        receiptUrl: invoice.hosted_invoice_url ?? null,
-        paidAt: new Date(
-          invoice.status_transitions?.paid_at
-            ? invoice.status_transitions.paid_at * 1000
-            : Date.now(),
-        ),
-      });
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as unknown as {
+          subscription?: string | null;
+          amount_paid: number;
+          currency: string;
+          payment_intent?: string | null;
+          hosted_invoice_url?: string | null;
+          status_transitions?: { paid_at?: number | null };
+        };
+        const subscriptionId =
+          typeof invoice.subscription === 'string' ? invoice.subscription : null;
+        if (!subscriptionId) break;
 
-      await createNotification({
-        organizationId: plan.organizationId,
-        userId: plan.guardianUserId,
-        type: 'payment_succeeded',
-        title: 'Payment received',
-        body: `${formatCents(invoice.amount_paid, invoice.currency)} — thank you.`,
-        link: `/parent/${plan.studentId}`,
-      });
+        const plan = await transaction.query.tuitionPlans.findFirst({
+          where: eq(schema.tuitionPlans.stripeSubscriptionId, subscriptionId),
+          with: { student: { columns: { fullName: true } } },
+        });
+        if (!plan?.guardianUserId) break;
 
-      await logActivity({
-        organizationId: plan.organizationId,
-        actorUserId: null,
-        actorName: 'Stripe',
-        action: 'payment.succeeded',
-        targetType: 'tuition_plan',
-        targetId: plan.id,
-        metadata: {
-          targetLabel: plan.student?.fullName ?? 'a student',
-          amount: formatCents(invoice.amount_paid, invoice.currency),
-        },
-      });
-      break;
-    }
+        const stripePaymentIntentId =
+          typeof invoice.payment_intent === 'string' ? invoice.payment_intent : null;
+        const [payment] = await transaction
+          .insert(schema.payments)
+          .values({
+            organizationId: plan.organizationId,
+            tuitionPlanId: plan.id,
+            payerUserId: plan.guardianUserId,
+            amountCents: invoice.amount_paid,
+            currency: invoice.currency.toUpperCase(),
+            paymentMethod: 'card',
+            stripePaymentIntentId,
+            status: 'succeeded',
+            receiptUrl: invoice.hosted_invoice_url ?? null,
+            paidAt: new Date(
+              invoice.status_transitions?.paid_at
+                ? invoice.status_transitions.paid_at * 1000
+                : Date.now(),
+            ),
+          })
+          .onConflictDoNothing()
+          .returning({ id: schema.payments.id });
 
-    case 'customer.subscription.deleted': {
-      const sub = event.data.object;
-      await db
-        .update(schema.tuitionPlans)
-        .set({ status: 'cancelled' })
-        .where(eq(schema.tuitionPlans.stripeSubscriptionId, sub.id));
-      break;
-    }
+        if (!payment) break;
 
-    case 'invoice.payment_failed': {
-      const invoice = event.data.object as unknown as { subscription?: string | null };
-      const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : null;
-      if (!subscriptionId) break;
-
-      const plan = await db.query.tuitionPlans.findFirst({
-        where: eq(schema.tuitionPlans.stripeSubscriptionId, subscriptionId),
-        with: { student: { columns: { fullName: true } } },
-      });
-      if (!plan) break;
-
-      await db
-        .update(schema.tuitionPlans)
-        .set({ status: 'past_due' })
-        .where(eq(schema.tuitionPlans.stripeSubscriptionId, subscriptionId));
-
-      if (plan.guardianUserId) {
-        await createNotification({
+        await transaction.insert(schema.notifications).values({
           organizationId: plan.organizationId,
           userId: plan.guardianUserId,
-          type: 'payment_failed',
-          title: 'Payment failed',
-          body: 'We could not process your tuition payment. Please update your billing information.',
+          type: 'payment_succeeded',
+          title: 'Payment received',
+          body: `${formatCents(invoice.amount_paid, invoice.currency)} — thank you.`,
           link: `/parent/${plan.studentId}`,
         });
+
+        await transaction.insert(schema.activityLog).values({
+          organizationId: plan.organizationId,
+          actorUserId: null,
+          actorName: 'Stripe',
+          action: 'payment.succeeded',
+          targetType: 'tuition_plan',
+          targetId: plan.id,
+          metadata: {
+            targetLabel: plan.student?.fullName ?? 'a student',
+            amount: formatCents(invoice.amount_paid, invoice.currency),
+          },
+        });
+        break;
       }
 
-      await logActivity({
-        organizationId: plan.organizationId,
-        actorUserId: null,
-        actorName: 'Stripe',
-        action: 'payment.failed',
-        targetType: 'tuition_plan',
-        targetId: plan.id,
-        metadata: { targetLabel: plan.student?.fullName ?? 'a student' },
-      });
-      break;
-    }
-  }
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object;
+        await transaction
+          .update(schema.tuitionPlans)
+          .set({ status: 'cancelled' })
+          .where(eq(schema.tuitionPlans.stripeSubscriptionId, subscription.id));
+        break;
+      }
 
-  return NextResponse.json({ received: true });
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as unknown as { subscription?: string | null };
+        const subscriptionId =
+          typeof invoice.subscription === 'string' ? invoice.subscription : null;
+        if (!subscriptionId) break;
+
+        const plan = await transaction.query.tuitionPlans.findFirst({
+          where: eq(schema.tuitionPlans.stripeSubscriptionId, subscriptionId),
+          with: { student: { columns: { fullName: true } } },
+        });
+        if (!plan) break;
+
+        await transaction
+          .update(schema.tuitionPlans)
+          .set({ status: 'past_due' })
+          .where(eq(schema.tuitionPlans.id, plan.id));
+
+        if (plan.guardianUserId) {
+          await transaction.insert(schema.notifications).values({
+            organizationId: plan.organizationId,
+            userId: plan.guardianUserId,
+            type: 'payment_failed',
+            title: 'Payment failed',
+            body: 'We could not process your tuition payment. Please update your billing information.',
+            link: `/parent/${plan.studentId}`,
+          });
+        }
+
+        await transaction.insert(schema.activityLog).values({
+          organizationId: plan.organizationId,
+          actorUserId: null,
+          actorName: 'Stripe',
+          action: 'payment.failed',
+          targetType: 'tuition_plan',
+          targetId: plan.id,
+          metadata: { targetLabel: plan.student?.fullName ?? 'a student' },
+        });
+        break;
+      }
+    }
+
+    return true;
+  });
+
+  return NextResponse.json({ received: true, duplicate: !processed });
 }

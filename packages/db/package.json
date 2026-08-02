@@ -12,8 +12,10 @@
   "scripts": {
     "lint": "biome check src",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --env-file-if-exists=.env --test src/sensitive-paths.test.ts ../../apps/web/src/lib/authz.test.ts ../../apps/web/src/lib/tuition-reminder-policy.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:baseline-existing": "tsx --env-file=.env src/baseline-existing-schema.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx --env-file=.env src/seed.ts",

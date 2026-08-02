@@ -1,18 +1,14 @@
 # Talibly — Final QA Checklist
 
-Production URL: https://islamicschool-web.vercel.app
+Production URL: https://taliblyapp.vercel.app
 
 ---
 
-## Demo credentials
+## Private QA access
 
-| Email | Password | Role | Access |
-|---|---|---|---|
-| khalid@talibly.dev | demo1234 | Principal/Admin | Full admin dashboard |
-| amina@talibly.dev | demo1234 | Teacher | Hifz Circle — Beginners (Aisha + Yusuf) |
-| idris@talibly.dev | demo1234 | Teacher | Hifz Circle — Advanced (Bilal + Khadijah) |
-| sarah@talibly.dev | demo1234 | Parent | Aisha Hassan, Yusuf Hassan |
-| omar@talibly.dev | demo1234 | Parent | Bilal Yusuf, Khadijah Nasir |
+No reusable QA username or password belongs in the repository. Create short-lived, privately communicated accounts for the principal, teacher, and parent roles when an authenticated walkthrough is approved. Disable those accounts and revoke sessions after the review.
+
+The public `/demo` route is a visual product tour and must never expose login credentials.
 
 ---
 
@@ -31,14 +27,14 @@ Production URL: https://islamicschool-web.vercel.app
 
 ## Role access control
 
-- [ ] Teacher (`amina@talibly.dev`) cannot access `/admin` → redirected to `/teacher`
+- [ ] A privately issued teacher account cannot access `/admin` → redirected to `/teacher`
 - [ ] Teacher cannot access `/parent` → redirected to `/teacher`
-- [ ] Parent (`sarah@talibly.dev`) cannot access `/admin` → redirected to `/parent`
+- [ ] A privately issued parent account cannot access `/admin` → redirected to `/parent`
 - [ ] Parent cannot access `/teacher` → redirected to `/parent`
 - [ ] `GET /api/admin/exports/students` as teacher → `{"error":"Forbidden"}` 403
 - [ ] `GET /api/admin/exports/payments` as parent → `{"error":"Forbidden"}` 403
 - [ ] `GET /api/admin/exports/attendance` as unauthenticated → `{"error":"Forbidden"}` 403
-- [ ] Parent cannot see another parent's students (sarah cannot access Bilal's feed)
+- [ ] Parent cannot see a fictional student linked to another family
 
 ---
 
@@ -80,8 +76,8 @@ Production URL: https://islamicschool-web.vercel.app
 - [ ] `/admin/teachers` lists Sister Amina and Brother Idris
 - [ ] "+ Invite teacher" → `/admin/teachers/invite` form renders
 - [ ] Submit new email → `?status=invited` success message
-- [ ] Submit existing email (sarah@talibly.dev) → `?status=added`
-- [ ] Submit existing teacher (amina@talibly.dev) → `?status=already_member`
+- [ ] Submit an existing non-teacher user's private QA email → `?status=added`
+- [ ] Submit an existing teacher's private QA email → `?status=already_member`
 - [ ] Submit invalid email → `?status=invalid_email`
 - [ ] Invited teacher email received → click link → lands on `/teacher` dashboard
 
@@ -140,7 +136,7 @@ Production URL: https://islamicschool-web.vercel.app
 ## Parent workflows
 
 - [ ] `/parent` redirects to first linked child's feed
-- [ ] Tab bar shows all linked children (sarah sees Aisha + Yusuf)
+- [ ] Tab bar shows only the fictional children linked to the current private QA parent
 - [ ] Switch child tabs → correct feed loads for each child
 - [ ] Attendance card shows status + arrival time
 - [ ] Hifz card shows surah + ayah range

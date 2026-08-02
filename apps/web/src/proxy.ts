@@ -1,22 +1,12 @@
+import { canRoleAccessPath, isProtectedAppPath, isPublicAppPath, roleHome } from '@/lib/authz';
 import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
-
-const PUBLIC_PATHS = ['/', '/for-parents', '/for-teachers', '/for-principals', '/pricing', '/sign-in', '/auth/callback', '/auth/reset', '/api', '/forgot-password', '/update-password', '/contact', '/privacy', '/terms', '/security', '/demo', '/quick-start', '/known-limitations'];
-const PROTECTED_PREFIXES = ['/teacher', '/parent', '/admin'];
-
-function isPublic(pathname: string) {
-  return (
-    PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(`${p}/`)) ||
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon')
-  );
-}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (!PROTECTED_PREFIXES.some(p => pathname.startsWith(p))) {
-    if (isPublic(pathname)) return NextResponse.next();
+  if (!isProtectedAppPath(pathname)) {
+    if (isPublicAppPath(pathname)) return NextResponse.next();
   }
 
   let response = NextResponse.next({ request });
@@ -26,17 +16,22 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll(); },
+        getAll() {
+          return request.cookies.getAll();
+        },
         setAll(cookiesToSet) {
           for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
           response = NextResponse.next({ request });
-          for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
+          for (const { name, value, options } of cookiesToSet)
+            response.cookies.set(name, value, options);
         },
       },
     },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
     const signIn = request.nextUrl.clone();
@@ -65,23 +60,11 @@ export async function proxy(request: NextRequest) {
   }
 
   // Enforce role ↔ path
-  if (pathname.startsWith('/teacher') && role !== 'teacher') {
-    return NextResponse.redirect(new URL(roleHome(role), request.url));
-  }
-  if (pathname.startsWith('/parent') && role !== 'parent') {
-    return NextResponse.redirect(new URL(roleHome(role), request.url));
-  }
-  if (pathname.startsWith('/admin') && role !== 'principal' && role !== 'admin') {
+  if (!canRoleAccessPath(role, pathname)) {
     return NextResponse.redirect(new URL(roleHome(role), request.url));
   }
 
   return response;
-}
-
-function roleHome(role: string) {
-  if (role === 'teacher') return '/teacher';
-  if (role === 'parent') return '/parent';
-  return '/admin';
 }
 
 export const config = {

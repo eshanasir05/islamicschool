@@ -1,6 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import { drizzle } from 'drizzle-orm/postgres-js';
 import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema/index.js';
 
@@ -9,18 +8,6 @@ import * as schema from './schema/index.js';
 // ---------------------------------------------------------------------------
 const DATABASE_URL =
   process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:54322/postgres';
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-  process.exit(1);
-}
-
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
-
 const queryClient = postgres(DATABASE_URL, { prepare: false });
 const db = drizzle(queryClient, { schema });
 
@@ -46,62 +33,25 @@ function arrivalTime(date: string, minutesAfter9: number): Date {
 // ---------------------------------------------------------------------------
 const ORG_ID = 'a1b2c3d4-0000-0000-0000-000000000001';
 const USER_IDS = {
-  amina:  'a1b2c3d4-0001-0000-0000-000000000001',
-  idris:  'a1b2c3d4-0001-0000-0000-000000000002',
-  sarah:  'a1b2c3d4-0001-0000-0000-000000000003',
-  omar:   'a1b2c3d4-0001-0000-0000-000000000004',
+  amina: 'a1b2c3d4-0001-0000-0000-000000000001',
+  idris: 'a1b2c3d4-0001-0000-0000-000000000002',
+  sarah: 'a1b2c3d4-0001-0000-0000-000000000003',
+  omar: 'a1b2c3d4-0001-0000-0000-000000000004',
   khalid: 'a1b2c3d4-0001-0000-0000-000000000005',
 };
 const STUDENT_IDS = {
-  aisha:   'a1b2c3d4-0002-0000-0000-000000000001',
-  yusuf:   'a1b2c3d4-0002-0000-0000-000000000002',
-  bilal:   'a1b2c3d4-0002-0000-0000-000000000003',
-  khadijah:'a1b2c3d4-0002-0000-0000-000000000004',
+  aisha: 'a1b2c3d4-0002-0000-0000-000000000001',
+  yusuf: 'a1b2c3d4-0002-0000-0000-000000000002',
+  bilal: 'a1b2c3d4-0002-0000-0000-000000000003',
+  khadijah: 'a1b2c3d4-0002-0000-0000-000000000004',
 };
 const CLASS_IDS = {
   beginners: 'a1b2c3d4-0003-0000-0000-000000000001',
-  advanced:  'a1b2c3d4-0003-0000-0000-000000000002',
+  advanced: 'a1b2c3d4-0003-0000-0000-000000000002',
 };
 
 // ---------------------------------------------------------------------------
-// 1. Auth users
-// ---------------------------------------------------------------------------
-async function seedAuthUsers() {
-  console.log('→ Creating Supabase Auth users...');
-  const users = [
-    { id: USER_IDS.amina,  email: 'amina@talibly.dev',  password: 'demo1234', name: 'Sister Amina' },
-    { id: USER_IDS.idris,  email: 'idris@talibly.dev',  password: 'demo1234', name: 'Brother Idris' },
-    { id: USER_IDS.sarah,  email: 'sarah@talibly.dev',  password: 'demo1234', name: 'Sarah Hassan' },
-    { id: USER_IDS.omar,   email: 'omar@talibly.dev',   password: 'demo1234', name: 'Omar Yusuf' },
-    { id: USER_IDS.khalid, email: 'khalid@talibly.dev', password: 'demo1234', name: 'Imam Khalid' },
-  ];
-
-  for (const u of users) {
-    // If the user exists with a different ID (from a previous seed without explicit ID),
-    // delete it so we can recreate with the correct hardcoded UUID.
-    const { data: list } = await supabaseAdmin.auth.admin.listUsers({ perPage: 200 });
-    const existing = list.users.find(u2 => u2.email === u.email);
-    if (existing && existing.id !== u.id) {
-      await supabaseAdmin.auth.admin.deleteUser(existing.id);
-    }
-
-    const { error } = await supabaseAdmin.auth.admin.createUser({
-      id: u.id,
-      user_metadata: { full_name: u.name },
-      email: u.email,
-      password: u.password,
-      email_confirm: true,
-    });
-    if (error && !error.message.includes('already been registered')) {
-      console.warn(`  Auth user ${u.email}: ${error.message}`);
-    } else {
-      console.log(`  ✓ ${u.email}`);
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 2. Organization
+// 1. Organization
 // ---------------------------------------------------------------------------
 async function seedOrg() {
   console.log('→ Seeding organization...');
@@ -120,16 +70,16 @@ async function seedOrg() {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Public users
+// 2. Fictional public profiles (not Supabase Auth accounts)
 // ---------------------------------------------------------------------------
 async function seedUsers() {
   console.log('→ Seeding public.users...');
   const rows = [
-    { id: USER_IDS.amina,  fullName: 'Sister Amina',  email: 'amina@talibly.dev' },
-    { id: USER_IDS.idris,  fullName: 'Brother Idris', email: 'idris@talibly.dev' },
-    { id: USER_IDS.sarah,  fullName: 'Sarah Hassan',  email: 'sarah@talibly.dev' },
-    { id: USER_IDS.omar,   fullName: 'Omar Yusuf',    email: 'omar@talibly.dev' },
-    { id: USER_IDS.khalid, fullName: 'Imam Khalid',   email: 'khalid@talibly.dev' },
+    { id: USER_IDS.amina, fullName: 'Sister Amina', email: null },
+    { id: USER_IDS.idris, fullName: 'Brother Idris', email: null },
+    { id: USER_IDS.sarah, fullName: 'Sarah Hassan', email: null },
+    { id: USER_IDS.omar, fullName: 'Omar Yusuf', email: null },
+    { id: USER_IDS.khalid, fullName: 'Imam Khalid', email: null },
   ];
   await db.insert(schema.users).values(rows).onConflictDoNothing();
   console.log('  ✓ 5 users');
@@ -141,10 +91,10 @@ async function seedUsers() {
 async function seedMemberships() {
   console.log('→ Seeding memberships...');
   const rows = [
-    { userId: USER_IDS.amina,  organizationId: ORG_ID, role: 'teacher'   as const },
-    { userId: USER_IDS.idris,  organizationId: ORG_ID, role: 'teacher'   as const },
-    { userId: USER_IDS.sarah,  organizationId: ORG_ID, role: 'parent'    as const },
-    { userId: USER_IDS.omar,   organizationId: ORG_ID, role: 'parent'    as const },
+    { userId: USER_IDS.amina, organizationId: ORG_ID, role: 'teacher' as const },
+    { userId: USER_IDS.idris, organizationId: ORG_ID, role: 'teacher' as const },
+    { userId: USER_IDS.sarah, organizationId: ORG_ID, role: 'parent' as const },
+    { userId: USER_IDS.omar, organizationId: ORG_ID, role: 'parent' as const },
     { userId: USER_IDS.khalid, organizationId: ORG_ID, role: 'principal' as const },
   ];
   await db.insert(schema.memberships).values(rows).onConflictDoNothing();
@@ -157,10 +107,38 @@ async function seedMemberships() {
 async function seedStudents() {
   console.log('→ Seeding students...');
   const rows = [
-    { id: STUDENT_IDS.aisha,    organizationId: ORG_ID, fullName: 'Aisha Hassan',   dateOfBirth: '2016-04-12', enrolledAt: '2024-09-01', status: 'active' },
-    { id: STUDENT_IDS.yusuf,    organizationId: ORG_ID, fullName: 'Yusuf Hassan',   dateOfBirth: '2018-09-03', enrolledAt: '2024-09-01', status: 'active' },
-    { id: STUDENT_IDS.bilal,    organizationId: ORG_ID, fullName: 'Bilal Yusuf',    dateOfBirth: '2015-11-22', enrolledAt: '2024-09-01', status: 'active' },
-    { id: STUDENT_IDS.khadijah, organizationId: ORG_ID, fullName: 'Khadijah Nasir', dateOfBirth: '2017-03-08', enrolledAt: '2024-09-01', status: 'active' },
+    {
+      id: STUDENT_IDS.aisha,
+      organizationId: ORG_ID,
+      fullName: 'Aisha Hassan',
+      dateOfBirth: '2016-04-12',
+      enrolledAt: '2024-09-01',
+      status: 'active',
+    },
+    {
+      id: STUDENT_IDS.yusuf,
+      organizationId: ORG_ID,
+      fullName: 'Yusuf Hassan',
+      dateOfBirth: '2018-09-03',
+      enrolledAt: '2024-09-01',
+      status: 'active',
+    },
+    {
+      id: STUDENT_IDS.bilal,
+      organizationId: ORG_ID,
+      fullName: 'Bilal Yusuf',
+      dateOfBirth: '2015-11-22',
+      enrolledAt: '2024-09-01',
+      status: 'active',
+    },
+    {
+      id: STUDENT_IDS.khadijah,
+      organizationId: ORG_ID,
+      fullName: 'Khadijah Nasir',
+      dateOfBirth: '2017-03-08',
+      enrolledAt: '2024-09-01',
+      status: 'active',
+    },
   ];
   await db.insert(schema.students).values(rows).onConflictDoNothing();
   console.log('  ✓ 4 students');
@@ -172,8 +150,20 @@ async function seedStudents() {
 async function seedClasses() {
   console.log('→ Seeding classes...');
   const rows = [
-    { id: CLASS_IDS.beginners, organizationId: ORG_ID, name: 'Hifz Circle — Beginners', primaryTeacherId: USER_IDS.amina,  academicYear: '2024-2025' },
-    { id: CLASS_IDS.advanced,  organizationId: ORG_ID, name: 'Hifz Circle — Advanced',  primaryTeacherId: USER_IDS.idris,  academicYear: '2024-2025' },
+    {
+      id: CLASS_IDS.beginners,
+      organizationId: ORG_ID,
+      name: 'Hifz Circle — Beginners',
+      primaryTeacherId: USER_IDS.amina,
+      academicYear: '2024-2025',
+    },
+    {
+      id: CLASS_IDS.advanced,
+      organizationId: ORG_ID,
+      name: 'Hifz Circle — Advanced',
+      primaryTeacherId: USER_IDS.idris,
+      academicYear: '2024-2025',
+    },
   ];
   await db.insert(schema.classes).values(rows).onConflictDoNothing();
   console.log('  ✓ 2 classes');
@@ -187,8 +177,8 @@ async function seedEnrollments() {
   const rows = [
     { classId: CLASS_IDS.beginners, studentId: STUDENT_IDS.aisha },
     { classId: CLASS_IDS.beginners, studentId: STUDENT_IDS.yusuf },
-    { classId: CLASS_IDS.advanced,  studentId: STUDENT_IDS.bilal },
-    { classId: CLASS_IDS.advanced,  studentId: STUDENT_IDS.khadijah },
+    { classId: CLASS_IDS.advanced, studentId: STUDENT_IDS.bilal },
+    { classId: CLASS_IDS.advanced, studentId: STUDENT_IDS.khadijah },
   ];
   await db.insert(schema.classEnrollments).values(rows).onConflictDoNothing();
   console.log('  ✓ 4 enrollments');
@@ -200,10 +190,42 @@ async function seedEnrollments() {
 async function seedGuardians() {
   console.log('→ Seeding guardians...');
   const rows = [
-    { studentId: STUDENT_IDS.aisha,    guardianUserId: USER_IDS.sarah, relationship: 'mother', isPrimary: true, receivesNotifications: true, canPickup: true, paysTuition: true },
-    { studentId: STUDENT_IDS.yusuf,    guardianUserId: USER_IDS.sarah, relationship: 'mother', isPrimary: true, receivesNotifications: true, canPickup: true, paysTuition: true },
-    { studentId: STUDENT_IDS.bilal,    guardianUserId: USER_IDS.omar,  relationship: 'father', isPrimary: true, receivesNotifications: true, canPickup: true, paysTuition: true },
-    { studentId: STUDENT_IDS.khadijah, guardianUserId: USER_IDS.omar,  relationship: 'father', isPrimary: true, receivesNotifications: true, canPickup: true, paysTuition: true },
+    {
+      studentId: STUDENT_IDS.aisha,
+      guardianUserId: USER_IDS.sarah,
+      relationship: 'mother',
+      isPrimary: true,
+      receivesNotifications: true,
+      canPickup: true,
+      paysTuition: true,
+    },
+    {
+      studentId: STUDENT_IDS.yusuf,
+      guardianUserId: USER_IDS.sarah,
+      relationship: 'mother',
+      isPrimary: true,
+      receivesNotifications: true,
+      canPickup: true,
+      paysTuition: true,
+    },
+    {
+      studentId: STUDENT_IDS.bilal,
+      guardianUserId: USER_IDS.omar,
+      relationship: 'father',
+      isPrimary: true,
+      receivesNotifications: true,
+      canPickup: true,
+      paysTuition: true,
+    },
+    {
+      studentId: STUDENT_IDS.khadijah,
+      guardianUserId: USER_IDS.omar,
+      relationship: 'father',
+      isPrimary: true,
+      receivesNotifications: true,
+      canPickup: true,
+      paysTuition: true,
+    },
   ];
   await db.insert(schema.studentGuardians).values(rows).onConflictDoNothing();
   console.log('  ✓ 4 guardians');
@@ -216,9 +238,9 @@ async function seedConsents() {
   console.log('→ Seeding consents...');
   const rows = [];
   const studentGuardianPairs = [
-    { studentId: STUDENT_IDS.aisha,    guardianUserId: USER_IDS.sarah },
-    { studentId: STUDENT_IDS.yusuf,    guardianUserId: USER_IDS.sarah },
-    { studentId: STUDENT_IDS.bilal,    guardianUserId: USER_IDS.omar },
+    { studentId: STUDENT_IDS.aisha, guardianUserId: USER_IDS.sarah },
+    { studentId: STUDENT_IDS.yusuf, guardianUserId: USER_IDS.sarah },
+    { studentId: STUDENT_IDS.bilal, guardianUserId: USER_IDS.omar },
     { studentId: STUDENT_IDS.khadijah, guardianUserId: USER_IDS.omar },
   ];
   const consentTypes: ('audio' | 'data_sharing')[] = ['audio', 'data_sharing'];
@@ -257,7 +279,10 @@ async function seedHistoricalRecords() {
 
   // Attendance pattern: index 0 = most recent Sunday (week 1), etc.
   // 90% present, 7% late, 3% absent — deterministic by student+week
-  function attendanceStatus(studentIndex: number, weekIndex: number): 'present' | 'late' | 'absent' {
+  function attendanceStatus(
+    studentIndex: number,
+    weekIndex: number,
+  ): 'present' | 'late' | 'absent' {
     const hash = (studentIndex * 7 + weekIndex * 13) % 100;
     if (hash < 3) return 'absent';
     if (hash < 10) return 'late';
@@ -269,8 +294,16 @@ async function seedHistoricalRecords() {
   const noteRows: (typeof schema.studentNotes.$inferInsert)[] = [];
 
   const allStudents = [
-    ...beginnerStudents.map(id => ({ id, classId: CLASS_IDS.beginners, teacherId: USER_IDS.amina })),
-    ...advancedStudents.map(id => ({ id, classId: CLASS_IDS.advanced,  teacherId: USER_IDS.idris })),
+    ...beginnerStudents.map((id) => ({
+      id,
+      classId: CLASS_IDS.beginners,
+      teacherId: USER_IDS.amina,
+    })),
+    ...advancedStudents.map((id) => ({
+      id,
+      classId: CLASS_IDS.advanced,
+      teacherId: USER_IDS.idris,
+    })),
   ];
 
   for (let weekIndex = 0; weekIndex < 4; weekIndex++) {
@@ -287,7 +320,8 @@ async function seedHistoricalRecords() {
         studentId,
         sessionDate,
         status,
-        arrivalTime: status === 'absent' ? null : arrivalTime(sessionDate, status === 'late' ? 25 : 8),
+        arrivalTime:
+          status === 'absent' ? null : arrivalTime(sessionDate, status === 'late' ? 25 : 8),
         recordedBy: teacherId,
       });
 
@@ -310,8 +344,14 @@ async function seedHistoricalRecords() {
 
   // Notes: 2 praise + 1 homework per student (spread across weeks)
   const praises = [
-    { category: 'Adab',   content: 'Sat quietly and helped a younger student settle in. MashaAllah.' },
-    { category: 'Effort', content: 'Memorized the assigned portion perfectly this week. Excellent focus.' },
+    {
+      category: 'Adab',
+      content: 'Sat quietly and helped a younger student settle in. MashaAllah.',
+    },
+    {
+      category: 'Effort',
+      content: 'Memorized the assigned portion perfectly this week. Excellent focus.',
+    },
   ];
   const homework = { content: 'Review Al-Baqarah 1–10 at home before next Sunday.' };
 
@@ -372,7 +412,8 @@ async function seedHomework() {
       organizationId: ORG_ID,
       classId: CLASS_IDS.beginners,
       title: 'Review Al-Baqarah 1–10',
-      description: 'Practice the ayahs recited in class this week with a parent before next Sunday.',
+      description:
+        'Practice the ayahs recited in class this week with a parent before next Sunday.',
       dueDate,
       createdBy: USER_IDS.amina,
     },
@@ -381,7 +422,8 @@ async function seedHomework() {
       organizationId: ORG_ID,
       classId: CLASS_IDS.advanced,
       title: 'Revise Al-Baqarah 11–30',
-      description: 'Revision (sabqi) portion for the advanced circle — be ready to recite from memory.',
+      description:
+        'Revision (sabqi) portion for the advanced circle — be ready to recite from memory.',
       dueDate,
       createdBy: USER_IDS.idris,
     },
@@ -438,41 +480,50 @@ async function seedTonightPractice() {
   console.log("→ Seeding tonight's practice demo data...");
   const today = new Date().toISOString().slice(0, 10);
 
-  await db.insert(schema.attendanceRecords).values({
-    organizationId: ORG_ID,
-    classId: CLASS_IDS.beginners,
-    studentId: STUDENT_IDS.yusuf,
-    sessionDate: today,
-    status: 'present',
-    arrivalTime: new Date(`${today}T09:05:00-05:00`),
-    recordedBy: USER_IDS.amina,
-  }).onConflictDoNothing();
+  await db
+    .insert(schema.attendanceRecords)
+    .values({
+      organizationId: ORG_ID,
+      classId: CLASS_IDS.beginners,
+      studentId: STUDENT_IDS.yusuf,
+      sessionDate: today,
+      status: 'present',
+      arrivalTime: new Date(`${today}T09:05:00-05:00`),
+      recordedBy: USER_IDS.amina,
+    })
+    .onConflictDoNothing();
 
-  await db.insert(schema.hifzRecords).values({
-    id: 'a1b2c3d4-0007-0000-0000-000000000001',
-    organizationId: ORG_ID,
-    studentId: STUDENT_IDS.yusuf,
-    classId: CLASS_IDS.beginners,
-    stream: 'sabak',
-    surahNumber: 67,
-    ayahStart: 1,
-    ayahEnd: 5,
-    sessionDate: today,
-    audioUrl: null,
-    recordedBy: USER_IDS.amina,
-  }).onConflictDoNothing();
+  await db
+    .insert(schema.hifzRecords)
+    .values({
+      id: 'a1b2c3d4-0007-0000-0000-000000000001',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.yusuf,
+      classId: CLASS_IDS.beginners,
+      stream: 'sabak',
+      surahNumber: 67,
+      ayahStart: 1,
+      ayahEnd: 5,
+      sessionDate: today,
+      audioUrl: null,
+      recordedBy: USER_IDS.amina,
+    })
+    .onConflictDoNothing();
 
-  await db.insert(schema.studentNotes).values({
-    id: 'a1b2c3d4-0008-0000-0000-000000000001',
-    organizationId: ORG_ID,
-    studentId: STUDENT_IDS.yusuf,
-    classId: CLASS_IDS.beginners,
-    noteType: 'praise',
-    category: 'Effort',
-    content: 'He improved his confidence today.',
-    visibleToParent: true,
-    createdBy: USER_IDS.amina,
-  }).onConflictDoNothing();
+  await db
+    .insert(schema.studentNotes)
+    .values({
+      id: 'a1b2c3d4-0008-0000-0000-000000000001',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.yusuf,
+      classId: CLASS_IDS.beginners,
+      noteType: 'praise',
+      category: 'Effort',
+      content: 'He improved his confidence today.',
+      visibleToParent: true,
+      createdBy: USER_IDS.amina,
+    })
+    .onConflictDoNothing();
 
   console.log("  ✓ tonight's practice demo (Yusuf)");
 }
@@ -671,7 +722,11 @@ async function seedTrialPlacements() {
       guardianName: 'Layla Karim',
       guardianEmail: 'layla.karim.demo@example.com',
       guardianPhone: '555-0142',
-      scheduledDate: (() => { const d = new Date(); d.setDate(d.getDate() + 5); return d.toISOString().slice(0, 10); })(),
+      scheduledDate: (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 5);
+        return d.toISOString().slice(0, 10);
+      })(),
       assignedTeacherId: USER_IDS.amina,
       status: 'scheduled' as const,
       createdBy: USER_IDS.khalid,
@@ -684,7 +739,11 @@ async function seedTrialPlacements() {
       guardianName: 'Yusuf Rahman',
       guardianEmail: 'yusuf.rahman.demo@example.com',
       guardianPhone: null,
-      scheduledDate: (() => { const d = new Date(); d.setDate(d.getDate() - 3); return d.toISOString().slice(0, 10); })(),
+      scheduledDate: (() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 3);
+        return d.toISOString().slice(0, 10);
+      })(),
       assignedTeacherId: USER_IDS.idris,
       status: 'assessed' as const,
       quranReadingLevel: 'Reads with occasional support, working on tajweed rules',
@@ -692,7 +751,8 @@ async function seedTrialPlacements() {
       arabicLevel: 'Conversational, good vocabulary for his age',
       behaviorReadiness: 'Attentive and eager — ready for a group class',
       recommendedClassId: CLASS_IDS.advanced,
-      assessmentNotes: 'Strong candidate for the advanced circle. Recommend starting sabaq at Al-Baqarah.',
+      assessmentNotes:
+        'Strong candidate for the advanced circle. Recommend starting sabaq at Al-Baqarah.',
       assessedAt: new Date(),
       createdBy: USER_IDS.khalid,
     },
@@ -708,10 +768,50 @@ async function seedTuition() {
   console.log('→ Seeding tuition plans + payments...');
 
   const planRows = [
-    { id: 'a1b2c3d4-0004-0000-0000-000000000001', organizationId: ORG_ID, studentId: STUDENT_IDS.aisha,    guardianUserId: USER_IDS.sarah, amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
-    { id: 'a1b2c3d4-0004-0000-0000-000000000002', organizationId: ORG_ID, studentId: STUDENT_IDS.yusuf,    guardianUserId: USER_IDS.sarah, amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
-    { id: 'a1b2c3d4-0004-0000-0000-000000000003', organizationId: ORG_ID, studentId: STUDENT_IDS.bilal,    guardianUserId: USER_IDS.omar,  amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
-    { id: 'a1b2c3d4-0004-0000-0000-000000000004', organizationId: ORG_ID, studentId: STUDENT_IDS.khadijah, guardianUserId: USER_IDS.omar,  amountCents: 5000, currency: 'usd', frequency: 'monthly' as const, startDate: '2024-09-01', status: 'active' },
+    {
+      id: 'a1b2c3d4-0004-0000-0000-000000000001',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.aisha,
+      guardianUserId: USER_IDS.sarah,
+      amountCents: 5000,
+      currency: 'usd',
+      frequency: 'monthly' as const,
+      startDate: '2024-09-01',
+      status: 'active',
+    },
+    {
+      id: 'a1b2c3d4-0004-0000-0000-000000000002',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.yusuf,
+      guardianUserId: USER_IDS.sarah,
+      amountCents: 5000,
+      currency: 'usd',
+      frequency: 'monthly' as const,
+      startDate: '2024-09-01',
+      status: 'active',
+    },
+    {
+      id: 'a1b2c3d4-0004-0000-0000-000000000003',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.bilal,
+      guardianUserId: USER_IDS.omar,
+      amountCents: 5000,
+      currency: 'usd',
+      frequency: 'monthly' as const,
+      startDate: '2024-09-01',
+      status: 'active',
+    },
+    {
+      id: 'a1b2c3d4-0004-0000-0000-000000000004',
+      organizationId: ORG_ID,
+      studentId: STUDENT_IDS.khadijah,
+      guardianUserId: USER_IDS.omar,
+      amountCents: 5000,
+      currency: 'usd',
+      frequency: 'monthly' as const,
+      startDate: '2024-09-01',
+      status: 'active',
+    },
   ];
   await db
     .insert(schema.tuitionPlans)
@@ -750,24 +850,204 @@ async function seedActivityLog() {
   const idFor = (n: number) => `a1b2c3d4-0009-0000-0000-${String(n).padStart(12, '0')}`;
 
   const rows = [
-    { id: idFor(1), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'student.created', targetType: 'student', targetId: STUDENT_IDS.aisha, metadata: { targetLabel: 'Aisha Hassan' }, createdAt: daysAgo(30) },
-    { id: idFor(2), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'class.created', targetType: 'class', targetId: CLASS_IDS.beginners, metadata: { targetLabel: 'Hifz Circle — Beginners' }, createdAt: daysAgo(29) },
-    { id: idFor(3), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'teacher.invited', targetType: 'teacher', targetId: USER_IDS.amina, metadata: { targetLabel: 'Sister Amina' }, createdAt: daysAgo(28) },
-    { id: idFor(4), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'guardian.linked', targetType: 'guardian', targetId: USER_IDS.sarah, metadata: { targetLabel: 'sarah@talibly.dev → Aisha Hassan' }, createdAt: daysAgo(27) },
-    { id: idFor(5), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'tuition_plan.created', targetType: 'tuition_plan', targetId: null, metadata: { targetLabel: 'Aisha Hassan' }, createdAt: daysAgo(26) },
-    { id: idFor(6), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'sibling_discount.applied', targetType: 'tuition_plan', targetId: null, metadata: { targetLabel: 'Yusuf Hassan' }, createdAt: daysAgo(26) },
-    { id: idFor(7), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'roster_import.completed', targetType: 'roster_import', targetId: null, metadata: { targetLabel: '4 students' }, createdAt: daysAgo(25) },
-    { id: idFor(8), organizationId: ORG_ID, actorUserId: USER_IDS.amina, actorName: 'Sister Amina', action: 'attendance.submitted', targetType: 'class', targetId: CLASS_IDS.beginners, metadata: { targetLabel: 'Hifz Circle — Beginners' }, createdAt: daysAgo(7) },
-    { id: idFor(9), organizationId: ORG_ID, actorUserId: USER_IDS.amina, actorName: 'Sister Amina', action: 'hifz_record.created', targetType: 'class', targetId: CLASS_IDS.beginners, metadata: { targetLabel: '2 records — Hifz Circle — Beginners' }, createdAt: daysAgo(7) },
-    { id: idFor(10), organizationId: ORG_ID, actorUserId: USER_IDS.amina, actorName: 'Sister Amina', action: 'adab_note.added', targetType: 'student', targetId: STUDENT_IDS.aisha, metadata: { targetLabel: 'Aisha Hassan' }, createdAt: daysAgo(6) },
-    { id: idFor(11), organizationId: ORG_ID, actorUserId: USER_IDS.amina, actorName: 'Sister Amina', action: 'homework.assigned', targetType: 'class', targetId: CLASS_IDS.beginners, metadata: { targetLabel: 'Memorize Surah Al-Fatihah — Hifz Circle — Beginners' }, createdAt: daysAgo(5) },
-    { id: idFor(12), organizationId: ORG_ID, actorUserId: USER_IDS.amina, actorName: 'Sister Amina', action: 'hifz_milestone.created', targetType: 'student', targetId: STUDENT_IDS.yusuf, metadata: { targetLabel: 'Juz 30 completed — Yusuf Hassan' }, createdAt: daysAgo(4) },
-    { id: idFor(13), organizationId: ORG_ID, actorUserId: USER_IDS.idris, actorName: 'Brother Idris', action: 'attendance.submitted', targetType: 'class', targetId: CLASS_IDS.advanced, metadata: { targetLabel: 'Hifz Circle — Advanced' }, createdAt: daysAgo(3) },
-    { id: idFor(14), organizationId: ORG_ID, actorUserId: USER_IDS.idris, actorName: 'Brother Idris', action: 'trial_assessment.completed', targetType: 'trial_placement', targetId: null, metadata: { targetLabel: 'a prospective student' }, createdAt: daysAgo(3) },
-    { id: idFor(15), organizationId: ORG_ID, actorUserId: USER_IDS.sarah, actorName: 'Sarah Hassan', action: 'absence_reason.submitted', targetType: 'student', targetId: STUDENT_IDS.yusuf, metadata: { targetLabel: 'Yusuf Hassan' }, createdAt: daysAgo(2) },
-    { id: idFor(16), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'announcement.posted', targetType: 'announcement', targetId: null, metadata: { targetLabel: 'Jummah reminder' }, createdAt: daysAgo(1) },
-    { id: idFor(17), organizationId: ORG_ID, actorUserId: null, actorName: 'Stripe', action: 'payment.succeeded', targetType: 'tuition_plan', targetId: null, metadata: { targetLabel: 'Bilal Yusuf' }, createdAt: daysAgo(1) },
-    { id: idFor(18), organizationId: ORG_ID, actorUserId: USER_IDS.khalid, actorName: 'Imam Khalid', action: 'csv_export.downloaded', targetType: 'roster_export', targetId: null, metadata: { targetLabel: 'roster' }, createdAt: daysAgo(0) },
+    {
+      id: idFor(1),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.khalid,
+      actorName: 'Imam Khalid',
+      action: 'student.created',
+      targetType: 'student',
+      targetId: STUDENT_IDS.aisha,
+      metadata: { targetLabel: 'Aisha Hassan' },
+      createdAt: daysAgo(30),
+    },
+    {
+      id: idFor(2),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.khalid,
+      actorName: 'Imam Khalid',
+      action: 'class.created',
+      targetType: 'class',
+      targetId: CLASS_IDS.beginners,
+      metadata: { targetLabel: 'Hifz Circle — Beginners' },
+      createdAt: daysAgo(29),
+    },
+    {
+      id: idFor(3),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.khalid,
+      actorName: 'Imam Khalid',
+      action: 'teacher.invited',
+      targetType: 'teacher',
+      targetId: USER_IDS.amina,
+      metadata: { targetLabel: 'Sister Amina' },
+      createdAt: daysAgo(28),
+    },
+    {
+      id: idFor(4),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.khalid,
+      actorName: 'Imam Khalid',
+      action: 'guardian.linked',
+      targetType: 'guardian',
+      targetId: USER_IDS.sarah,
+      metadata: { targetLabel: 'Fictional guardian → Aisha Hassan' },
+      createdAt: daysAgo(27),
+    },
+    {
+      id: idFor(5),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.khalid,
+      actorName: 'Imam Khalid',
+      action: 'tuition_plan.created',
+      targetType: 'tuition_plan',
+      targetId: null,
+      metadata: { targetLabel: 'Aisha Hassan' },
+      createdAt: daysAgo(26),
+    },
+    {
+      id: idFor(6),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.khalid,
+      actorName: 'Imam Khalid',
+      action: 'sibling_discount.applied',
+      targetType: 'tuition_plan',
+      targetId: null,
+      metadata: { targetLabel: 'Yusuf Hassan' },
+      createdAt: daysAgo(26),
+    },
+    {
+      id: idFor(7),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.khalid,
+      actorName: 'Imam Khalid',
+      action: 'roster_import.completed',
+      targetType: 'roster_import',
+      targetId: null,
+      metadata: { targetLabel: '4 students' },
+      createdAt: daysAgo(25),
+    },
+    {
+      id: idFor(8),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.amina,
+      actorName: 'Sister Amina',
+      action: 'attendance.submitted',
+      targetType: 'class',
+      targetId: CLASS_IDS.beginners,
+      metadata: { targetLabel: 'Hifz Circle — Beginners' },
+      createdAt: daysAgo(7),
+    },
+    {
+      id: idFor(9),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.amina,
+      actorName: 'Sister Amina',
+      action: 'hifz_record.created',
+      targetType: 'class',
+      targetId: CLASS_IDS.beginners,
+      metadata: { targetLabel: '2 records — Hifz Circle — Beginners' },
+      createdAt: daysAgo(7),
+    },
+    {
+      id: idFor(10),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.amina,
+      actorName: 'Sister Amina',
+      action: 'adab_note.added',
+      targetType: 'student',
+      targetId: STUDENT_IDS.aisha,
+      metadata: { targetLabel: 'Aisha Hassan' },
+      createdAt: daysAgo(6),
+    },
+    {
+      id: idFor(11),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.amina,
+      actorName: 'Sister Amina',
+      action: 'homework.assigned',
+      targetType: 'class',
+      targetId: CLASS_IDS.beginners,
+      metadata: { targetLabel: 'Memorize Surah Al-Fatihah — Hifz Circle — Beginners' },
+      createdAt: daysAgo(5),
+    },
+    {
+      id: idFor(12),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.amina,
+      actorName: 'Sister Amina',
+      action: 'hifz_milestone.created',
+      targetType: 'student',
+      targetId: STUDENT_IDS.yusuf,
+      metadata: { targetLabel: 'Juz 30 completed — Yusuf Hassan' },
+      createdAt: daysAgo(4),
+    },
+    {
+      id: idFor(13),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.idris,
+      actorName: 'Brother Idris',
+      action: 'attendance.submitted',
+      targetType: 'class',
+      targetId: CLASS_IDS.advanced,
+      metadata: { targetLabel: 'Hifz Circle — Advanced' },
+      createdAt: daysAgo(3),
+    },
+    {
+      id: idFor(14),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.idris,
+      actorName: 'Brother Idris',
+      action: 'trial_assessment.completed',
+      targetType: 'trial_placement',
+      targetId: null,
+      metadata: { targetLabel: 'a prospective student' },
+      createdAt: daysAgo(3),
+    },
+    {
+      id: idFor(15),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.sarah,
+      actorName: 'Sarah Hassan',
+      action: 'absence_reason.submitted',
+      targetType: 'student',
+      targetId: STUDENT_IDS.yusuf,
+      metadata: { targetLabel: 'Yusuf Hassan' },
+      createdAt: daysAgo(2),
+    },
+    {
+      id: idFor(16),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.khalid,
+      actorName: 'Imam Khalid',
+      action: 'announcement.posted',
+      targetType: 'announcement',
+      targetId: null,
+      metadata: { targetLabel: 'Jummah reminder' },
+      createdAt: daysAgo(1),
+    },
+    {
+      id: idFor(17),
+      organizationId: ORG_ID,
+      actorUserId: null,
+      actorName: 'Stripe',
+      action: 'payment.succeeded',
+      targetType: 'tuition_plan',
+      targetId: null,
+      metadata: { targetLabel: 'Bilal Yusuf' },
+      createdAt: daysAgo(1),
+    },
+    {
+      id: idFor(18),
+      organizationId: ORG_ID,
+      actorUserId: USER_IDS.khalid,
+      actorName: 'Imam Khalid',
+      action: 'csv_export.downloaded',
+      targetType: 'roster_export',
+      targetId: null,
+      metadata: { targetLabel: 'roster' },
+      createdAt: daysAgo(0),
+    },
   ];
 
   await db.insert(schema.activityLog).values(rows).onConflictDoNothing();
@@ -780,7 +1060,6 @@ async function seedActivityLog() {
 async function main() {
   console.log('\n🌱 Seeding Talibly database...\n');
   try {
-    await seedAuthUsers();
     await seedOrg();
     await seedUsers();
     await seedMemberships();

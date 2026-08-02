@@ -189,16 +189,9 @@ Your middleware must decide which role takes precedence for routing.
 
 ### Row-level security (RLS)
 
-Supabase enforces RLS at the Postgres level. For v1, the simplest safe approach is:
+Supabase RLS is enabled on every Talibly table in the public schema. Policies use `auth.uid()` plus active organization membership, assigned-teacher relationships, and linked-guardian relationships. The anonymous role has no table grants, and server-only tables such as contact submissions and the Stripe event ledger have no authenticated-client policies.
 
-1. **Disable RLS on all tables** and use the `SUPABASE_SERVICE_ROLE_KEY` only in server
-   actions (never in the browser). This means Supabase Auth JWTs are validated in
-   middleware, and your server-side code is the only thing touching the DB.
-
-2. Do **not** use the anon key for database queries — only for `supabase.auth` calls.
-
-> When you have more time: add proper RLS policies with `auth.uid()` checks. This is the
-> right long-term approach but adds meaningful setup complexity for a first deploy.
+The application server still uses a privileged Postgres/service connection that bypasses RLS. Every server action and route handler must therefore continue to authenticate the caller and include organization ownership in sensitive queries. RLS is defense in depth; it does not replace server-side authorization.
 
 ---
 
@@ -216,12 +209,12 @@ Organization
   type: "weekend_school"
   timezone: "America/New_York"
 
-Users (also create matching Supabase Auth users via dashboard or admin API)
-  Teacher:   Sister Amina   | amina@talibly.dev   | role: teacher
-  Teacher:   Brother Idris  | idris@talibly.dev   | role: teacher
-  Parent:    Sarah Hassan   | sarah@talibly.dev   | role: parent
-  Parent:    Omar Yusuf     | omar@talibly.dev    | role: parent
-  Principal: Imam Khalid    | khalid@talibly.dev  | role: principal
+Fictional application profiles (no Auth login is created by seed.ts)
+  Teacher:   Sister Amina   | role: teacher
+  Teacher:   Brother Idris  | role: teacher
+  Parent:    Sarah Hassan   | role: parent
+  Parent:    Omar Yusuf     | role: parent
+  Principal: Imam Khalid    | role: principal
 
 Students
   Aisha Hassan   | dob: 2016-04-12 | guardian: Sarah Hassan (isPrimary: true)
@@ -240,11 +233,10 @@ Seed records (so the parent feed isn't empty on first load)
 
 ### How to seed
 
-There is no seed script yet. For the first iteration, insert via Drizzle Studio
-(`db:studio`) or write a `packages/db/src/seed.ts` script:
+The seed script is at `packages/db/src/seed.ts` and creates fictional application data only:
 
 ```bash
-DATABASE_URL="postgresql://..." npx tsx packages/db/src/seed.ts
+pnpm --filter @skooly/db db:seed
 ```
 
 ---

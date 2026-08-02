@@ -25,22 +25,11 @@ Set `NEXT_PUBLIC_ORG_ID=org-al-noor` in `.env.local`.
 
 ---
 
-### Auth users (create in Supabase Auth + matching `public.users` rows)
+### Fictional application profiles
 
-Create these in the Supabase dashboard under **Authentication → Users → Add user**,
-or via the admin API in the seed script using `supabase.auth.admin.createUser`.
-Use the same UUID for both `auth.users.id` and `public.users.id`.
+The seed creates five fictional `public.users` profiles and role memberships so relational sample data remains useful. It deliberately does **not** create Supabase Auth accounts, set passwords, or store reusable login emails.
 
-| Email | Full name | Role | Password (dev only) |
-|---|---|---|---|
-| `amina@talibly.dev` | Sister Amina | teacher | `demo1234` |
-| `idris@talibly.dev` | Brother Idris | teacher | `demo1234` |
-| `sarah@talibly.dev` | Sarah Hassan | parent | `demo1234` |
-| `omar@talibly.dev` | Omar Yusuf | parent | `demo1234` |
-| `khalid@talibly.dev` | Imam Khalid | principal | `demo1234` |
-
-> For development, enable "Email confirmations" OFF in Supabase Auth settings so you can
-> log in without checking email. Re-enable for any public-facing deployment.
+If an authenticated guided review is approved, create separate short-lived Auth accounts outside the seed, communicate access privately, and use matching `public.users.id` values. Disable the accounts and revoke sessions after the review.
 
 ---
 
@@ -48,10 +37,10 @@ Use the same UUID for both `auth.users.id` and `public.users.id`.
 
 | Full name | Date of birth | Guardian | Class |
 |---|---|---|---|
-| Aisha Hassan | 2016-04-12 | sarah@talibly.dev (primary) | Hifz Circle — Beginners |
-| Yusuf Hassan | 2018-09-03 | sarah@talibly.dev (primary) | Hifz Circle — Beginners |
-| Bilal Yusuf | 2015-11-22 | omar@talibly.dev (primary) | Hifz Circle — Advanced |
-| Khadijah Nasir | 2017-03-08 | omar@talibly.dev (primary) | Hifz Circle — Advanced |
+| Aisha Hassan | 2016-04-12 | Sarah Hassan (primary) | Hifz Circle — Beginners |
+| Yusuf Hassan | 2018-09-03 | Sarah Hassan (primary) | Hifz Circle — Beginners |
+| Bilal Yusuf | 2015-11-22 | Omar Yusuf (primary) | Hifz Circle — Advanced |
+| Khadijah Nasir | 2017-03-08 | Omar Yusuf (primary) | Hifz Circle — Advanced |
 
 All students: `status: 'active'`, `enrolledAt: '2024-09-01'`.
 

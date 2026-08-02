@@ -1,27 +1,21 @@
-import { SiteNav } from '@/components/marketing/site-nav';
 import { SiteFooter } from '@/components/marketing/site-footer';
+import { SiteNav } from '@/components/marketing/site-nav';
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: 'Security — Talibly',
-  description: 'How Talibly protects school and student data.',
+  description: 'The security controls currently implemented in Talibly and the remaining gaps.',
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section style={{ marginBottom: 40 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--fg)', marginBottom: 12 }}>{title}</h2>
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--fg)', marginBottom: 12 }}>
+        {title}
+      </h2>
       <div style={{ fontSize: 15, color: 'var(--fg-2)', lineHeight: 1.75 }}>{children}</div>
     </section>
-  );
-}
-
-function Provider({ name, desc }: { name: string; desc: string }) {
-  return (
-    <div style={{ padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ fontWeight: 600, color: 'var(--fg)', marginBottom: 4 }}>{name}</div>
-      <div style={{ fontSize: 14, color: 'var(--fg-2)' }}>{desc}</div>
-    </div>
   );
 }
 
@@ -32,83 +26,131 @@ export default function SecurityPage() {
       <main style={{ padding: '80px 0 120px' }}>
         <div className="container" style={{ maxWidth: 720 }}>
           <span className="eyebrow" style={{ marginBottom: 12, display: 'inline-flex' }}>
-            <span className="dot" />Security
+            <span className="dot" aria-hidden="true" />
+            Security
           </span>
           <h1 style={{ fontSize: 38, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
-            How we protect your school's data.
+            Talibly’s current security posture.
           </h1>
-          <p style={{ fontSize: 16, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 48 }}>
-            Talibly handles attendance records, hifz progress, and tuition data for Islamic schools and families. We take that responsibility seriously.
+          <p style={{ fontSize: 16, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 16 }}>
+            This page describes controls that are implemented now, along with important limits. It
+            is not a certification or a promise about unfinished work.
+          </p>
+          <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 48 }}>
+            Implementation snapshot: August 2, 2026
           </p>
 
-          <Section title="Encryption">
-            <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <li><strong>In transit:</strong> All traffic between your browser and Talibly uses TLS 1.2 or higher. Connections that do not meet this standard are rejected.</li>
-              <li><strong>At rest:</strong> Database storage is encrypted by Supabase at the infrastructure level using AES-256.</li>
-              <li><strong>Passwords:</strong> User passwords are hashed by Supabase Auth using bcrypt. Talibly never sees or stores plaintext passwords.</li>
-              <li><strong>Payment data:</strong> Card numbers are never stored in Talibly's database. All payment data is tokenized and stored by Stripe (PCI DSS Level 1).</li>
+          <Section title="Controls in place">
+            <ul style={{ paddingLeft: 20, display: 'grid', gap: 8 }}>
+              <li>
+                <strong>Encrypted transport:</strong> the production application is delivered over
+                HTTPS by Vercel, and connections to Supabase and Stripe use encrypted transport.
+              </li>
+              <li>
+                <strong>Authentication:</strong> Supabase Auth manages account credentials and
+                sessions. Talibly’s application database and repository do not store plaintext user
+                passwords.
+              </li>
+              <li>
+                <strong>Database RLS:</strong> Row Level Security is enabled on every Talibly table
+                in the Supabase public schema. Anonymous table grants are revoked. Authenticated
+                policies use active organization membership, assigned-teacher relationships, and
+                linked-guardian relationships.
+              </li>
+              <li>
+                <strong>Server authorization:</strong> protected routes validate the Supabase
+                session and organization membership. Sensitive server actions also check the
+                caller’s role and scope records to the configured organization.
+              </li>
+              <li>
+                <strong>Webhook integrity:</strong> Stripe webhook signatures are verified. A
+                durable event ledger and unique payment-intent index prevent the same successful
+                payment event from being applied twice.
+              </li>
+              <li>
+                <strong>Payment cards:</strong> raw card details are entered on Stripe-hosted pages
+                and are not stored in Talibly’s database.
+              </li>
             </ul>
           </Section>
 
-          <Section title="Access controls">
-            <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <li><strong>Row Level Security (RLS):</strong> Supabase RLS policies enforce that each user can only read and write data belonging to their organization. These controls are applied at the database layer, not just the application layer.</li>
-              <li><strong>Role-based access:</strong> Teachers, parents, and principals each have separate roles with separate permissions. A teacher cannot access another school's data. A parent can only view their own children's records.</li>
-              <li><strong>Service role key:</strong> The Supabase service role key (used for admin operations) is never exposed to the browser. It is used server-side only, in server actions and route handlers.</li>
-              <li><strong>Session expiry:</strong> Authentication tokens expire and are refreshed automatically. Idle sessions expire after the Supabase default period.</li>
-            </ul>
-          </Section>
-
-          <Section title="Infrastructure">
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <Provider
-                name="Supabase"
-                desc="Database (PostgreSQL), authentication, and file storage. Hosted on AWS infrastructure in the United States. Supabase is SOC 2 Type II certified."
-              />
-              <Provider
-                name="Vercel"
-                desc="Web hosting and edge delivery. All application code runs on Vercel's infrastructure. Vercel is SOC 2 Type II certified."
-              />
-              <Provider
-                name="Stripe"
-                desc="Payment processing. PCI DSS Level 1 Service Provider — the highest level of PCI compliance. Talibly never handles raw card data."
-              />
-              <Provider
-                name="Resend"
-                desc="Transactional email (class summaries, password resets, billing notifications). Email content does not include sensitive financial data."
-              />
-            </div>
-          </Section>
-
-          <Section title="Data isolation">
+          <Section title="How organization access works today">
             <p>
-              Each school organization is a separate tenant. Data is separated at the application and database levels — a user authenticated to one school cannot read, write, or enumerate data belonging to another school. This is enforced by Supabase RLS policies on every table that contains school data.
+              The current deployment is configured for one school organization through an
+              environment setting; school switching is not implemented. Within that organization,
+              principals and admins manage school records, teachers are scoped to assigned classes,
+              and parents are scoped to linked students.
             </p>
-          </Section>
-
-          <Section title="Student data">
-            <p>
-              Student records — names, attendance, hifz progress, and notes — are accessible only to:
-            </p>
-            <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
-              <li>The school's administrators and teachers (within that school's tenant).</li>
-              <li>The student's linked guardians (read-only, scoped to their child).</li>
-            </ul>
             <p style={{ marginTop: 12 }}>
-              Hifz audio recordings are stored in Supabase Storage with access controlled by signed URLs. Only authenticated guardians of the specific student can generate a signed URL for that student's audio.
+              Talibly’s server uses a privileged database connection for server actions and route
+              handlers. That connection bypasses RLS by design, so application-level authentication
+              and organization filters remain essential. RLS is an additional boundary, not a
+              substitute for those checks.
             </p>
           </Section>
 
-          <Section title="Reporting a vulnerability">
+          <Section title="Files and audio">
             <p>
-              If you discover a security issue, please email <a href="mailto:info@talibly.com" style={{ color: 'var(--accent)' }}>info@talibly.com</a>. We will acknowledge your report within 2 business days and work to resolve confirmed issues promptly. We ask that you do not publicly disclose vulnerabilities until we have had a reasonable opportunity to address them.
+              The Hifz audio bucket is private and playback uses short-lived signed URLs. The full
+              guardian consent and revocation workflow is not finished. Real student audio should
+              not be uploaded in the current preview or pilot configuration until that workflow and
+              the school’s consent process have been reviewed.
+            </p>
+          </Section>
+
+          <Section title="Infrastructure providers">
+            <ul style={{ paddingLeft: 20, display: 'grid', gap: 8 }}>
+              <li>
+                <strong>Supabase:</strong> PostgreSQL, authentication, and file storage.
+              </li>
+              <li>
+                <strong>Vercel:</strong> web hosting, server execution, and delivery logs.
+              </li>
+              <li>
+                <strong>Stripe:</strong> the test/pre-launch school-tuition workflow. Talibly SaaS
+                subscriptions are not currently sold through Stripe.
+              </li>
+              <li>
+                <strong>Resend:</strong> transactional email when valid email configuration is
+                present. In-app notifications do not prove that an email was delivered.
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="Known security and compliance limits">
+            <ul style={{ paddingLeft: 20, display: 'grid', gap: 8 }}>
+              <li>Talibly has not completed an independent penetration test or SOC 2 audit.</li>
+              <li>
+                Formal school data-processing agreements and a complete FERPA/COPPA compliance
+                program are not yet implemented.
+              </li>
+              <li>Automated retention, deletion, and legal-hold workflows are not implemented.</li>
+              <li>
+                Multi-organization switching and production-grade Stripe Connect payouts are not
+                implemented.
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="Report a security issue">
+            <p>
+              Send security reports to{' '}
+              <a href="mailto:info@talibly.com" style={{ color: 'var(--accent)' }}>
+                info@talibly.com
+              </a>
+              . Please avoid including real student information in the initial message. Talibly will
+              review the report and respond as capacity allows; no fixed response-time SLA is
+              currently offered.
             </p>
           </Section>
 
           <Section title="Questions">
             <p>
-              Security questions: <a href="mailto:info@talibly.com" style={{ color: 'var(--accent)' }}>info@talibly.com</a><br />
-              General inquiries: <a href="/contact" style={{ color: 'var(--accent)' }}>Contact form</a>
+              For school security questions, use the{' '}
+              <a href="/contact" style={{ color: 'var(--accent)' }}>
+                contact form
+              </a>
+              .
             </p>
           </Section>
         </div>
